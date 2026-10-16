@@ -42,7 +42,15 @@ function ContactosPage() {
     setFormOpen(true);
   }
 
-  function openEdit(row: typeof EMPTY_FORM & { id: string }) {
+  function openEdit(row: {
+    id: string;
+    name: string;
+    contact_name: string | null;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+    notes: string | null;
+  }) {
     setEditingId(row.id);
     setForm({
       name: row.name,
