@@ -115,6 +115,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           customer_id: string | null
+          folio: number | null
           id: string
           notes: string | null
           product_id: string
@@ -122,11 +123,13 @@ export type Database = {
           reference: string | null
           supplier_id: string | null
           type: Database["public"]["Enums"]["movement_type"]
+          unit_type: string | null
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
+          folio?: number | null
           id?: string
           notes?: string | null
           product_id: string
@@ -134,11 +137,13 @@ export type Database = {
           reference?: string | null
           supplier_id?: string | null
           type: Database["public"]["Enums"]["movement_type"]
+          unit_type?: string | null
         }
         Update: {
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
+          folio?: number | null
           id?: string
           notes?: string | null
           product_id?: string
@@ -146,6 +151,7 @@ export type Database = {
           reference?: string | null
           supplier_id?: string | null
           type?: Database["public"]["Enums"]["movement_type"]
+          unit_type?: string | null
         }
         Relationships: [
           {

@@ -8,6 +8,13 @@
       "when": 1792111452332,
       "tag": "0000_warehouse_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792114932164,
+      "tag": "0001_movements_folio_unit_type_update",
+      "breakpoints": true
     }
   ]
 }
