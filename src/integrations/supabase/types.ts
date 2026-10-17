@@ -256,7 +256,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      save_movement_batch: {
+        Args: { edit_batch?: string; edit_id?: string; payload: Json }
+        Returns: {
+          batch_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          document_number: string | null
+          document_type: string | null
+          folio: number | null
+          id: string
+          measure_unit: string | null
+          notes: string | null
+          product_id: string
+          purchase_order: string | null
+          quantity: number
+          quantity_value: number
+          reference: string | null
+          supplier_id: string | null
+          type: Database["public"]["Enums"]["movement_type"]
+          unit_cost: number | null
+          unit_type: string | null
+          unit_type_value: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "stock_movements"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
       movement_type: "entrada" | "salida"
