@@ -51,6 +51,17 @@ type PriceRecord = {
   created_at: string;
 };
 
+type PurchaseEntry = {
+  id: string;
+  created_at: string;
+  supplier_id: string | null;
+  document_type: "factura" | "guia_despacho";
+  document_number: string;
+  purchase_order: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+};
+
 const emptyForm: FormState = {
   product_id: "",
   type: "entrada",
