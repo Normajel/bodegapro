@@ -75,18 +75,39 @@ function ContactosPage() {
         address: form.address || null,
         notes: form.notes || null,
       };
+
       if (editingId) {
-        const { error } = await supabase.from(tab).update(payload).eq("id", editingId);
-        if (error) throw error;
+        const { error } = await supabase
+          .from(tab)
+          .update(payload)
+          .eq("id", editingId);
+
+        if (error) {
+          console.error("Error al actualizar contacto:", error);
+          throw error;
+        }
       } else {
-        const { error } = await supabase.from(tab).insert(payload);
-        if (error) throw error;
+        const { error } = await supabase
+          .from(tab)
+          .insert(payload);
+
+        if (error) {
+          console.error("Error al insertar contacto:", error);
+          throw error;
+        }
       }
+
       toast.success("Guardado correctamente");
       setFormOpen(false);
       queryClient.invalidateQueries({ queryKey: [tab] });
+
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al guardar");
+      console.error("Error completo al guardar:", err);
+
+      const mensaje =
+        err instanceof Error ? err.message : JSON.stringify(err);
+
+      toast.error(mensaje || "Error al guardar");
     } finally {
       setSaving(false);
     }

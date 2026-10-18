@@ -10,7 +10,10 @@ export const Route = createFileRoute("/_authenticated/productos")({
   head: () => ({
     meta: [
       { title: "Productos — BodegaPro" },
-      { name: "description", content: "Inventario de productos de la bodega con stock en tiempo real." },
+      {
+        name: "description",
+        content: "Inventario de productos de la bodega con stock en tiempo real.",
+      },
     ],
   }),
   component: ProductosPage,
@@ -18,13 +21,37 @@ export const Route = createFileRoute("/_authenticated/productos")({
 
 type Product = Tables<"products">;
 
+const DEFAULT_CATEGORY = "Estructura pintura";
+
+const CATEGORIES = [
+  DEFAULT_CATEGORY,
+  "Carpintería",
+  "Gasfitería",
+  "Detalle",
+  "Artículos eléctricos",
+];
+
+const DEFAULT_UNITS = [
+  "unidad",
+  "kg",
+  "rollo",
+  "lata",
+  "tambor",
+  "mt",
+  "lts",
+  "m²",
+  "m³",
+  "caja",
+  "par",
+];
+
 const EMPTY_FORM = {
   sku: "",
   name: "",
-  category: "General",
+  category: CATEGORIES[0] ?? DEFAULT_CATEGORY,
   unit: "unidad",
+  supplier_id: "",
   min_stock: 0,
-  unit_cost: 0,
   location: "",
 };
 
@@ -34,95 +61,194 @@ function ProductosPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [unitOptions, setUnitOptions] = useState<string[]>(DEFAULT_UNITS);
+  const [customUnit, setCustomUnit] = useState("");
+  const [addingUnit, setAddingUnit] = useState(false);
 
   useEffect(() => {
     const channel = supabase
       .channel("products-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["products"] });
-      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["products"] });
+        },
+      )
       .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
   }, [queryClient]);
 
-  const { data: products = [], isLoading } = useQuery({
+  const {
+    data: products = [],
+    isLoading,
+    isError: productsError,
+  } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("*").order("name");
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .order("name");
       if (error) throw error;
       return data;
     },
   });
 
-  const filtered = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase()) ||
-      p.category.toLowerCase().includes(search.toLowerCase())
-  );
+  const {
+    data: suppliers = [],
+    isLoading: suppliersLoading,
+    isError: suppliersError,
+  } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const filtered = products.filter((p) => {
+    const term = search.trim().toLowerCase();
+    return [p.name, p.sku, p.category].some((value) =>
+      (value ?? "").toLowerCase().includes(term),
+    );
+  });
 
   function openNew() {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setCustomUnit("");
+    setAddingUnit(false);
     setFormOpen(true);
   }
 
   function openEdit(p: Product) {
     setEditing(p);
+    const savedUnit = p.unit ?? "unidad";
+    if (!unitOptions.some((unit) => unit.toLowerCase() === savedUnit.toLowerCase())) {
+      setUnitOptions((current) => [...current, savedUnit]);
+    }
     setForm({
-      sku: p.sku,
-      name: p.name,
-      category: p.category,
-      unit: p.unit,
-      min_stock: p.min_stock,
-      unit_cost: Number(p.unit_cost),
+      sku: p.sku ?? "",
+      name: p.name ?? "",
+      category: p.category ?? DEFAULT_CATEGORY,
+      unit: savedUnit,
+      supplier_id: p.supplier_id ?? "",
+      min_stock: Number(p.min_stock ?? 0),
       location: p.location ?? "",
     });
+    setCustomUnit("");
+    setAddingUnit(false);
     setFormOpen(true);
   }
 
-  async function handleSave(e: React.FormEvent) {
+  function addCustomUnit() {
+    const value = customUnit.trim();
+    if (!value) {
+      toast.error("Escribe el nombre de la nueva unidad");
+      return;
+    }
+    const existing = unitOptions.find(
+      (unit) => unit.toLowerCase() === value.toLowerCase(),
+    );
+    if (existing) {
+      setForm((current) => ({ ...current, unit: existing }));
+    } else {
+      setUnitOptions((current) => [...current, value]);
+      setForm((current) => ({ ...current, unit: value }));
+    }
+    setCustomUnit("");
+    setAddingUnit(false);
+    toast.success("Unidad agregada al selector");
+  }
+
+  async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    const sku = form.sku.trim();
+    const name = form.name.trim();
+    if (!sku || !name) {
+      toast.error("Completa el SKU y la descripción");
+      return;
+    }
+    if (form.min_stock < 0) {
+      toast.error("El stock mínimo no puede ser negativo");
+      return;
+    }
+
     setSaving(true);
     try {
+      const payload = {
+        sku,
+        name,
+        category: form.category.trim() || "General",
+        unit: form.unit.trim() || "unidad",
+        supplier_id: form.supplier_id || null,
+        min_stock: Number(form.min_stock),
+        location: form.location.trim() || null,
+      };
+
       if (editing) {
-        const { error } = await supabase.from("products").update(form).eq("id", editing.id);
+        const { error } = await supabase
+          .from("products")
+          .update(payload)
+          .eq("id", editing.id);
         if (error) throw error;
-        toast.success("Producto actualizado");
+        toast.success("Producto actualizado con éxito");
       } else {
-        const { error } = await supabase.from("products").insert(form);
+        const { error } = await supabase.from("products").insert(payload);
         if (error) throw error;
-        toast.success("Producto creado");
+        toast.success("¡Producto registrado con éxito!");
       }
+
       setFormOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setEditing(null);
+      await queryClient.invalidateQueries({ queryKey: ["products"] });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error al guardar");
+      toast.error(
+        err instanceof Error ? err.message : "No se pudo guardar el producto",
+      );
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(p: Product) {
-    if (!confirm(`¿Eliminar "${p.name}"? Se eliminarán también sus movimientos.`)) return;
-    const { error } = await supabase.from("products").delete().eq("id", p.id);
-    if (error) {
-      toast.error(error.message);
-    } else {
+    if (!confirm(`¿Eliminar "${p.name}"? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+    setDeletingId(p.id);
+    try {
+      const { error } = await supabase.from("products").delete().eq("id", p.id);
+      if (error) throw error;
       toast.success("Producto eliminado");
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      await queryClient.invalidateQueries({ queryKey: ["products"] });
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "No se pudo eliminar el producto",
+      );
+    } finally {
+      setDeletingId(null);
     }
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4">
+    <main className="mx-auto max-w-6xl space-y-4 px-4 py-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Productos</h1>
-          <p className="text-sm text-muted-foreground">{products.length} productos en inventario</p>
+          <p className="text-sm text-muted-foreground">
+            {products.length} productos en inventario
+          </p>
         </div>
         <button className="btn btn-primary" onClick={openNew}>
           <Plus className="h-4 w-4" /> Nuevo producto
@@ -130,22 +256,23 @@ function ProductosPage() {
       </div>
 
       <input
-        className="input max-w-sm"
+        className="input w-full max-w-sm"
         placeholder="Buscar por nombre, SKU o categoría…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
+        aria-label="Buscar productos"
       />
 
       <div className="card overflow-x-auto">
-        <table className="table-base">
+        <table className="table-base w-full">
           <thead>
             <tr>
               <th>Producto</th>
               <th>SKU</th>
               <th>Categoría</th>
+              <th>Proveedor</th>
               <th>Ubicación</th>
               <th>Stock</th>
-              <th>Costo unit.</th>
               <th className="w-24"></th>
             </tr>
           </thead>
@@ -153,143 +280,249 @@ function ProductosPage() {
             {isLoading ? (
               <tr>
                 <td colSpan={7} className="py-8 text-center text-muted-foreground">
-                  Cargando…
+                  Cargando productos…
+                </td>
+              </tr>
+            ) : productsError ? (
+              <tr>
+                <td colSpan={7} className="py-8 text-center text-destructive">
+                  No se pudieron cargar los productos. Revisa la conexión con Supabase.
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-8 text-center text-muted-foreground">
-                  No hay productos. Crea el primero con "Nuevo producto".
+                  No hay productos que coincidan con la búsqueda.
                 </td>
               </tr>
             ) : (
-              filtered.map((p) => (
-                <tr key={p.id}>
-                  <td className="font-medium">{p.name}</td>
-                  <td className="text-muted-foreground">{p.sku}</td>
-                  <td>
-                    <span className="badge badge-muted">{p.category}</span>
-                  </td>
-                  <td className="text-muted-foreground">{p.location ?? "—"}</td>
-                  <td>
-                    <span
-                      className={`badge ${
-                        p.stock === 0
-                          ? "badge-destructive"
-                          : p.stock <= p.min_stock
-                            ? "badge-warning"
-                            : "badge-success"
-                      }`}
-                    >
-                      {p.stock} {p.unit}
-                    </span>
-                  </td>
-                  <td>${Number(p.unit_cost).toLocaleString("es-CL")}</td>
-                  <td>
-                    <div className="flex gap-1">
-                      <button className="btn btn-ghost p-1.5" onClick={() => openEdit(p)} aria-label="Editar">
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        className="btn btn-ghost p-1.5 text-destructive"
-                        onClick={() => handleDelete(p)}
-                        aria-label="Eliminar"
+              filtered.map((p) => {
+                const supplier = suppliers.find((s) => s.id === p.supplier_id);
+                return (
+                  <tr key={p.id}>
+                    <td className="font-medium">{p.name}</td>
+                    <td className="text-muted-foreground">{p.sku}</td>
+                    <td>
+                      <span className="badge badge-muted">{p.category}</span>
+                    </td>
+                    <td className="text-muted-foreground">
+                      {supplier?.name ?? "—"}
+                    </td>
+                    <td className="text-muted-foreground">{p.location ?? "—"}</td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          p.stock === 0
+                            ? "badge-destructive"
+                            : p.stock <= p.min_stock
+                              ? "badge-warning"
+                              : "badge-success"
+                        }`}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                        {p.stock} {p.unit}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex gap-1">
+                        <button
+                          className="btn btn-ghost p-1.5"
+                          onClick={() => openEdit(p)}
+                          aria-label={`Editar ${p.name}`}
+                          title="Editar"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          className="btn btn-ghost p-1.5 text-destructive"
+                          onClick={() => void handleDelete(p)}
+                          disabled={deletingId === p.id}
+                          aria-label={`Eliminar ${p.name}`}
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
 
       {formOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4">
-          <div className="card w-full max-w-md p-6">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !saving) setFormOpen(false);
+          }}
+        >
+          <section
+            className="card my-auto w-full max-w-lg p-5 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="product-form-title"
+          >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-display text-lg font-bold">
+              <h2 id="product-form-title" className="font-display text-lg font-bold">
                 {editing ? "Editar producto" : "Nuevo producto"}
               </h2>
-              <button className="btn btn-ghost p-1.5" onClick={() => setFormOpen(false)} aria-label="Cerrar">
+              <button
+                type="button"
+                className="btn btn-ghost p-1.5"
+                onClick={() => setFormOpen(false)}
+                disabled={saving}
+                aria-label="Cerrar"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
+
             <form onSubmit={handleSave} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="label">SKU *</label>
+                  <label className="label" htmlFor="product-sku">SKU *</label>
                   <input
-                    className="input"
+                    id="product-sku"
+                    className="input w-full"
                     value={form.sku}
                     onChange={(e) => setForm({ ...form, sku: e.target.value })}
                     required
+                    maxLength={80}
+                    autoFocus
                   />
                 </div>
                 <div>
-                  <label className="label">Categoría</label>
-                  <input
-                    className="input"
+                  <label className="label" htmlFor="product-category">Categoría *</label>
+                  <select
+                    id="product-category"
+                    className="input w-full"
                     value={form.category}
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  />
+                    required
+                  >
+                    {CATEGORIES.map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
+
               <div>
-                <label className="label">Nombre *</label>
+                <label className="label" htmlFor="product-name">Descripción *</label>
                 <input
-                  className="input"
+                  id="product-name"
+                  className="input w-full"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   required
+                  maxLength={200}
+                  placeholder="Ej.: Pintura esmalte al agua blanca"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Unidad</label>
-                  <input
-                    className="input"
-                    value={form.unit}
-                    onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="label">Ubicación</label>
-                  <input
-                    className="input"
-                    value={form.location}
-                    onChange={(e) => setForm({ ...form, location: e.target.value })}
-                    placeholder="Ej: Estante A-3"
-                  />
-                </div>
+
+              <div>
+                <label className="label" htmlFor="product-supplier">Proveedor</label>
+                <select
+                  id="product-supplier"
+                  className="input w-full"
+                  value={form.supplier_id}
+                  onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
+                  disabled={suppliersLoading || suppliersError}
+                >
+                  <option value="">Sin proveedor</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+                {suppliersError && (
+                  <p className="mt-1 text-xs text-destructive">
+                    No se pudieron cargar proveedores. Revisa la tabla suppliers.
+                  </p>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="label">Stock mínimo</label>
-                  <input
-                    type="number"
-                    min={0}
-                    className="input"
-                    value={form.min_stock}
-                    onChange={(e) => setForm({ ...form, min_stock: Number(e.target.value) })}
-                  />
+                  <label className="label" htmlFor="product-unit">Unidad de medida *</label>
+                  <select
+                    id="product-unit"
+                    className="input w-full"
+                    value={addingUnit ? "__add_new__" : form.unit}
+                    onChange={(e) => {
+                      if (e.target.value === "__add_new__") {
+                        setAddingUnit(true);
+                        setCustomUnit("");
+                      } else {
+                        setAddingUnit(false);
+                        setForm({ ...form, unit: e.target.value });
+                      }
+                    }}
+                    required
+                  >
+                    {unitOptions.map((unit) => (
+                      <option key={unit} value={unit}>{unit}</option>
+                    ))}
+                    <option value="__add_new__">＋ Agregar otra unidad…</option>
+                  </select>
+                  {addingUnit && (
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        className="input min-w-0 flex-1"
+                        value={customUnit}
+                        onChange={(e) => setCustomUnit(e.target.value)}
+                        placeholder="Nueva unidad"
+                        aria-label="Nombre de nueva unidad"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={addCustomUnit}
+                      >
+                        Agregar
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="label">Costo unitario</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    className="input"
-                    value={form.unit_cost}
-                    onChange={(e) => setForm({ ...form, unit_cost: Number(e.target.value) })}
-                  />
-                </div>
+
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" className="btn btn-secondary" onClick={() => setFormOpen(false)}>
+
+              <div>
+                <label className="label" htmlFor="product-min-stock">Stock mínimo</label>
+                <input
+                  id="product-min-stock"
+                  type="number"
+                  min={0}
+                  step="1"
+                  className="input w-full"
+                  value={form.min_stock}
+                  onChange={(e) => setForm({ ...form, min_stock: Number(e.target.value) })}
+                />
+              </div>
+
+              <div>
+                <label className="label" htmlFor="product-location">Ubicación (opcional)</label>
+                <input
+                  id="product-location"
+                  className="input w-full"
+                  value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  placeholder="Ej.: Estante A-3"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setFormOpen(false)}
+                  disabled={saving}
+                >
                   Cancelar
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -297,9 +530,9 @@ function ProductosPage() {
                 </button>
               </div>
             </form>
-          </div>
+          </section>
         </div>
       )}
-    </div>
+    </main>
   );
 }
