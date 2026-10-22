@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_authenticated/contactos")({
       { title: "Contactos — BodegaPro" },
       {
         name: "description",
-        content: "Proveedores y clientes asociados a los movimientos de bodega.",
+        content: "Gestiona proveedores y nombres maestros asociados a la bodega.",
       },
     ],
   }),
@@ -81,35 +81,28 @@ function ContactosPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload =
-        tab === "customers"
-          ? {
-              name: form.name.trim(),
-              work_area: form.work_area || null,
-            }
-          : {
-              name: form.name.trim(),
-              contact_name: form.contact_name || null,
-              email: form.email || null,
-              phone: form.phone || null,
-              address: form.address || null,
-              notes: form.notes || null,
-            };
-
-      if (editingId) {
-        const { error } = await supabase.from(tab).update(payload).eq("id", editingId);
-
-        if (error) {
-          console.error("Error al actualizar contacto:", error);
-          throw error;
-        }
+      if (tab === "customers") {
+        const payload = {
+          name: form.name.trim(),
+          work_area: form.work_area || null,
+        };
+        const result = editingId
+          ? await supabase.from("customers").update(payload).eq("id", editingId)
+          : await supabase.from("customers").insert(payload);
+        if (result.error) throw result.error;
       } else {
-        const { error } = await supabase.from(tab).insert(payload);
-
-        if (error) {
-          console.error("Error al insertar contacto:", error);
-          throw error;
-        }
+        const payload = {
+          name: form.name.trim(),
+          contact_name: form.contact_name || null,
+          email: form.email || null,
+          phone: form.phone || null,
+          address: form.address || null,
+          notes: form.notes || null,
+        };
+        const result = editingId
+          ? await supabase.from("suppliers").update(payload).eq("id", editingId)
+          : await supabase.from("suppliers").insert(payload);
+        if (result.error) throw result.error;
       }
 
       toast.success("Guardado correctamente");
@@ -170,20 +163,15 @@ function ContactosPage() {
         <table className="table-base">
           <thead>
             <tr>
+              <th>{tab === "suppliers" ? "Nombre" : "Nombre maestro"}</th>
               {tab === "suppliers" ? (
                 <>
-                  <th>Nombre</th>
                   <th>Contacto</th>
                   <th>Correo</th>
                   <th>Teléfono</th>
                 </>
               ) : (
-                <>
-                  <th>Nombre maestro</th>
-                  <th>Área de trabajo</th>
-                  <th />
-                  <th />
-                </>
+                <th>Área de trabajo</th>
               )}
               <th className="w-24"></th>
             </tr>
@@ -191,13 +179,19 @@ function ContactosPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={tab === "suppliers" ? 5 : 3}
+                  className="py-8 text-center text-muted-foreground"
+                >
                   Cargando…
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={tab === "suppliers" ? 5 : 3}
+                  className="py-8 text-center text-muted-foreground"
+                >
                   No hay {tab === "suppliers" ? "proveedores" : "nombres maestros"} registrados.
                 </td>
               </tr>
@@ -212,11 +206,9 @@ function ContactosPage() {
                       <td className="text-muted-foreground">{r.phone ?? "—"}</td>
                     </>
                   ) : (
-                    <>
-                      <td className="text-muted-foreground">{r.work_area ?? "—"}</td>
-                      <td />
-                      <td />
-                    </>
+                    <td className="text-muted-foreground">
+                      {("work_area" in r && r.work_area) || "—"}
+                    </td>
                   )}
                   <td>
                     <div className="flex gap-1">

@@ -159,7 +159,7 @@ function MovimientosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("stock_movements")
-        .select("*, products(name, sku, unit), suppliers(name), customers(name)")
+        .select("*, products(name, sku, unit, unit_cost), suppliers(name), customers(name)")
         .order("created_at", { ascending: false })
         .limit(500);
 
@@ -857,25 +857,26 @@ function MovimientosPage() {
             <tr>
               <th>N°</th>
               <th>Fecha</th>
-              <th>Producto</th>
+              <th>Descripción</th>
               <th>Tipo</th>
               <th>Cantidad</th>
+              <th>Valor total</th>
               <th>Proveedor / Tipo de unidad</th>
-              <th>Nombre maestro</th>
-              <th className="w-28"></th>
+              <th>OC / Nombre maestro</th>
+              <th className="w-32 text-right">Acciones</th>
             </tr>
           </thead>
 
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                <td colSpan={9} className="py-8 text-center text-muted-foreground">
                   Cargando…
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                <td colSpan={9} className="py-8 text-center text-muted-foreground">
                   {hasFilters
                     ? "No hay movimientos con estos filtros."
                     : "No hay movimientos registrados."}
@@ -892,6 +893,7 @@ function MovimientosPage() {
                     {new Date(m.created_at).toLocaleString("es-CL", {
                       dateStyle: "short",
                       timeStyle: "short",
+                      hour12: true,
                     })}
                   </td>
 
@@ -911,6 +913,13 @@ function MovimientosPage() {
                     {m.quantity_value ?? m.quantity} {m.measure_unit ?? m.products?.unit ?? ""}
                   </td>
 
+                  <td className="whitespace-nowrap">
+                    {formatMoney(
+                      (m.quantity_value ?? m.quantity) *
+                        Number(m.unit_cost ?? m.products?.unit_cost ?? 0),
+                    )}
+                  </td>
+
                   <td className="text-muted-foreground">
                     {m.type === "salida" ? (
                       <>
@@ -919,7 +928,9 @@ function MovimientosPage() {
                             ? (UNIT_TYPE_LABELS[m.unit_type] ?? m.unit_type)
                             : (m.customers?.name ?? "—")}
                         </div>
-                        {m.unit_type_value && <div className="text-xs">{m.unit_type_value}</div>}
+                        {(m.unit_type_value || m.measure_unit) && (
+                          <div className="text-xs">{m.unit_type_value || m.measure_unit}</div>
+                        )}
                       </>
                     ) : (
                       (m.suppliers?.name ?? "—")
@@ -927,34 +938,44 @@ function MovimientosPage() {
                   </td>
 
                   <td className="text-muted-foreground">
-                    <div>{m.reference ?? "—"}</div>
+                    <div>
+                      {m.type === "entrada"
+                        ? m.purchase_order || m.document_number || "—"
+                        : m.reference || "—"}
+                    </div>
                     {m.type === "salida" && m.document_number && (
                       <div className="text-xs">Valor / Número: {m.document_number}</div>
                     )}
                   </td>
 
-                  <td>
-                    <div className="flex justify-end gap-1">
+                  <td className="whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-1">
                       <button
+                        type="button"
                         className="btn btn-ghost p-1.5"
                         onClick={() => printMovement(m)}
                         aria-label="Imprimir"
+                        title="Imprimir"
                       >
                         <Printer className="h-4 w-4" />
                       </button>
 
                       <button
+                        type="button"
                         className="btn btn-ghost p-1.5"
                         onClick={() => openEdit(m)}
-                        aria-label="Modificar"
+                        aria-label="Editar"
+                        title="Editar"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
 
                       <button
+                        type="button"
                         className="btn btn-ghost p-1.5 text-destructive"
                         onClick={() => handleDelete(m.id)}
                         aria-label="Eliminar"
+                        title="Eliminar"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -972,7 +993,8 @@ function MovimientosPage() {
         <div>
           <h2 className="text-lg font-bold">Compras y Ventas registradas</h2>
           <p className="text-sm text-muted-foreground">
-            Consulta los documentos de compras y ventas.
+            Vigente indica un documento no anulado; “Completa” se podrá asignar cuando la orden de
+            compra esté recibida en su totalidad.
           </p>
         </div>
 
@@ -980,7 +1002,8 @@ function MovimientosPage() {
           <thead>
             <tr>
               <th>Fecha</th>
-              <th>Documento</th>
+              <th>Tipo de documento</th>
+              <th>Número de documento</th>
               <th>Orden de compra</th>
               <th>Estado</th>
               <th className="w-32">Acción</th>
@@ -990,13 +1013,13 @@ function MovimientosPage() {
           <tbody>
             {purchasesLoading ? (
               <tr>
-                <td colSpan={5} className="py-6 text-center">
+                <td colSpan={6} className="py-6 text-center">
                   Cargando compras…
                 </td>
               </tr>
             ) : purchases.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                <td colSpan={6} className="py-6 text-center text-muted-foreground">
                   No hay compras registradas.
                 </td>
               </tr>
@@ -1007,10 +1030,9 @@ function MovimientosPage() {
                     {new Date(purchase.created_at).toLocaleDateString("es-CL")}
                   </td>
 
-                  <td>
-                    {purchase.document_type === "factura" ? "Factura" : "Guía de despacho"} N.º{" "}
-                    {purchase.document_number}
-                  </td>
+                  <td>{purchase.document_type === "factura" ? "Factura" : "Guía de despacho"}</td>
+
+                  <td className="font-mono">{purchase.document_number}</td>
 
                   <td>{purchase.purchase_order || "—"}</td>
 

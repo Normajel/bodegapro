@@ -44,6 +44,92 @@ export type Database = {
         };
         Relationships: [];
       };
+      purchase_order_items: {
+        Row: {
+          id: string;
+          measure_unit: string;
+          product_id: string;
+          purchase_order_id: string;
+          quantity: number;
+          received_quantity: number;
+          unit_cost: number;
+        };
+        Insert: {
+          id?: string;
+          measure_unit: string;
+          product_id: string;
+          purchase_order_id: string;
+          quantity: number;
+          received_quantity?: number;
+          unit_cost: number;
+        };
+        Update: {
+          id?: string;
+          measure_unit?: string;
+          product_id?: string;
+          purchase_order_id?: string;
+          quantity?: number;
+          received_quantity?: number;
+          unit_cost?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_items_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_order_items_purchase_order_id_fkey";
+            columns: ["purchase_order_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      purchase_orders: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          notes: string | null;
+          order_number: string;
+          status: string;
+          supplier_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          notes?: string | null;
+          order_number: string;
+          status?: string;
+          supplier_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          notes?: string | null;
+          order_number?: string;
+          status?: string;
+          supplier_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       products: {
         Row: {
           active: boolean;
@@ -138,6 +224,8 @@ export type Database = {
           notes: string | null;
           product_id: string;
           purchase_order: string | null;
+          purchase_order_id: string | null;
+          purchase_order_item_id: string | null;
           quantity: number;
           quantity_value: number;
           reference: string | null;
@@ -160,6 +248,8 @@ export type Database = {
           notes?: string | null;
           product_id: string;
           purchase_order?: string | null;
+          purchase_order_id?: string | null;
+          purchase_order_item_id?: string | null;
           quantity: number;
           quantity_value?: number;
           reference?: string | null;
@@ -182,6 +272,8 @@ export type Database = {
           notes?: string | null;
           product_id?: string;
           purchase_order?: string | null;
+          purchase_order_id?: string | null;
+          purchase_order_item_id?: string | null;
           quantity?: number;
           quantity_value?: number;
           reference?: string | null;
@@ -204,6 +296,20 @@ export type Database = {
             columns: ["product_id"];
             isOneToOne: false;
             referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_purchase_order_id_fkey";
+            columns: ["purchase_order_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_purchase_order_item_id_fkey";
+            columns: ["purchase_order_item_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_order_items";
             referencedColumns: ["id"];
           },
           {
@@ -283,6 +389,28 @@ export type Database = {
           isOneToOne: false;
           isSetofReturn: true;
         };
+      };
+      save_purchase_order: {
+        Args: {
+          p_lines: Json;
+          p_notes: string | null;
+          p_order_id?: string;
+          p_supplier_id: string;
+        };
+        Returns: string;
+      };
+      receive_purchase_order: {
+        Args: {
+          p_document_number: string;
+          p_document_type: string;
+          p_lines: Json;
+          p_order_id: string;
+        };
+        Returns: Database["public"]["Tables"]["stock_movements"]["Row"][];
+      };
+      cancel_purchase_order: {
+        Args: { p_order_id: string };
+        Returns: undefined;
       };
     };
     Enums: {

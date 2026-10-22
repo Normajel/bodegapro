@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Package,
   ArrowLeftRight,
+  ShoppingCart,
   Users,
   FileBarChart,
   LogOut,
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { to: "/dashboard", label: "Panel", icon: LayoutDashboard },
   { to: "/productos", label: "Inventario", icon: Package },
   { to: "/movimientos", label: "Movimientos", icon: ArrowLeftRight },
+  { to: "/compras", label: "Compras", icon: ShoppingCart },
   { to: "/contactos", label: "Contactos", icon: Users },
   { to: "/informes", label: "Informes", icon: FileBarChart },
 ] as const;
