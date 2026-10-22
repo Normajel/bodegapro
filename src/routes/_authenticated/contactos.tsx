@@ -4,18 +4,30 @@ import { useState } from "react";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { CATEGORIES } from "@/lib/warehouse";
 
 export const Route = createFileRoute("/_authenticated/contactos")({
   head: () => ({
     meta: [
       { title: "Contactos — BodegaPro" },
-      { name: "description", content: "Proveedores y clientes asociados a los movimientos de bodega." },
+      {
+        name: "description",
+        content: "Proveedores y clientes asociados a los movimientos de bodega.",
+      },
     ],
   }),
   component: ContactosPage,
 });
 
-const EMPTY_FORM = { name: "", contact_name: "", email: "", phone: "", address: "", notes: "" };
+const EMPTY_FORM = {
+  name: "",
+  work_area: "",
+  contact_name: "",
+  email: "",
+  phone: "",
+  address: "",
+  notes: "",
+};
 
 type Kind = "suppliers" | "customers";
 
@@ -45,6 +57,7 @@ function ContactosPage() {
   function openEdit(row: {
     id: string;
     name: string;
+    work_area?: string | null;
     contact_name: string | null;
     email: string | null;
     phone: string | null;
@@ -54,6 +67,7 @@ function ContactosPage() {
     setEditingId(row.id);
     setForm({
       name: row.name,
+      work_area: row.work_area ?? "",
       contact_name: row.contact_name ?? "",
       email: row.email ?? "",
       phone: row.phone ?? "",
@@ -67,29 +81,30 @@ function ContactosPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = {
-        name: form.name,
-        contact_name: form.contact_name || null,
-        email: form.email || null,
-        phone: form.phone || null,
-        address: form.address || null,
-        notes: form.notes || null,
-      };
+      const payload =
+        tab === "customers"
+          ? {
+              name: form.name.trim(),
+              work_area: form.work_area || null,
+            }
+          : {
+              name: form.name.trim(),
+              contact_name: form.contact_name || null,
+              email: form.email || null,
+              phone: form.phone || null,
+              address: form.address || null,
+              notes: form.notes || null,
+            };
 
       if (editingId) {
-        const { error } = await supabase
-          .from(tab)
-          .update(payload)
-          .eq("id", editingId);
+        const { error } = await supabase.from(tab).update(payload).eq("id", editingId);
 
         if (error) {
           console.error("Error al actualizar contacto:", error);
           throw error;
         }
       } else {
-        const { error } = await supabase
-          .from(tab)
-          .insert(payload);
+        const { error } = await supabase.from(tab).insert(payload);
 
         if (error) {
           console.error("Error al insertar contacto:", error);
@@ -100,12 +115,10 @@ function ContactosPage() {
       toast.success("Guardado correctamente");
       setFormOpen(false);
       queryClient.invalidateQueries({ queryKey: [tab] });
-
     } catch (err) {
       console.error("Error completo al guardar:", err);
 
-      const mensaje =
-        err instanceof Error ? err.message : JSON.stringify(err);
+      const mensaje = err instanceof Error ? err.message : JSON.stringify(err);
 
       toast.error(mensaje || "Error al guardar");
     } finally {
@@ -129,10 +142,12 @@ function ContactosPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Contactos</h1>
-          <p className="text-sm text-muted-foreground">Proveedores y clientes de la bodega</p>
+          <p className="text-sm text-muted-foreground">
+            Proveedores y nombres maestros de la bodega
+          </p>
         </div>
         <button className="btn btn-primary" onClick={openNew}>
-          <Plus className="h-4 w-4" /> Nuevo {tab === "suppliers" ? "proveedor" : "cliente"}
+          <Plus className="h-4 w-4" /> Nuevo {tab === "suppliers" ? "proveedor" : "maestro"}
         </button>
       </div>
 
@@ -147,7 +162,7 @@ function ContactosPage() {
           className={`btn ${tab === "customers" ? "btn-primary" : "btn-secondary"}`}
           onClick={() => setTab("customers")}
         >
-          Clientes
+          Nombre maestro
         </button>
       </div>
 
@@ -155,10 +170,21 @@ function ContactosPage() {
         <table className="table-base">
           <thead>
             <tr>
-              <th>Nombre</th>
-              <th>Contacto</th>
-              <th>Correo</th>
-              <th>Teléfono</th>
+              {tab === "suppliers" ? (
+                <>
+                  <th>Nombre</th>
+                  <th>Contacto</th>
+                  <th>Correo</th>
+                  <th>Teléfono</th>
+                </>
+              ) : (
+                <>
+                  <th>Nombre maestro</th>
+                  <th>Área de trabajo</th>
+                  <th />
+                  <th />
+                </>
+              )}
               <th className="w-24"></th>
             </tr>
           </thead>
@@ -172,19 +198,33 @@ function ContactosPage() {
             ) : rows.length === 0 ? (
               <tr>
                 <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                  No hay {tab === "suppliers" ? "proveedores" : "clientes"} registrados.
+                  No hay {tab === "suppliers" ? "proveedores" : "nombres maestros"} registrados.
                 </td>
               </tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.id}>
                   <td className="font-medium">{r.name}</td>
-                  <td className="text-muted-foreground">{r.contact_name ?? "—"}</td>
-                  <td className="text-muted-foreground">{r.email ?? "—"}</td>
-                  <td className="text-muted-foreground">{r.phone ?? "—"}</td>
+                  {tab === "suppliers" ? (
+                    <>
+                      <td className="text-muted-foreground">{r.contact_name ?? "—"}</td>
+                      <td className="text-muted-foreground">{r.email ?? "—"}</td>
+                      <td className="text-muted-foreground">{r.phone ?? "—"}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="text-muted-foreground">{r.work_area ?? "—"}</td>
+                      <td />
+                      <td />
+                    </>
+                  )}
                   <td>
                     <div className="flex gap-1">
-                      <button className="btn btn-ghost p-1.5" onClick={() => openEdit(r)} aria-label="Editar">
+                      <button
+                        className="btn btn-ghost p-1.5"
+                        onClick={() => openEdit(r)}
+                        aria-label="Editar"
+                      >
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button
@@ -208,15 +248,21 @@ function ContactosPage() {
           <div className="card w-full max-w-md p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-lg font-bold">
-                {editingId ? "Editar" : "Nuevo"} {tab === "suppliers" ? "proveedor" : "cliente"}
+                {editingId ? "Editar" : "Nuevo"} {tab === "suppliers" ? "proveedor" : "maestro"}
               </h2>
-              <button className="btn btn-ghost p-1.5" onClick={() => setFormOpen(false)} aria-label="Cerrar">
+              <button
+                className="btn btn-ghost p-1.5"
+                onClick={() => setFormOpen(false)}
+                aria-label="Cerrar"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
-                <label className="label">Nombre / Razón social *</label>
+                <label className="label">
+                  {tab === "suppliers" ? "Nombre / Razón social *" : "Nombre maestro *"}
+                </label>
                 <input
                   className="input"
                   value={form.name}
@@ -224,52 +270,81 @@ function ContactosPage() {
                   required
                 />
               </div>
-              <div>
-                <label className="label">Persona de contacto</label>
-                <input
-                  className="input"
-                  value={form.contact_name}
-                  onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+              {tab === "customers" ? (
                 <div>
-                  <label className="label">Correo</label>
-                  <input
-                    type="email"
+                  <label className="label">Área de trabajo (categoría) *</label>
+                  <select
                     className="input"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  />
+                    value={form.work_area}
+                    onChange={(e) => setForm({ ...form, work_area: e.target.value })}
+                    required
+                  >
+                    <option value="">Selecciona una categoría…</option>
+                    {form.work_area &&
+                      !CATEGORIES.includes(form.work_area as (typeof CATEGORIES)[number]) && (
+                        <option value={form.work_area}>{form.work_area}</option>
+                      )}
+                    {CATEGORIES.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div>
-                  <label className="label">Teléfono</label>
-                  <input
-                    className="input"
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="label">Dirección</label>
-                <input
-                  className="input"
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="label">Notas</label>
-                <textarea
-                  className="input"
-                  rows={2}
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                />
-              </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="label">Persona de contacto</label>
+                    <input
+                      className="input"
+                      value={form.contact_name}
+                      onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Correo</label>
+                      <input
+                        type="email"
+                        className="input"
+                        value={form.email}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Teléfono</label>
+                      <input
+                        className="input"
+                        value={form.phone}
+                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">Dirección</label>
+                    <input
+                      className="input"
+                      value={form.address}
+                      onChange={(e) => setForm({ ...form, address: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Notas</label>
+                    <textarea
+                      className="input"
+                      rows={2}
+                      value={form.notes}
+                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    />
+                  </div>
+                </>
+              )}
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" className="btn btn-secondary" onClick={() => setFormOpen(false)}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setFormOpen(false)}
+                >
                   Cancelar
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>

@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Panel", icon: LayoutDashboard },
-  { to: "/productos", label: "Productos", icon: Package },
+  { to: "/productos", label: "Inventario", icon: Package },
   { to: "/movimientos", label: "Movimientos", icon: ArrowLeftRight },
   { to: "/contactos", label: "Contactos", icon: Users },
   { to: "/informes", label: "Informes", icon: FileBarChart },
@@ -65,9 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary font-display text-sm font-bold text-sidebar-primary-foreground">
             B
           </div>
-          <span className="font-display text-lg font-bold text-sidebar-foreground">
-            BodegaPro
-          </span>
+          <span className="font-display text-lg font-bold text-sidebar-foreground">BodegaPro</span>
         </Link>
         {nav}
         <button

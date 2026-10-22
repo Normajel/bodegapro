@@ -1,4 +1,3 @@
-
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -10,7 +9,9 @@ import {
   folioLabel,
   generarComprobante,
   generarComprobanteCompra,
+  generarComprobanteSalida,
 } from "@/lib/comprobante-pdf";
+import { UNITS } from "@/lib/warehouse";
 
 export const Route = createFileRoute("/_authenticated/movimientos")({
   head: () => ({
@@ -31,16 +32,20 @@ type FormState = {
   quantity: number;
   supplier_id: string;
   unit_type: string;
+  unit_type_value: string;
+  document_number: string;
   reference: string;
   notes: string;
 };
 
 type PurchaseItem = {
   key: string;
+  id?: string;
   product_id: string;
   search: string;
   quantity: number;
   unit: string;
+  unitIsOther?: boolean;
   unit_price: number;
 };
 
@@ -68,9 +73,37 @@ const emptyForm: FormState = {
   quantity: 1,
   supplier_id: "",
   unit_type: "stock",
+  unit_type_value: "",
+  document_number: "",
   reference: "",
   notes: "",
 };
+
+const UNIDADES = [
+  "2102C2OFPL",
+  "2111-C2OFBA",
+  "2103C2B333",
+  "2104 C2VEST",
+  "2105 C2COMEDOR",
+  "2103-C2BLL",
+  "2103C2WCBB",
+  "1102-M2OFPL",
+  "1111-M2OFBA",
+  "M2 BAÑO 3X3X3",
+  "1111-20-M2OFBACOMPLETO",
+  "1102-10-M2OFDUPLEX",
+  "1111-30 M2 MINICABAÑA",
+  "1102-30 M2OFBOD",
+  "1102-M2SALA MULTIUSO",
+  "1202M6X3OFPL",
+  "1101M2BOD",
+  "1002M1OFPL",
+  "1003M1BABA",
+  "1002-1M1CGCV",
+  "1001M1BOD",
+  "3002BCG",
+  "BOX40",
+] as const;
 
 function newPurchaseItem(): PurchaseItem {
   return {
@@ -79,13 +112,14 @@ function newPurchaseItem(): PurchaseItem {
     search: "",
     quantity: 1,
     unit: "unidad",
+    unitIsOther: true,
     unit_price: 0,
   };
 }
 
 function formatMoney(value: number) {
   return `$ ${Number(value || 0).toLocaleString("es-CL", {
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 0,
   })}`;
 }
 
@@ -95,15 +129,12 @@ function MovimientosPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
-  const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([
-    newPurchaseItem(),
-  ]);
+  const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([newPurchaseItem()]);
   const [purchaseOrder, setPurchaseOrder] = useState("");
-  const [documentType, setDocumentType] = useState<
-    "factura" | "guia_despacho"
-  >("factura");
+  const [documentType, setDocumentType] = useState<"factura" | "guia_despacho">("factura");
   const [documentNumber, setDocumentNumber] = useState("");
   const [filterType, setFilterType] = useState<"" | "entrada" | "salida">("");
   const [filterFrom, setFilterFrom] = useState("");
@@ -112,14 +143,10 @@ function MovimientosPage() {
   useEffect(() => {
     const channel = supabase
       .channel("movements-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "stock_movements" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["movements"] });
-          queryClient.invalidateQueries({ queryKey: ["products"] });
-        },
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "stock_movements" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["movements"] });
+        queryClient.invalidateQueries({ queryKey: ["products"] });
+      })
       .subscribe();
 
     return () => {
@@ -146,7 +173,7 @@ function MovimientosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, sku, stock, unit")
+        .select("id, name, sku, stock, unit, unit_cost")
         .eq("active", true)
         .order("name");
 
@@ -158,25 +185,20 @@ function MovimientosPage() {
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("suppliers")
-        .select("id, name")
-        .order("name");
+      const { data, error } = await supabase.from("suppliers").select("id, name").order("name");
 
       if (error) throw error;
       return data;
     },
   });
 
-  const {
-    data: purchases = [],
-    isLoading: purchasesLoading,
-  } = useQuery<PurchaseEntry[]>({
+  const { data: purchases = [], isLoading: purchasesLoading } = useQuery<PurchaseEntry[]>({
     queryKey: ["purchase-entries"],
     queryFn: async () => {
       const { data, error } = await db
         .from("purchase_entries")
-        .select(`
+        .select(
+          `
           id,
           created_at,
           supplier_id,
@@ -185,7 +207,8 @@ function MovimientosPage() {
           purchase_order,
           cancelled_at,
           cancellation_reason
-        `)
+        `,
+        )
         .order("created_at", { ascending: false })
         .limit(500);
 
@@ -250,14 +273,14 @@ function MovimientosPage() {
     product_id: string;
     quantity: number;
     unit_type: string | null;
+    unit_type_value: string | null;
+    document_number: string | null;
     supplier_id: string | null;
     reference: string | null;
     notes: string | null;
   }) {
     const product = products.find((p) => p.id === m.product_id);
-    const fromList = movements.find(
-      (x) => x.product_id === m.product_id,
-    )?.products;
+    const fromList = movements.find((x) => x.product_id === m.product_id)?.products;
 
     generarComprobante({
       folio: m.folio,
@@ -268,8 +291,9 @@ function MovimientosPage() {
       unit: product?.unit ?? fromList?.unit ?? "",
       quantity: m.quantity,
       unit_type: m.unit_type,
-      supplier:
-        suppliers.find((s) => s.id === m.supplier_id)?.name ?? null,
+      unit_type_value: m.unit_type_value,
+      document_number: m.document_number,
+      supplier: suppliers.find((s) => s.id === m.supplier_id)?.name ?? null,
       master_name: m.reference,
       notes: m.notes,
     });
@@ -277,6 +301,7 @@ function MovimientosPage() {
 
   function openNew() {
     setEditingId(null);
+    setEditingBatchId(null);
     setForm(emptyForm);
     setPurchaseItems([newPurchaseItem()]);
     setPurchaseOrder("");
@@ -287,26 +312,45 @@ function MovimientosPage() {
 
   function openEdit(m: Movement) {
     setEditingId(m.id);
+    setEditingBatchId(m.batch_id);
     setForm({
       product_id: m.product_id,
       type: m.type,
       quantity: m.quantity,
       supplier_id: m.supplier_id ?? "",
       unit_type: m.unit_type ?? "stock",
+      unit_type_value: m.unit_type_value ?? "",
+      document_number: m.document_number ?? "",
       reference: m.reference ?? "",
       notes: m.notes ?? "",
     });
+    if (m.type === "salida") {
+      const batchMovements = m.batch_id
+        ? movements.filter((movement) => movement.batch_id === m.batch_id)
+        : [m];
+      setPurchaseItems(
+        batchMovements.map((movement) => {
+          const product = products.find((item) => item.id === movement.product_id);
+          const unit = movement.measure_unit ?? product?.unit ?? "unidad";
+          return {
+            key: movement.id,
+            id: movement.id,
+            product_id: movement.product_id,
+            search: product?.name ?? movement.products?.name ?? "",
+            quantity: movement.quantity_value,
+            unit,
+            unitIsOther: !UNITS.includes(unit as (typeof UNITS)[number]),
+            unit_price: movement.unit_cost ?? product?.unit_cost ?? 0,
+          };
+        }),
+      );
+    }
     setFormOpen(true);
   }
 
-  function updatePurchaseItem(
-    key: string,
-    changes: Partial<PurchaseItem>,
-  ) {
+  function updatePurchaseItem(key: string, changes: Partial<PurchaseItem>) {
     setPurchaseItems((items) =>
-      items.map((item) =>
-        item.key === key ? { ...item, ...changes } : item,
-      ),
+      items.map((item) => (item.key === key ? { ...item, ...changes } : item)),
     );
   }
 
@@ -321,7 +365,8 @@ function MovimientosPage() {
       product_id: product.id,
       search: product.name,
       unit: product.unit || "unidad",
-      unit_price: lastPrice,
+      unitIsOther: !UNITS.includes((product.unit || "unidad") as (typeof UNITS)[number]),
+      unit_price: lastPrice || product.unit_cost || 0,
     });
   }
 
@@ -336,14 +381,13 @@ function MovimientosPage() {
     (sum, item) => sum + item.quantity * item.unit_price,
     0,
   );
+  const exitTotal = purchaseItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
 
   async function save(print: boolean) {
     const isNewPurchase = form.type === "entrada" && !editingId;
 
     if (isNewPurchase) {
-      const validItems = purchaseItems.filter(
-        (item) => item.product_id,
-      );
+      const validItems = purchaseItems.filter((item) => item.product_id);
 
       if (validItems.length === 0) {
         toast.error("Agrega al menos un producto a la compra");
@@ -352,22 +396,14 @@ function MovimientosPage() {
 
       if (
         validItems.some(
-          (item) =>
-            !item.quantity ||
-            item.quantity <= 0 ||
-            !Number.isFinite(item.quantity),
+          (item) => !item.quantity || item.quantity <= 0 || !Number.isFinite(item.quantity),
         )
       ) {
         toast.error("Todas las cantidades deben ser mayores a 0");
         return;
       }
 
-      if (
-        validItems.some(
-          (item) =>
-            !Number.isFinite(item.unit_price) || item.unit_price < 0,
-        )
-      ) {
+      if (validItems.some((item) => !Number.isFinite(item.unit_price) || item.unit_price < 0)) {
         toast.error("Revisa los precios de los productos");
         return;
       }
@@ -387,24 +423,20 @@ function MovimientosPage() {
           unit_price: item.unit_price,
         }));
 
-        const { data, error } = await db.rpc(
-          "registrar_entrada_compra",
-          {
-            p_supplier_id: form.supplier_id || null,
-            p_purchase_order: purchaseOrder.trim() || null,
-            p_document_type: documentType,
-            p_document_number: documentNumber.trim(),
-            p_notes: form.notes.trim() || null,
-            p_items: itemsPayload,
-          },
-        );
+        const { data, error } = await db.rpc("registrar_entrada_compra", {
+          p_supplier_id: form.supplier_id || null,
+          p_purchase_order: purchaseOrder.trim() || null,
+          p_document_type: documentType,
+          p_document_number: documentNumber.trim(),
+          p_notes: form.notes.trim() || null,
+          p_items: itemsPayload,
+        });
 
         if (error) throw error;
 
         const purchaseId = String(data);
         const supplierName =
-          suppliers.find((s) => s.id === form.supplier_id)?.name ??
-          "Sin proveedor";
+          suppliers.find((s) => s.id === form.supplier_id)?.name ?? "Sin proveedor";
 
         toast.success("Compra registrada y stock actualizado");
 
@@ -418,9 +450,7 @@ function MovimientosPage() {
             document_number: documentNumber.trim(),
             notes: form.notes.trim(),
             items: validItems.map((item) => {
-              const product = products.find(
-                (p) => p.id === item.product_id,
-              );
+              const product = products.find((p) => p.id === item.product_id);
 
               return {
                 product_name: product?.name ?? item.search,
@@ -452,11 +482,112 @@ function MovimientosPage() {
           }),
         ]);
       } catch (err) {
-        toast.error(
-          err instanceof Error
-            ? err.message
-            : "Error al registrar la compra",
+        toast.error(err instanceof Error ? err.message : "Error al registrar la compra");
+      } finally {
+        setSaving(false);
+      }
+
+      return;
+    }
+
+    if (form.type === "salida") {
+      const validItems = purchaseItems.filter((item) => item.product_id);
+
+      if (validItems.length === 0) {
+        toast.error("Agrega al menos un producto a la salida");
+        return;
+      }
+
+      if (
+        validItems.some(
+          (item) =>
+            !item.quantity ||
+            item.quantity <= 0 ||
+            !Number.isFinite(item.quantity) ||
+            !item.unit.trim(),
+        )
+      ) {
+        toast.error("Revisa las cantidades y unidades de medida");
+        return;
+      }
+
+      if (validItems.some((item) => !Number.isFinite(item.unit_price) || item.unit_price < 0)) {
+        toast.error("Revisa los costos unitarios de los productos");
+        return;
+      }
+
+      setSaving(true);
+
+      try {
+        const { data, error } = await db.rpc("save_movement_batch", {
+          payload: {
+            type: "salida",
+            supplier_id: null,
+            reference: form.reference.trim() || null,
+            notes: form.notes.trim() || null,
+            unit_type: form.unit_type,
+            unit_type_value: form.unit_type_value || null,
+            document_number: form.document_number.trim() || null,
+            lines: validItems.map((item) => ({
+              ...(item.id ? { id: item.id } : {}),
+              product_id: item.product_id,
+              quantity: item.quantity,
+              measure_unit: item.unit.trim(),
+              unit_cost: item.unit_price,
+            })),
+          },
+          edit_batch: editingBatchId,
+          edit_id: editingBatchId ? null : editingId,
+        });
+
+        if (error) throw error;
+
+        const savedRows = (data ?? []) as Array<{
+          folio: number | null;
+          created_at: string;
+        }>;
+        const folio = savedRows[0]?.folio ?? null;
+
+        toast.success(
+          editingId
+            ? "Salida modificada y stock actualizado"
+            : `Salida ${folioLabel("salida", folio)} registrada`,
         );
+
+        if (print) {
+          generarComprobanteSalida({
+            folio,
+            created_at: savedRows[0]?.created_at ?? new Date().toISOString(),
+            unit_type: form.unit_type,
+            unit_type_value: form.unit_type_value,
+            document_number: form.document_number.trim(),
+            master_name: form.reference.trim(),
+            notes: form.notes.trim(),
+            items: validItems.map((item) => {
+              const product = products.find((p) => p.id === item.product_id);
+              return {
+                product_name: product?.name ?? item.search,
+                product_sku: product?.sku ?? "—",
+                quantity: item.quantity,
+                unit: item.unit.trim(),
+                unit_price: item.unit_price,
+              };
+            }),
+          });
+        }
+
+        setFormOpen(false);
+        setEditingId(null);
+        setEditingBatchId(null);
+        setForm({ ...emptyForm, type: "salida" });
+        setPurchaseItems([newPurchaseItem()]);
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["movements"] }),
+          queryClient.invalidateQueries({ queryKey: ["products"] }),
+        ]);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Error al registrar la salida");
       } finally {
         setSaving(false);
       }
@@ -469,11 +600,7 @@ function MovimientosPage() {
       return;
     }
 
-    if (
-      !form.quantity ||
-      form.quantity < 1 ||
-      !Number.isFinite(form.quantity)
-    ) {
+    if (!form.quantity || form.quantity < 1 || !Number.isFinite(form.quantity)) {
       toast.error("La cantidad debe ser mayor a 0");
       return;
     }
@@ -485,12 +612,10 @@ function MovimientosPage() {
         product_id: form.product_id,
         type: form.type,
         quantity: form.quantity,
-        supplier_id:
-          form.type === "entrada" && form.supplier_id
-            ? form.supplier_id
-            : null,
+        supplier_id: form.type === "entrada" && form.supplier_id ? form.supplier_id : null,
         customer_id: null,
-        unit_type: form.type === "salida" ? form.unit_type : null,
+        unit_type: null,
+        unit_type_value: null,
         reference: form.reference || null,
         notes: form.notes || null,
       };
@@ -546,17 +671,13 @@ function MovimientosPage() {
         queryClient.invalidateQueries({ queryKey: ["products"] }),
       ]);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Error al guardar",
-      );
+      toast.error(err instanceof Error ? err.message : "Error al guardar");
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleCancelPurchase(
-    purchase: (typeof purchases)[number],
-  ) {
+  async function handleCancelPurchase(purchase: (typeof purchases)[number]) {
     if (purchase.cancelled_at) {
       toast.error("Esta compra ya fue anulada");
       return;
@@ -599,11 +720,7 @@ function MovimientosPage() {
         }),
       ]);
     } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "No se pudo anular la compra",
-      );
+      toast.error(err instanceof Error ? err.message : "No se pudo anular la compra");
     } finally {
       setSaving(false);
     }
@@ -655,10 +772,7 @@ function MovimientosPage() {
       return;
     }
 
-    const { error } = await supabase
-      .from("stock_movements")
-      .delete()
-      .eq("id", id);
+    const { error } = await supabase.from("stock_movements").delete().eq("id", id);
 
     if (error) {
       toast.error(error.message);
@@ -680,9 +794,7 @@ function MovimientosPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Movimientos</h1>
-          <p className="text-sm text-muted-foreground">
-            Entradas y salidas de stock
-          </p>
+          <p className="text-sm text-muted-foreground">Entradas y salidas de stock</p>
         </div>
 
         <div className="flex flex-wrap items-end gap-2">
@@ -691,11 +803,7 @@ function MovimientosPage() {
             <select
               className="input"
               value={filterType}
-              onChange={(e) =>
-                setFilterType(
-                  e.target.value as "" | "entrada" | "salida",
-                )
-              }
+              onChange={(e) => setFilterType(e.target.value as "" | "entrada" | "salida")}
             >
               <option value="">Todos</option>
               <option value="entrada">Entradas</option>
@@ -761,19 +869,13 @@ function MovimientosPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td
-                  colSpan={8}
-                  className="py-8 text-center text-muted-foreground"
-                >
+                <td colSpan={8} className="py-8 text-center text-muted-foreground">
                   Cargando…
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td
-                  colSpan={8}
-                  className="py-8 text-center text-muted-foreground"
-                >
+                <td colSpan={8} className="py-8 text-center text-muted-foreground">
                   {hasFilters
                     ? "No hay movimientos con estos filtros."
                     : "No hay movimientos registrados."}
@@ -793,16 +895,12 @@ function MovimientosPage() {
                     })}
                   </td>
 
-                  <td className="font-medium">
-                    {m.products?.name ?? "—"}
-                  </td>
+                  <td className="font-medium">{m.products?.name ?? "—"}</td>
 
                   <td>
                     <span
                       className={`badge ${
-                        m.type === "entrada"
-                          ? "badge-success"
-                          : "badge-destructive"
+                        m.type === "entrada" ? "badge-success" : "badge-destructive"
                       }`}
                     >
                       {m.type === "entrada" ? "Entrada" : "Salida"}
@@ -810,19 +908,29 @@ function MovimientosPage() {
                   </td>
 
                   <td>
-                    {m.quantity} {m.products?.unit ?? ""}
+                    {m.quantity_value ?? m.quantity} {m.measure_unit ?? m.products?.unit ?? ""}
                   </td>
 
                   <td className="text-muted-foreground">
-                    {m.type === "salida"
-                      ? m.unit_type
-                        ? UNIT_TYPE_LABELS[m.unit_type] ?? m.unit_type
-                        : m.customers?.name ?? "—"
-                      : m.suppliers?.name ?? "—"}
+                    {m.type === "salida" ? (
+                      <>
+                        <div>
+                          {m.unit_type
+                            ? (UNIT_TYPE_LABELS[m.unit_type] ?? m.unit_type)
+                            : (m.customers?.name ?? "—")}
+                        </div>
+                        {m.unit_type_value && <div className="text-xs">{m.unit_type_value}</div>}
+                      </>
+                    ) : (
+                      (m.suppliers?.name ?? "—")
+                    )}
                   </td>
 
                   <td className="text-muted-foreground">
-                    {m.reference ?? "—"}
+                    <div>{m.reference ?? "—"}</div>
+                    {m.type === "salida" && m.document_number && (
+                      <div className="text-xs">Valor / Número: {m.document_number}</div>
+                    )}
                   </td>
 
                   <td>
@@ -862,9 +970,9 @@ function MovimientosPage() {
       {/* Historial de compras: fuera del formulario de movimientos */}
       <div className="card space-y-3 overflow-x-auto p-4">
         <div>
-          <h2 className="text-lg font-bold">Compras registradas</h2>
+          <h2 className="text-lg font-bold">Compras y Ventas registradas</h2>
           <p className="text-sm text-muted-foreground">
-            Consulta los documentos y anula compras completas cuando corresponda.
+            Consulta los documentos de compras y ventas.
           </p>
         </div>
 
@@ -888,10 +996,7 @@ function MovimientosPage() {
               </tr>
             ) : purchases.length === 0 ? (
               <tr>
-                <td
-                  colSpan={5}
-                  className="py-6 text-center text-muted-foreground"
-                >
+                <td colSpan={5} className="py-6 text-center text-muted-foreground">
                   No hay compras registradas.
                 </td>
               </tr>
@@ -899,37 +1004,28 @@ function MovimientosPage() {
               purchases.map((purchase) => (
                 <tr key={purchase.id}>
                   <td className="whitespace-nowrap">
-                    {new Date(purchase.created_at).toLocaleDateString(
-                      "es-CL",
-                    )}
+                    {new Date(purchase.created_at).toLocaleDateString("es-CL")}
                   </td>
 
                   <td>
-                    {purchase.document_type === "factura"
-                      ? "Factura"
-                      : "Guía de despacho"}{" "}
-                    N.º {purchase.document_number}
+                    {purchase.document_type === "factura" ? "Factura" : "Guía de despacho"} N.º{" "}
+                    {purchase.document_number}
                   </td>
 
                   <td>{purchase.purchase_order || "—"}</td>
 
                   <td>
                     {purchase.cancelled_at ? (
-                      <span className="badge badge-destructive">
-                        Anulada
-                      </span>
+                      <span className="badge badge-destructive">Anulada</span>
                     ) : (
-                      <span className="badge badge-success">
-                        Vigente
-                      </span>
+                      <span className="badge badge-success">Vigente</span>
                     )}
 
-                    {purchase.cancelled_at &&
-                      purchase.cancellation_reason && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Motivo: {purchase.cancellation_reason}
-                        </p>
-                      )}
+                    {purchase.cancelled_at && purchase.cancellation_reason && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Motivo: {purchase.cancellation_reason}
+                      </p>
+                    )}
                   </td>
 
                   <td>
@@ -962,7 +1058,9 @@ function MovimientosPage() {
                   ? "Modificar movimiento"
                   : isPurchaseForm
                     ? "Registrar entrada de compra"
-                    : "Registrar movimiento"}
+                    : form.type === "salida"
+                      ? "Registrar salida"
+                      : "Registrar movimiento"}
               </h2>
 
               <button
@@ -987,9 +1085,7 @@ function MovimientosPage() {
                     key={t}
                     type="button"
                     disabled={!!editingId}
-                    className={`btn ${
-                      form.type === t ? "btn-primary" : "btn-secondary"
-                    }`}
+                    className={`btn ${form.type === t ? "btn-primary" : "btn-secondary"}`}
                     onClick={() => {
                       setForm({ ...form, type: t });
 
@@ -1043,30 +1139,20 @@ function MovimientosPage() {
                         className="input"
                         value={documentType}
                         onChange={(e) =>
-                          setDocumentType(
-                            e.target.value as
-                              | "factura"
-                              | "guia_despacho",
-                          )
+                          setDocumentType(e.target.value as "factura" | "guia_despacho")
                         }
                       >
                         <option value="factura">Factura</option>
-                        <option value="guia_despacho">
-                          Guía de despacho
-                        </option>
+                        <option value="guia_despacho">Guía de despacho</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="label">
-                        Número de documento *
-                      </label>
+                      <label className="label">Número de documento *</label>
                       <input
                         className="input"
                         value={documentNumber}
-                        onChange={(e) =>
-                          setDocumentNumber(e.target.value)
-                        }
+                        onChange={(e) => setDocumentNumber(e.target.value)}
                         placeholder="Número de factura o guía"
                         required
                       />
@@ -1075,19 +1161,12 @@ function MovimientosPage() {
 
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="font-semibold">
-                        Productos de la compra
-                      </h3>
+                      <h3 className="font-semibold">Productos de la compra</h3>
 
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        onClick={() =>
-                          setPurchaseItems((items) => [
-                            ...items,
-                            newPurchaseItem(),
-                          ])
-                        }
+                        onClick={() => setPurchaseItems((items) => [...items, newPurchaseItem()])}
                       >
                         <Plus className="h-4 w-4" />
                         Agregar producto
@@ -1109,25 +1188,18 @@ function MovimientosPage() {
                         .slice(0, 8);
 
                       const history = item.product_id
-                        ? pricesByProduct[item.product_id] ?? []
+                        ? (pricesByProduct[item.product_id] ?? [])
                         : [];
 
                       return (
-                        <div
-                          key={item.key}
-                          className="space-y-3 rounded-lg border p-3"
-                        >
+                        <div key={item.key} className="space-y-3 rounded-lg border p-3">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold">
-                              Producto {index + 1}
-                            </span>
+                            <span className="text-sm font-semibold">Producto {index + 1}</span>
 
                             <button
                               type="button"
                               className="btn btn-ghost p-1.5 text-destructive"
-                              onClick={() =>
-                                removePurchaseItem(item.key)
-                              }
+                              onClick={() => removePurchaseItem(item.key)}
                               aria-label="Quitar producto"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1135,9 +1207,7 @@ function MovimientosPage() {
                           </div>
 
                           <div className="relative">
-                            <label className="label">
-                              Descripción *
-                            </label>
+                            <label className="label">Descripción *</label>
 
                             <input
                               className="input"
@@ -1160,17 +1230,12 @@ function MovimientosPage() {
                                     key={p.id}
                                     type="button"
                                     className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
-                                    onClick={() =>
-                                      selectProduct(item.key, p.id)
-                                    }
+                                    onClick={() => selectProduct(item.key, p.id)}
                                   >
-                                    <span className="font-medium">
-                                      {p.name}
-                                    </span>
+                                    <span className="font-medium">{p.name}</span>
 
                                     <span className="block text-xs text-muted-foreground">
-                                      SKU: {p.sku || "—"} · Stock:{" "}
-                                      {p.stock ?? 0} {p.unit ?? ""}
+                                      SKU: {p.sku || "—"} · Stock: {p.stock ?? 0} {p.unit ?? ""}
                                     </span>
                                   </button>
                                 ))}
@@ -1181,8 +1246,7 @@ function MovimientosPage() {
                               item.search.trim() !== "" &&
                               matches.length === 0 && (
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                  No se encontraron productos con esa
-                                  descripción.
+                                  No se encontraron productos con esa descripción.
                                 </p>
                               )}
                           </div>
@@ -1207,9 +1271,7 @@ function MovimientosPage() {
                               </div>
 
                               <div>
-                                <label className="label">
-                                  Unidad de medida *
-                                </label>
+                                <label className="label">Unidad de medida *</label>
                                 <input
                                   className="input"
                                   value={item.unit}
@@ -1224,9 +1286,7 @@ function MovimientosPage() {
                               </div>
 
                               <div>
-                                <label className="label">
-                                  Precio unitario *
-                                </label>
+                                <label className="label">Precio unitario *</label>
                                 <input
                                   className="input"
                                   type="number"
@@ -1246,16 +1306,12 @@ function MovimientosPage() {
 
                           {item.product_id && (
                             <div className="rounded-md bg-muted/50 p-3">
-                              <p className="mb-2 text-sm font-semibold">
-                                Historial de precios
-                              </p>
+                              <p className="mb-2 text-sm font-semibold">Historial de precios</p>
 
                               {history.length > 0 ? (
                                 <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
                                   {history.map((price, priceIndex) => (
-                                    <span
-                                      key={`${price.created_at}-${priceIndex}`}
-                                    >
+                                    <span key={`${price.created_at}-${priceIndex}`}>
                                       <span className="text-muted-foreground">
                                         {priceIndex === 0
                                           ? "Último"
@@ -1264,35 +1320,23 @@ function MovimientosPage() {
                                             : "Hace 2 compras"}
                                         :
                                       </span>{" "}
-                                      <strong>
-                                        {formatMoney(price.unit_price)}
-                                      </strong>
-
+                                      <strong>{formatMoney(price.unit_price)}</strong>
                                       <span className="text-muted-foreground">
                                         {" "}
-                                        (
-                                        {new Date(
-                                          price.created_at,
-                                        ).toLocaleDateString("es-CL")}
-                                        )
+                                        ({new Date(price.created_at).toLocaleDateString("es-CL")})
                                       </span>
                                     </span>
                                   ))}
                                 </div>
                               ) : (
                                 <p className="text-sm text-muted-foreground">
-                                  No hay compras anteriores registradas para
-                                  este producto.
+                                  No hay compras anteriores registradas para este producto.
                                 </p>
                               )}
 
                               <p className="mt-2 text-sm">
                                 Subtotal:{" "}
-                                <strong>
-                                  {formatMoney(
-                                    item.quantity * item.unit_price,
-                                  )}
-                                </strong>
+                                <strong>{formatMoney(item.quantity * item.unit_price)}</strong>
                               </p>
                             </div>
                           )}
@@ -1302,12 +1346,8 @@ function MovimientosPage() {
 
                     <div className="flex justify-end rounded-lg border p-3">
                       <div className="text-right">
-                        <p className="text-sm text-muted-foreground">
-                          Total de la compra
-                        </p>
-                        <p className="text-xl font-bold">
-                          {formatMoney(purchaseTotal)}
-                        </p>
+                        <p className="text-sm text-muted-foreground">Total de la compra</p>
+                        <p className="text-xl font-bold">{formatMoney(purchaseTotal)}</p>
                       </div>
                     </div>
                   </div>
@@ -1318,10 +1358,248 @@ function MovimientosPage() {
                       className="input"
                       rows={2}
                       value={form.notes}
-                      onChange={(e) =>
-                        setForm({ ...form, notes: e.target.value })
-                      }
+                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
                       placeholder="Observaciones de la compra"
+                    />
+                  </div>
+                </>
+              ) : form.type === "salida" ? (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div>
+                      <label className="label">Tipo de unidad *</label>
+                      <select
+                        className="input"
+                        value={form.unit_type}
+                        onChange={(e) => setForm({ ...form, unit_type: e.target.value })}
+                      >
+                        {Object.entries(UNIT_TYPE_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="label">Valor / Número</label>
+                      <input
+                        className="input"
+                        value={form.document_number}
+                        onChange={(e) => setForm({ ...form, document_number: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="label">UNIDADES</label>
+                      <select
+                        className="input"
+                        value={form.unit_type_value}
+                        onChange={(e) => setForm({ ...form, unit_type_value: e.target.value })}
+                      >
+                        <option value="">Selecciona una unidad…</option>
+                        {UNIDADES.map((unit) => (
+                          <option key={unit} value={unit}>
+                            {unit}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="label">Nombre maestro</label>
+                      <input
+                        className="input"
+                        value={form.reference}
+                        onChange={(e) => setForm({ ...form, reference: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="font-semibold">Productos de la salida</h3>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => setPurchaseItems((items) => [...items, newPurchaseItem()])}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Agregar producto
+                      </button>
+                    </div>
+
+                    {purchaseItems.map((item, index) => {
+                      const term = item.search.trim().toLowerCase();
+                      const matches = products
+                        .filter(
+                          (product) =>
+                            term &&
+                            (product.name.toLowerCase().includes(term) ||
+                              (product.sku ?? "").toLowerCase().includes(term)),
+                        )
+                        .slice(0, 8);
+                      const isListedUnit = UNITS.includes(item.unit as (typeof UNITS)[number]);
+                      const useCustomUnit = item.unitIsOther || !isListedUnit;
+
+                      return (
+                        <div key={item.key} className="space-y-3 rounded-lg border p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold">Producto {index + 1}</span>
+                            <button
+                              type="button"
+                              className="btn btn-ghost p-1.5 text-destructive"
+                              onClick={() => removePurchaseItem(item.key)}
+                              aria-label={`Quitar producto ${index + 1}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          <div className="relative">
+                            <label className="label">Descripción *</label>
+                            <input
+                              className="input"
+                              value={item.search}
+                              placeholder="Escribe para buscar un producto..."
+                              autoComplete="off"
+                              onChange={(e) =>
+                                updatePurchaseItem(item.key, {
+                                  search: e.target.value,
+                                  product_id: "",
+                                  unit_price: 0,
+                                })
+                              }
+                            />
+                            {!item.product_id && matches.length > 0 && (
+                              <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-background shadow-lg">
+                                {matches.map((product) => (
+                                  <button
+                                    key={product.id}
+                                    type="button"
+                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                                    onClick={() => selectProduct(item.key, product.id)}
+                                  >
+                                    <span className="font-medium">{product.name}</span>
+                                    <span className="block text-xs text-muted-foreground">
+                                      SKU: {product.sku || "—"} · Stock: {product.stock ?? 0}{" "}
+                                      {product.unit ?? ""}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {item.product_id && (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                SKU:{" "}
+                                {products.find((product) => product.id === item.product_id)?.sku ??
+                                  "—"}
+                              </p>
+                            )}
+                          </div>
+
+                          {item.product_id && (
+                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                              <div>
+                                <label className="label">Cantidad *</label>
+                                <input
+                                  className="input"
+                                  type="number"
+                                  min="0.001"
+                                  step="0.001"
+                                  value={item.quantity}
+                                  onChange={(e) =>
+                                    updatePurchaseItem(item.key, {
+                                      quantity: Number(e.target.value),
+                                    })
+                                  }
+                                  required
+                                />
+                              </div>
+
+                              <div>
+                                <label className="label">Unidad de medida *</label>
+                                <select
+                                  className="input"
+                                  value={useCustomUnit ? "Otra" : item.unit}
+                                  onChange={(e) => {
+                                    if (e.target.value === "Otra") {
+                                      updatePurchaseItem(item.key, { unitIsOther: true });
+                                    } else {
+                                      updatePurchaseItem(item.key, {
+                                        unit: e.target.value,
+                                        unitIsOther: false,
+                                      });
+                                    }
+                                  }}
+                                >
+                                  {UNITS.map((unit) => (
+                                    <option key={unit} value={unit}>
+                                      {unit}
+                                    </option>
+                                  ))}
+                                  <option value="Otra">Otra...</option>
+                                </select>
+                                {useCustomUnit && (
+                                  <input
+                                    className="input mt-1"
+                                    value={item.unit}
+                                    placeholder="Escribe la unidad"
+                                    onChange={(e) =>
+                                      updatePurchaseItem(item.key, {
+                                        unit: e.target.value,
+                                        unitIsOther: true,
+                                      })
+                                    }
+                                    required
+                                  />
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="label">Costo unitario *</label>
+                                <input
+                                  className="input"
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={item.unit_price}
+                                  onChange={(e) =>
+                                    updatePurchaseItem(item.key, {
+                                      unit_price: Number(e.target.value),
+                                    })
+                                  }
+                                  required
+                                />
+                              </div>
+
+                              <div className="flex flex-col justify-end">
+                                <span className="label">Total</span>
+                                <p className="py-2 font-semibold">
+                                  {formatMoney(item.quantity * item.unit_price)}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    <div className="flex justify-end rounded-lg border p-3">
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Total de la salida</p>
+                        <p className="text-xl font-bold">{formatMoney(exitTotal)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label">Observaciones</label>
+                    <textarea
+                      className="input"
+                      rows={2}
+                      value={form.notes}
+                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     />
                   </div>
                 </>
@@ -1388,41 +1666,47 @@ function MovimientosPage() {
                       </select>
                     </div>
                   ) : (
-                    <div>
-                      <label className="label">Tipo de unidad *</label>
-                      <select
-                        className="input"
-                        value={form.unit_type}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            unit_type: e.target.value,
-                          })
-                        }
-                      >
-                        {Object.entries(UNIT_TYPE_LABELS).map(([v, l]) => (
-                          <option key={v} value={v}>
-                            {l}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {form.type === "salida" && (
-                    <div>
-                      <label className="label">Nombre maestro</label>
-                      <input
-                        className="input"
-                        value={form.reference}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            reference: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
+                    <>
+                      <div>
+                        <label className="label">Tipo de unidad *</label>
+                        <select
+                          className="input"
+                          value={form.unit_type}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              unit_type: e.target.value,
+                            })
+                          }
+                        >
+                          {Object.entries(UNIT_TYPE_LABELS).map(([v, l]) => (
+                            <option key={v} value={v}>
+                              {l}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label">UNIDADES</label>
+                        <select
+                          className="input"
+                          value={form.unit_type_value}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              unit_type_value: e.target.value,
+                            })
+                          }
+                        >
+                          <option value="">Selecciona una unidad…</option>
+                          {UNIDADES.map((unit) => (
+                            <option key={unit} value={unit}>
+                              {unit}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
                   )}
 
                   <div>
@@ -1431,9 +1715,7 @@ function MovimientosPage() {
                       className="input"
                       rows={2}
                       value={form.notes}
-                      onChange={(e) =>
-                        setForm({ ...form, notes: e.target.value })
-                      }
+                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     />
                   </div>
                 </>
@@ -1459,16 +1741,8 @@ function MovimientosPage() {
                   {saving ? "Guardando…" : "Registrar e imprimir"}
                 </button>
 
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={saving}
-                >
-                  {saving
-                    ? "Guardando…"
-                    : editingId
-                      ? "Guardar cambios"
-                      : "Registrar"}
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? "Guardando…" : editingId ? "Guardar cambios" : "Registrar"}
                 </button>
               </div>
             </form>
