@@ -6,6 +6,7 @@ import {
   lastPurchases,
   periodBounds,
   normalizeCode,
+  santiagoDateTimeIso,
 } from "@/lib/warehouse";
 
 describe("Reglas de bodega", () => {
@@ -61,6 +62,11 @@ describe("Reglas de bodega", () => {
       from: "2026-02-01",
       to: "2026-02-28",
     }));
+
+  it("convierte límites de informe a la zona horaria de Santiago", () => {
+    expect(santiagoDateTimeIso("2026-07-15")).toBe("2026-07-15T04:00:00.000Z");
+    expect(santiagoDateTimeIso("2026-10-15", 24)).toBe("2026-10-16T03:00:00.000Z");
+  });
 
   it("asocia el SKU contenido en un QR", () =>
     expect(normalizeCode("https://example.com/product?sku=ESTR001")).toBe("ESTR001"));

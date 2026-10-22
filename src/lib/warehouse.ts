@@ -40,6 +40,32 @@ export function dateKey(value: string | Date) {
   }).format(new Date(value));
 }
 
+export function santiagoDateTimeIso(day: string, hour = 0) {
+  const [year = 0, month = 1, date = 1] = day.split("-").map(Number);
+  const targetUtc = Date.UTC(year, month - 1, date, hour);
+  const guess = new Date(targetUtc);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(guess);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+  const representedUtc = Date.UTC(
+    value("year"),
+    value("month") - 1,
+    value("day"),
+    value("hour"),
+    value("minute"),
+    value("second"),
+  );
+  return new Date(targetUtc + (targetUtc - representedUtc)).toISOString();
+}
+
 export function periodBounds(mode: "week" | "month", month: string, now = new Date()) {
   if (mode === "month") {
     const [year = 0, monthNumber = 0] = month.split("-").map(Number);

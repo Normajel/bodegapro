@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
-import { dateKey } from "@/lib/warehouse";
+import { dateKey, santiagoDateTimeIso } from "@/lib/warehouse";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -20,32 +20,6 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 type ChartPeriod = "today" | "7days";
 type ChartMetric = "value" | "quantity";
-
-function santiagoDateTimeIso(day: string, hour = 0) {
-  const [year = 0, month = 1, date = 1] = day.split("-").map(Number);
-  const targetUtc = Date.UTC(year, month - 1, date, hour);
-  const guess = new Date(targetUtc);
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Santiago",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(guess);
-  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
-  const representedUtc = Date.UTC(
-    value("year"),
-    value("month") - 1,
-    value("day"),
-    value("hour"),
-    value("minute"),
-    value("second"),
-  );
-  return new Date(targetUtc + (targetUtc - representedUtc)).toISOString();
-}
 
 function formatCLP(value: number) {
   const safeValue = Number.isFinite(value) ? value : 0;
