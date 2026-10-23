@@ -21,6 +21,7 @@ export const Route = createFileRoute("/_authenticated/informes")({
 
 type ReportType =
   "prices" | "general-inventory" | "inventory" | "critical" | "movements" | "pending";
+type PeriodPreset = "7days" | "30days" | "month" | "custom";
 type ReportRow = { id: string; cells: (string | number)[]; searchText: string };
 
 const REPORTS: { id: ReportType; label: string; description: string }[] = [
@@ -61,31 +62,14 @@ const STATUS_LABELS: Record<string, string> = {
   parcial: "Recepción parcial",
 };
 
-function csvValue(value: string | number) {
-  return `"${String(value).replaceAll('"', '""')}"`;
-}
-
-function downloadCSV(filename: string, headers: string[], rows: ReportRow[]) {
-  const csv = [
-    headers.map(csvValue).join(","),
-    ...rows.map((row) => row.cells.map(csvValue).join(",")),
-  ].join("\r\n");
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 function InformesPage() {
   const today = dateKey(new Date());
   const weekAgo = new Date(`${today}T12:00:00Z`);
   weekAgo.setUTCDate(weekAgo.getUTCDate() - 6);
-  const [reportType, setReportType] = useState<ReportType>("inventory");
+  const [reportType, setReportType] = useState<ReportType>("prices");
   const [from, setFrom] = useState(weekAgo.toISOString().slice(0, 10));
   const [to, setTo] = useState(today);
+  const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("7days");
   const [search, setSearch] = useState("");
   const [exporting, setExporting] = useState(false);
 
@@ -207,6 +191,16 @@ function InformesPage() {
   });
 
   const report = REPORTS.find((item) => item.id === reportType) ?? REPORTS[0]!;
+
+  function changePeriodPreset(preset: PeriodPreset) {
+    setPeriodPreset(preset);
+    if (preset === "custom") return;
+    const start = new Date(`${today}T12:00:00Z`);
+    if (preset === "7days") start.setUTCDate(start.getUTCDate() - 6);
+    if (preset === "30days") start.setUTCDate(start.getUTCDate() - 29);
+    setFrom(preset === "month" ? `${today.slice(0, 7)}-01` : start.toISOString().slice(0, 10));
+    setTo(today);
+  }
   const headers = useMemo(() => {
     switch (reportType) {
       case "prices":
@@ -674,6 +668,22 @@ function InformesPage() {
             reportType === "pending") && (
             <>
               <div>
+                <label className="label" htmlFor="report-period">
+                  Período
+                </label>
+                <select
+                  id="report-period"
+                  className="input"
+                  value={periodPreset}
+                  onChange={(event) => changePeriodPreset(event.target.value as PeriodPreset)}
+                >
+                  <option value="7days">Últimos 7 días</option>
+                  <option value="30days">Últimos 30 días</option>
+                  <option value="month">Este mes</option>
+                  <option value="custom">Personalizado</option>
+                </select>
+              </div>
+              <div>
                 <label className="label" htmlFor="report-from">
                   Desde
                 </label>
@@ -683,7 +693,10 @@ function InformesPage() {
                   className="input"
                   value={from}
                   max={to}
-                  onChange={(event) => setFrom(event.target.value)}
+                  onChange={(event) => {
+                    setPeriodPreset("custom");
+                    setFrom(event.target.value);
+                  }}
                 />
               </div>
               <div>
@@ -696,7 +709,10 @@ function InformesPage() {
                   className="input"
                   value={to}
                   min={from}
-                  onChange={(event) => setTo(event.target.value)}
+                  onChange={(event) => {
+                    setPeriodPreset("custom");
+                    setTo(event.target.value);
+                  }}
                 />
               </div>
             </>
