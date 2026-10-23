@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Download, FileUp, Plus, Pencil, ScanLine, Trash2, X } from "lucide-react";
+import { Download, FileUp, Plus, Pencil, RotateCcw, ScanLine, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -42,6 +42,19 @@ function getProductStock(product: Product) {
 
 function formatQuantity(value: number) {
   return value.toLocaleString("es-CL");
+}
+
+function getSaveErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  return "Error desconocido al guardar el producto";
 }
 
 const DEFAULT_CATEGORY = CATEGORIES[0];
@@ -86,6 +99,7 @@ function ProductosPage() {
   >(null);
   const [downloading, setDownloading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const scannerVideoRef = useRef<HTMLVideoElement>(null);
@@ -133,6 +147,7 @@ function ProductosPage() {
   });
 
   const filtered = products.filter((p) => {
+    if (p.active === showArchived) return false;
     const term = search.trim().toLowerCase();
     return [p.name, p.sku, p.category].some((value) => (value ?? "").toLowerCase().includes(term));
   });
@@ -268,7 +283,10 @@ function ProductosPage() {
       setEditing(null);
       await queryClient.invalidateQueries({ queryKey: ["products"] });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo guardar el producto");
+      toast.error(
+        `No se pudo ${editing ? "modificar" : "guardar"} el producto: ${getSaveErrorMessage(err)}`,
+        { duration: 8000 },
+      );
     } finally {
       setSaving(false);
     }
@@ -349,17 +367,49 @@ function ProductosPage() {
   }, [formOpen, scanning, products]);
 
   async function handleDelete(p: Product) {
-    if (!confirm(`¿Eliminar "${p.name}"? Esta acción no se puede deshacer.`)) {
+    if (getProductStock(p) > 0) {
+      toast.error(
+        "No se puede quitar un producto con stock disponible. Registra su salida primero.",
+      );
+      return;
+    }
+    if (!confirm(`¿Quitar "${p.name}" del inventario activo? Su historial se conservará.`)) {
       return;
     }
     setDeletingId(p.id);
     try {
-      const { error } = await supabase.from("products").delete().eq("id", p.id);
+      const { error } = await supabase.from("products").update({ active: false }).eq("id", p.id);
       if (error) throw error;
-      toast.success("Producto eliminado");
+      toast.success("Producto quitado del inventario; su historial se conservó");
       await queryClient.invalidateQueries({ queryKey: ["products"] });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo eliminar el producto");
+      const message =
+        typeof err === "object" && err !== null && "message" in err
+          ? String(err.message)
+          : err instanceof Error
+            ? err.message
+            : "No se pudo quitar el producto del inventario";
+      toast.error(message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  async function handleRestore(p: Product) {
+    setDeletingId(p.id);
+    try {
+      const { error } = await supabase.from("products").update({ active: true }).eq("id", p.id);
+      if (error) throw error;
+      toast.success("Producto restaurado al inventario");
+      await queryClient.invalidateQueries({ queryKey: ["products"] });
+    } catch (err) {
+      const message =
+        typeof err === "object" && err !== null && "message" in err
+          ? String(err.message)
+          : err instanceof Error
+            ? err.message
+            : "No se pudo restaurar el producto";
+      toast.error(message);
     } finally {
       setDeletingId(null);
     }
@@ -457,7 +507,9 @@ function ProductosPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Inventario</h1>
-          <p className="text-sm text-muted-foreground">{products.length} productos en inventario</p>
+          <p className="text-sm text-muted-foreground">
+            {products.filter((product) => product.active).length} productos en inventario
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -494,13 +546,24 @@ function ProductosPage() {
         </div>
       </div>
 
-      <input
-        className="input w-full max-w-sm"
-        placeholder="Buscar por descripción, SKU o categoría…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        aria-label="Buscar productos"
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          className="input w-full max-w-sm"
+          placeholder="Buscar por descripción, SKU o categoría…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          aria-label="Buscar productos"
+        />
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => setShowArchived((current) => !current)}
+        >
+          {showArchived
+            ? "Volver al inventario"
+            : `Ver archivados (${products.filter((product) => !product.active).length})`}
+        </button>
+      </div>
 
       <p className="text-xs text-muted-foreground">
         La planilla agrega o actualiza productos por SKU y reemplaza el stock indicado; no genera
@@ -599,15 +662,27 @@ function ProductosPage() {
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button
-                          className="btn btn-ghost p-1.5 text-destructive"
-                          onClick={() => void handleDelete(p)}
-                          disabled={deletingId === p.id}
-                          aria-label={`Eliminar ${p.name}`}
-                          title="Eliminar"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {p.active ? (
+                          <button
+                            className="btn btn-ghost p-1.5 text-destructive"
+                            onClick={() => void handleDelete(p)}
+                            disabled={deletingId === p.id}
+                            aria-label={`Quitar ${p.name} del inventario`}
+                            title="Quitar del inventario"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        ) : (
+                          <button
+                            className="btn btn-ghost p-1.5"
+                            onClick={() => void handleRestore(p)}
+                            disabled={deletingId === p.id}
+                            aria-label={`Restaurar ${p.name}`}
+                            title="Restaurar al inventario"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
