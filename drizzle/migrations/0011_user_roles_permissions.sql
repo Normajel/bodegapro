@@ -9,6 +9,12 @@ CREATE TABLE IF NOT EXISTS public.app_roles (
   CONSTRAINT app_roles_permissions_object CHECK (jsonb_typeof(permissions) = 'object')
 );
 
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS email text,
   ADD COLUMN IF NOT EXISTS role_id uuid REFERENCES public.app_roles(id) ON DELETE RESTRICT;
@@ -18,6 +24,7 @@ GRANT ALL ON public.app_roles TO service_role;
 GRANT SELECT, UPDATE ON public.profiles TO authenticated;
 
 ALTER TABLE public.app_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 CREATE OR REPLACE FUNCTION public.is_app_admin()
 RETURNS boolean
@@ -120,6 +127,19 @@ VALUES
   ('OTRO', '{}'::jsonb, true)
 ON CONFLICT (name) DO NOTHING;
 
+INSERT INTO public.profiles (id, full_name, email, role_id, created_at)
+SELECT
+  auth_user.id,
+  COALESCE(auth_user.raw_user_meta_data->>'full_name', split_part(auth_user.email, '@', 1)),
+  auth_user.email,
+  (SELECT id FROM public.app_roles WHERE name = 'BODEGA'),
+  auth_user.created_at
+FROM auth.users auth_user
+ON CONFLICT (id) DO UPDATE
+SET full_name = COALESCE(public.profiles.full_name, EXCLUDED.full_name),
+    email = COALESCE(public.profiles.email, EXCLUDED.email),
+    role_id = COALESCE(public.profiles.role_id, EXCLUDED.role_id);
+
 UPDATE public.profiles profile
 SET role_id = role.id
 FROM public.app_roles role
@@ -132,8 +152,8 @@ WHERE role.name = 'ADMIN'
   )
   AND NOT EXISTS (
     SELECT 1 FROM public.profiles current_admin
-    JOIN public.app_roles current_role ON current_role.id = current_admin.role_id
-    WHERE current_role.name = 'ADMIN'
+    JOIN public.app_roles existing_admin_role ON existing_admin_role.id = current_admin.role_id
+    WHERE existing_admin_role.name = 'ADMIN'
   );
 
 UPDATE public.profiles
@@ -212,6 +232,11 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 DROP POLICY IF EXISTS "Team full access products" ON public.products;
 DROP POLICY IF EXISTS "Authenticated users can read products" ON public.products;
