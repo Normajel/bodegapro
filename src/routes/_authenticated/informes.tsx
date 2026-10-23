@@ -23,6 +23,23 @@ type ReportType =
   "prices" | "general-inventory" | "inventory" | "critical" | "movements" | "pending";
 type PeriodPreset = "7days" | "30days" | "month" | "custom";
 type ReportRow = { id: string; cells: (string | number)[]; searchText: string };
+type MovementFilters = {
+  type: string;
+  documentType: string;
+  purchaseOrder: string;
+  unitType: string;
+  units: string;
+};
+
+const EMPTY_MOVEMENT_FILTERS: MovementFilters = {
+  type: "",
+  documentType: "",
+  purchaseOrder: "",
+  unitType: "",
+  units: "",
+};
+
+const EMPTY_FILTER_VALUE = "__empty__";
 
 const REPORTS: { id: ReportType; label: string; description: string }[] = [
   {
@@ -71,6 +88,7 @@ function InformesPage() {
   const [to, setTo] = useState(today);
   const [periodPreset, setPeriodPreset] = useState<PeriodPreset>("7days");
   const [search, setSearch] = useState("");
+  const [movementFilters, setMovementFilters] = useState<MovementFilters>(EMPTY_MOVEMENT_FILTERS);
   const [exporting, setExporting] = useState(false);
 
   const validPeriod = from <= to;
@@ -191,6 +209,19 @@ function InformesPage() {
   });
 
   const report = REPORTS.find((item) => item.id === reportType) ?? REPORTS[0]!;
+  const movementFilterOptions = useMemo(() => {
+    const uniqueValues = (values: (string | null)[]) =>
+      [...new Set(values.filter((value): value is string => Boolean(value?.trim())))].sort((a, b) =>
+        a.localeCompare(b, "es-CL"),
+      );
+
+    return {
+      documentTypes: uniqueValues(movements.map((movement) => movement.document_type)),
+      purchaseOrders: uniqueValues(movements.map((movement) => movement.purchase_order)),
+      unitTypes: uniqueValues(movements.map((movement) => movement.unit_type)),
+      units: uniqueValues(movements.map((movement) => movement.unit_type_value)),
+    };
+  }, [movements]);
 
   function changePeriodPreset(preset: PeriodPreset) {
     setPeriodPreset(preset);
@@ -486,8 +517,27 @@ function InformesPage() {
 
   const filteredRows = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("es-CL");
-    return term ? rows.filter((row) => row.searchText.includes(term)) : rows;
-  }, [rows, search]);
+    const matches = (cell: string | number, selected: string) =>
+      !selected || (selected === EMPTY_FILTER_VALUE ? cell === "" : String(cell) === selected);
+
+    return rows.filter((row) => {
+      if (term && !row.searchText.includes(term)) return false;
+      if (
+        reportType === "movements" &&
+        (!matches(row.cells[1]!, movementFilters.type) ||
+          !matches(row.cells[9]!, movementFilters.documentType) ||
+          !matches(row.cells[11]!, movementFilters.purchaseOrder) ||
+          !matches(row.cells[12]!, movementFilters.unitType) ||
+          !matches(row.cells[13]!, movementFilters.units))
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [movementFilters, reportType, rows, search]);
+
+  const hasMovementFilters =
+    reportType === "movements" && Object.values(movementFilters).some(Boolean);
 
   const isLoading =
     reportType === "prices" || reportType === "general-inventory"
@@ -730,6 +780,75 @@ function InformesPage() {
               </div>
             </>
           )}
+          {reportType === "movements" && (
+            <>
+              <div>
+                <label className="label" htmlFor="movement-type-filter">
+                  Tipo
+                </label>
+                <select
+                  id="movement-type-filter"
+                  className="input"
+                  value={movementFilters.type}
+                  onChange={(event) =>
+                    setMovementFilters((current) => ({ ...current, type: event.target.value }))
+                  }
+                >
+                  <option value="">Todos</option>
+                  <option value="Entrada">Entrada</option>
+                  <option value="Salida">Salida</option>
+                </select>
+              </div>
+              {(
+                [
+                  ["documentType", "Tipo de documento", movementFilterOptions.documentTypes],
+                  ["purchaseOrder", "Orden de compra", movementFilterOptions.purchaseOrders],
+                  ["unitType", "Tipo de unidad", movementFilterOptions.unitTypes],
+                  ["units", "Unidades", movementFilterOptions.units],
+                ] as const
+              ).map(([key, label, options]) => (
+                <div key={key}>
+                  <label className="label" htmlFor={`movement-${key}-filter`}>
+                    {label}
+                  </label>
+                  <select
+                    id={`movement-${key}-filter`}
+                    className="input"
+                    value={movementFilters[key]}
+                    onChange={(event) =>
+                      setMovementFilters((current) => ({
+                        ...current,
+                        [key]: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">Todos</option>
+                    {options.map((option) => (
+                      <option key={option} value={option}>
+                        {key === "documentType"
+                          ? option === "guia_despacho"
+                            ? "Guía de despacho"
+                            : option === "factura"
+                              ? "Factura"
+                              : option
+                          : option}
+                      </option>
+                    ))}
+                    <option value={EMPTY_FILTER_VALUE}>Sin dato</option>
+                  </select>
+                </div>
+              ))}
+              {hasMovementFilters && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setMovementFilters(EMPTY_MOVEMENT_FILTERS)}
+                >
+                  Limpiar filtros
+                </button>
+              )}
+            </>
+          )}
           <div className="min-w-[220px] flex-1">
             <label className="label" htmlFor="report-search">
               Buscar en el informe
@@ -797,7 +916,9 @@ function InformesPage() {
                 <td colSpan={headers.length} className="py-8 text-center text-muted-foreground">
                   {rows.length === 0
                     ? "No hay datos para este informe."
-                    : "No hay resultados para la búsqueda aplicada."}
+                    : hasMovementFilters
+                      ? "No hay resultados para los filtros aplicados."
+                      : "No hay resultados para la búsqueda aplicada."}
                 </td>
               </tr>
             ) : (
@@ -834,7 +955,7 @@ function InformesPage() {
       <p className="text-right text-xs text-muted-foreground">
         {filteredRows.length.toLocaleString("es-CL")}{" "}
         {filteredRows.length === 1 ? "resultado" : "resultados"}
-        {search.trim() ? " con la búsqueda aplicada" : ""}.
+        {search.trim() || hasMovementFilters ? " con los filtros aplicados" : ""}.
       </p>
     </div>
   );
