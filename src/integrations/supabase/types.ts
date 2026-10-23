@@ -400,6 +400,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      reset_business_data: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
+      };
       archive_product: {
         Args: { p_product_id: string };
         Returns: undefined;

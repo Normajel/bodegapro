@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import type { Json, Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { createManagedUser, updateManagedUser } from "@/lib/user-admin.functions";
+import { resetBusinessData } from "@/lib/data-reset.functions";
 import {
   PERMISSION_ACTIONS,
   PERMISSION_MODULES,
@@ -47,6 +48,9 @@ function ConfiguracionPage() {
   const [editEmail, setEditEmail] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [editRoleId, setEditRoleId] = useState("");
+  const [resetOpen, setResetOpen] = useState(false);
+  const [ownerCode, setOwnerCode] = useState("");
+  const [resetConfirmation, setResetConfirmation] = useState("");
   const [saving, setSaving] = useState(false);
 
   const {
@@ -233,6 +237,32 @@ function ConfiguracionPage() {
     }
   }
 
+  function closeReset() {
+    setResetOpen(false);
+    setOwnerCode("");
+    setResetConfirmation("");
+  }
+
+  async function handleResetBusinessData(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (resetConfirmation !== "REINICIAR") {
+      toast.error('Escribe "REINICIAR" para confirmar el borrado');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await resetBusinessData({ data: { ownerCode } });
+      closeReset();
+      await queryClient.invalidateQueries();
+      toast.success("Datos de la empresa reiniciados. Los usuarios y perfiles se conservaron.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudieron reiniciar los datos");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-5">
       <div>
@@ -396,6 +426,23 @@ function ConfiguracionPage() {
               </tbody>
             </table>
           </section>
+          <section className="card space-y-3 border-destructive/40 p-4">
+            <div>
+              <h2 className="font-semibold text-destructive">Reiniciar datos de la empresa</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Elimina productos, contactos, compras, movimientos e historial operativo. Conserva
+                las cuentas de usuario, los perfiles y sus permisos. Esta acción no se puede
+                deshacer.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary text-destructive"
+              onClick={() => setResetOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" /> Reiniciar datos…
+            </button>
+          </section>
           {editingUser && (
             <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4">
               <form onSubmit={saveUser} className="card w-full max-w-xl space-y-4 p-6">
@@ -493,6 +540,71 @@ function ConfiguracionPage() {
                   <button type="submit" className="btn btn-primary" disabled={saving}>
                     <Save className="h-4 w-4" />
                     {saving ? "Guardando…" : "Guardar cambios"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+          {resetOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4">
+              <form
+                onSubmit={handleResetBusinessData}
+                className="card w-full max-w-lg space-y-4 p-6"
+              >
+                <div>
+                  <h2 className="font-display text-lg font-bold text-destructive">
+                    Confirmar reinicio completo
+                  </h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Se borrarán permanentemente todos los productos, contactos, órdenes de compra,
+                    compras y movimientos. Los usuarios y sus perfiles se mantendrán.
+                  </p>
+                </div>
+                <div>
+                  <label className="label" htmlFor="owner-reset-code">
+                    Código privado (20+ caracteres)
+                  </label>
+                  <input
+                    id="owner-reset-code"
+                    type="password"
+                    className="input"
+                    value={ownerCode}
+                    onChange={(event) => setOwnerCode(event.target.value)}
+                    autoComplete="off"
+                    minLength={20}
+                    maxLength={256}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="reset-confirmation">
+                    Escribe REINICIAR para confirmar
+                  </label>
+                  <input
+                    id="reset-confirmation"
+                    className="input"
+                    value={resetConfirmation}
+                    onChange={(event) => setResetConfirmation(event.target.value)}
+                    autoComplete="off"
+                    required
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={closeReset}
+                    disabled={saving}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={saving || ownerCode.length < 20 || resetConfirmation !== "REINICIAR"}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {saving ? "Reiniciando…" : "Borrar datos"}
                   </button>
                 </div>
               </form>

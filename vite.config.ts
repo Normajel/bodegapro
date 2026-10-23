@@ -5,6 +5,21 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { loadEnv } from "vite";
+
+if (process.argv.some((argument) => argument === "dev" || argument === "serve")) {
+  const localEnv = loadEnv("development", process.cwd(), "");
+  const serverEnvKeys = [
+    "SUPABASE_URL",
+    "SUPABASE_PUBLISHABLE_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "BODEGAPRO_RESET_CODE",
+  ] as const;
+
+  for (const key of serverEnvKeys) {
+    if (!process.env[key] && localEnv[key]) process.env[key] = localEnv[key];
+  }
+}
 
 export default defineConfig({
   vite: {
