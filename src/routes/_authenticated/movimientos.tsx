@@ -12,6 +12,7 @@ import {
   generarComprobanteSalida,
 } from "@/lib/comprobante-pdf";
 import { UNITS } from "@/lib/warehouse";
+import { hasPermission, useAppAccess } from "@/lib/permissions";
 
 export const Route = createFileRoute("/_authenticated/movimientos")({
   head: () => ({
@@ -31,6 +32,7 @@ type FormState = {
   type: "entrada" | "salida";
   quantity: number;
   supplier_id: string;
+  customer_id: string;
   unit_type: string;
   unit_type_value: string;
   document_number: string;
@@ -72,6 +74,7 @@ const emptyForm: FormState = {
   type: "entrada",
   quantity: 1,
   supplier_id: "",
+  customer_id: "",
   unit_type: "stock",
   unit_type_value: "",
   document_number: "",
@@ -123,7 +126,24 @@ function formatMoney(value: number) {
   })}`;
 }
 
+function getMovementErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message;
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  return fallback;
+}
+
 function MovimientosPage() {
+  const access = useAppAccess();
+  const canCreate = hasPermission(access?.name, access?.permissions, "movements", "create");
+  const canEdit = hasPermission(access?.name, access?.permissions, "movements", "edit");
+  const canDelete = hasPermission(access?.name, access?.permissions, "movements", "delete");
   const queryClient = useQueryClient();
   const db = supabase as any;
 
@@ -186,6 +206,16 @@ function MovimientosPage() {
     queryKey: ["suppliers"],
     queryFn: async () => {
       const { data, error } = await supabase.from("suppliers").select("id, name").order("name");
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: customers = [] } = useQuery({
+    queryKey: ["customers"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("customers").select("id, name").order("name");
 
       if (error) throw error;
       return data;
@@ -267,6 +297,7 @@ function MovimientosPage() {
   type Movement = (typeof movements)[number];
 
   function printMovement(m: {
+    id: string;
     folio: number | null;
     type: "entrada" | "salida";
     created_at: string;
@@ -276,6 +307,7 @@ function MovimientosPage() {
     unit_type_value: string | null;
     document_number: string | null;
     supplier_id: string | null;
+    customer_id: string | null;
     reference: string | null;
     notes: string | null;
   }) {
@@ -294,7 +326,7 @@ function MovimientosPage() {
       unit_type_value: m.unit_type_value,
       document_number: m.document_number,
       supplier: suppliers.find((s) => s.id === m.supplier_id)?.name ?? null,
-      master_name: m.reference,
+      master_name: customers.find((customer) => customer.id === m.customer_id)?.name ?? m.reference,
       notes: m.notes,
     });
   }
@@ -318,6 +350,7 @@ function MovimientosPage() {
       type: m.type,
       quantity: m.quantity,
       supplier_id: m.supplier_id ?? "",
+      customer_id: m.customer_id ?? "",
       unit_type: m.unit_type ?? "stock",
       unit_type_value: m.unit_type_value ?? "",
       document_number: m.document_number ?? "",
@@ -519,11 +552,13 @@ function MovimientosPage() {
       setSaving(true);
 
       try {
+        const selectedMaster = customers.find((customer) => customer.id === form.customer_id);
         const { data, error } = await db.rpc("save_movement_batch", {
           payload: {
             type: "salida",
             supplier_id: null,
-            reference: form.reference.trim() || null,
+            customer_id: form.customer_id || null,
+            reference: selectedMaster?.name ?? (form.reference.trim() || null),
             notes: form.notes.trim() || null,
             unit_type: form.unit_type,
             unit_type_value: form.unit_type_value || null,
@@ -561,7 +596,7 @@ function MovimientosPage() {
             unit_type: form.unit_type,
             unit_type_value: form.unit_type_value,
             document_number: form.document_number.trim(),
-            master_name: form.reference.trim(),
+            master_name: selectedMaster?.name ?? form.reference.trim(),
             notes: form.notes.trim(),
             items: validItems.map((item) => {
               const product = products.find((p) => p.id === item.product_id);
@@ -587,7 +622,7 @@ function MovimientosPage() {
           queryClient.invalidateQueries({ queryKey: ["products"] }),
         ]);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Error al registrar la salida");
+        toast.error(getMovementErrorMessage(err, "Error al registrar la salida"));
       } finally {
         setSaving(false);
       }
@@ -844,9 +879,11 @@ function MovimientosPage() {
             </button>
           )}
 
-          <button className="btn btn-primary" onClick={openNew}>
-            <Plus className="h-4 w-4" /> Registrar movimiento
-          </button>
+          {canCreate && (
+            <button className="btn btn-primary" onClick={openNew}>
+              <Plus className="h-4 w-4" /> Registrar movimiento
+            </button>
+          )}
         </div>
       </div>
 
@@ -941,7 +978,7 @@ function MovimientosPage() {
                     <div>
                       {m.type === "entrada"
                         ? m.purchase_order || m.document_number || "—"
-                        : m.reference || "—"}
+                        : m.customers?.name || m.reference || "—"}
                     </div>
                     {m.type === "salida" && m.document_number && (
                       <div className="text-xs">Valor / Número: {m.document_number}</div>
@@ -959,26 +996,28 @@ function MovimientosPage() {
                       >
                         <Printer className="h-4 w-4" />
                       </button>
-
-                      <button
-                        type="button"
-                        className="btn btn-ghost p-1.5"
-                        onClick={() => openEdit(m)}
-                        aria-label="Editar"
-                        title="Editar"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-
-                      <button
-                        type="button"
-                        className="btn btn-ghost p-1.5 text-destructive"
-                        onClick={() => handleDelete(m.id)}
-                        aria-label="Eliminar"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost p-1.5"
+                          onClick={() => openEdit(m)}
+                          aria-label="Editar"
+                          title="Editar"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost p-1.5 text-destructive"
+                          onClick={() => handleDelete(m.id)}
+                          aria-label="Eliminar"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -1430,11 +1469,30 @@ function MovimientosPage() {
 
                     <div>
                       <label className="label">Nombre maestro</label>
-                      <input
+                      <select
                         className="input"
-                        value={form.reference}
-                        onChange={(e) => setForm({ ...form, reference: e.target.value })}
-                      />
+                        value={form.customer_id}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            customer_id: e.target.value,
+                            reference:
+                              customers.find((customer) => customer.id === e.target.value)?.name ??
+                              "",
+                          })
+                        }
+                      >
+                        <option value="">
+                          {form.reference
+                            ? `Maestro anterior: ${form.reference}`
+                            : "Selecciona un maestro…"}
+                        </option>
+                        {customers.map((customer) => (
+                          <option key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 

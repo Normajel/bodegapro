@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES } from "@/lib/warehouse";
+import { hasPermission, useAppAccess } from "@/lib/permissions";
 
 export const Route = createFileRoute("/_authenticated/contactos")({
   head: () => ({
@@ -32,6 +33,10 @@ const EMPTY_FORM = {
 type Kind = "suppliers" | "customers";
 
 function ContactosPage() {
+  const access = useAppAccess();
+  const canCreate = hasPermission(access?.name, access?.permissions, "contacts", "create");
+  const canEdit = hasPermission(access?.name, access?.permissions, "contacts", "edit");
+  const canDelete = hasPermission(access?.name, access?.permissions, "contacts", "delete");
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Kind>("suppliers");
   const [formOpen, setFormOpen] = useState(false);
@@ -139,9 +144,11 @@ function ContactosPage() {
             Proveedores y nombres maestros de la bodega
           </p>
         </div>
-        <button className="btn btn-primary" onClick={openNew}>
-          <Plus className="h-4 w-4" /> Nuevo {tab === "suppliers" ? "proveedor" : "maestro"}
-        </button>
+        {canCreate && (
+          <button className="btn btn-primary" onClick={openNew}>
+            <Plus className="h-4 w-4" /> Nuevo {tab === "suppliers" ? "proveedor" : "maestro"}
+          </button>
+        )}
       </div>
 
       <div className="flex gap-2">
@@ -212,20 +219,24 @@ function ContactosPage() {
                   )}
                   <td>
                     <div className="flex gap-1">
-                      <button
-                        className="btn btn-ghost p-1.5"
-                        onClick={() => openEdit(r)}
-                        aria-label="Editar"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        className="btn btn-ghost p-1.5 text-destructive"
-                        onClick={() => handleDelete(r.id, r.name)}
-                        aria-label="Eliminar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {canEdit && (
+                        <button
+                          className="btn btn-ghost p-1.5"
+                          onClick={() => openEdit(r)}
+                          aria-label="Editar"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          className="btn btn-ghost p-1.5 text-destructive"
+                          onClick={() => handleDelete(r.id, r.name)}
+                          aria-label="Eliminar"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -235,7 +246,7 @@ function ContactosPage() {
         </table>
       </div>
 
-      {formOpen && (
+      {formOpen && (editingId ? canEdit : canCreate) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4">
           <div className="card w-full max-w-md p-6">
             <div className="mb-4 flex items-center justify-between">

@@ -8,6 +8,7 @@ import type { Tables } from "@/integrations/supabase/types";
 import { downloadInventoryWorkbook, readInventoryWorkbook } from "@/lib/warehouse-excel";
 import { validateInventoryImport, type InventoryImportValidation } from "@/lib/warehouse-excel";
 import { CATEGORIES, normalizeCode } from "@/lib/warehouse";
+import { hasPermission, useAppAccess } from "@/lib/permissions";
 
 export const Route = createFileRoute("/_authenticated/productos")({
   head: () => ({
@@ -86,6 +87,10 @@ const EMPTY_FORM: ProductForm = {
 };
 
 function ProductosPage() {
+  const access = useAppAccess();
+  const canCreate = hasPermission(access?.name, access?.permissions, "inventory", "create");
+  const canEdit = hasPermission(access?.name, access?.permissions, "inventory", "edit");
+  const canDelete = hasPermission(access?.name, access?.permissions, "inventory", "delete");
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Product | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -378,7 +383,7 @@ function ProductosPage() {
     }
     setDeletingId(p.id);
     try {
-      const { error } = await supabase.from("products").update({ active: false }).eq("id", p.id);
+      const { error } = await supabase.rpc("archive_product", { p_product_id: p.id });
       if (error) throw error;
       toast.success("Producto quitado del inventario; su historial se conservó");
       await queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -523,26 +528,32 @@ function ProductosPage() {
             <Download className="h-4 w-4" />
             {downloading ? "Preparando…" : "Planilla Excel"}
           </button>
-          <input
-            ref={uploadInputRef}
-            type="file"
-            accept=".xlsx"
-            className="sr-only"
-            onChange={(e) => void handleImport(e)}
-            aria-label="Seleccionar planilla Excel de inventario"
-          />
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => uploadInputRef.current?.click()}
-            disabled={importing || downloading || Boolean(importPreview)}
-          >
-            <FileUp className="h-4 w-4" />
-            {importing ? "Importando…" : "Subir Excel"}
-          </button>
-          <button className="btn btn-primary" onClick={openNew}>
-            <Plus className="h-4 w-4" /> Nuevo producto
-          </button>
+          {canCreate && canEdit && (
+            <>
+              <input
+                ref={uploadInputRef}
+                type="file"
+                accept=".xlsx"
+                className="sr-only"
+                onChange={(e) => void handleImport(e)}
+                aria-label="Seleccionar planilla Excel de inventario"
+              />
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => uploadInputRef.current?.click()}
+                disabled={importing || downloading || Boolean(importPreview)}
+              >
+                <FileUp className="h-4 w-4" />
+                {importing ? "Importando…" : "Subir Excel"}
+              </button>
+            </>
+          )}
+          {canCreate && (
+            <button className="btn btn-primary" onClick={openNew}>
+              <Plus className="h-4 w-4" /> Nuevo producto
+            </button>
+          )}
         </div>
       </div>
 
@@ -654,15 +665,17 @@ function ProductosPage() {
                     </td>
                     <td>
                       <div className="flex gap-1">
-                        <button
-                          className="btn btn-ghost p-1.5"
-                          onClick={() => openEdit(p)}
-                          aria-label={`Editar ${p.name}`}
-                          title="Editar"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        {p.active ? (
+                        {canEdit && (
+                          <button
+                            className="btn btn-ghost p-1.5"
+                            onClick={() => openEdit(p)}
+                            aria-label={`Editar ${p.name}`}
+                            title="Editar"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canDelete && p.active && (
                           <button
                             className="btn btn-ghost p-1.5 text-destructive"
                             onClick={() => void handleDelete(p)}
@@ -672,7 +685,8 @@ function ProductosPage() {
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
-                        ) : (
+                        )}
+                        {canEdit && !p.active && (
                           <button
                             className="btn btn-ghost p-1.5"
                             onClick={() => void handleRestore(p)}
@@ -693,7 +707,7 @@ function ProductosPage() {
         </table>
       </div>
 
-      {formOpen && (
+      {formOpen && (editing ? canEdit : canCreate) && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4"
           role="presentation"

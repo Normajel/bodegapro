@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedComprasRouteImport } from './routes/_authenticated/compras'
+import { Route as AuthenticatedConfiguracionRouteImport } from './routes/_authenticated/configuracion'
 import { Route as AuthenticatedContactosRouteImport } from './routes/_authenticated/contactos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedInformesRouteImport } from './routes/_authenticated/informes'
@@ -38,6 +39,12 @@ const AuthenticatedComprasRoute = AuthenticatedComprasRouteImport.update({
   path: '/compras',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedConfiguracionRoute =
+  AuthenticatedConfiguracionRouteImport.update({
+    id: '/configuracion',
+    path: '/configuracion',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedContactosRoute = AuthenticatedContactosRouteImport.update({
   id: '/contactos',
   path: '/contactos',
@@ -69,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/compras': typeof AuthenticatedComprasRoute
+  '/configuracion': typeof AuthenticatedConfiguracionRoute
   '/contactos': typeof AuthenticatedContactosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/informes': typeof AuthenticatedInformesRoute
@@ -79,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/compras': typeof AuthenticatedComprasRoute
+  '/configuracion': typeof AuthenticatedConfiguracionRoute
   '/contactos': typeof AuthenticatedContactosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/informes': typeof AuthenticatedInformesRoute
@@ -91,6 +100,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/compras': typeof AuthenticatedComprasRoute
+  '/_authenticated/configuracion': typeof AuthenticatedConfiguracionRoute
   '/_authenticated/contactos': typeof AuthenticatedContactosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/informes': typeof AuthenticatedInformesRoute
@@ -103,6 +113,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/compras'
+    | '/configuracion'
     | '/contactos'
     | '/dashboard'
     | '/informes'
@@ -113,6 +124,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/compras'
+    | '/configuracion'
     | '/contactos'
     | '/dashboard'
     | '/informes'
@@ -124,6 +136,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/compras'
+    | '/_authenticated/configuracion'
     | '/_authenticated/contactos'
     | '/_authenticated/dashboard'
     | '/_authenticated/informes'
@@ -167,6 +180,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedComprasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/configuracion': {
+      id: '/_authenticated/configuracion'
+      path: '/configuracion'
+      fullPath: '/configuracion'
+      preLoaderRoute: typeof AuthenticatedConfiguracionRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/contactos': {
       id: '/_authenticated/contactos'
       path: '/contactos'
@@ -207,6 +227,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedComprasRoute: typeof AuthenticatedComprasRoute
+  AuthenticatedConfiguracionRoute: typeof AuthenticatedConfiguracionRoute
   AuthenticatedContactosRoute: typeof AuthenticatedContactosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedInformesRoute: typeof AuthenticatedInformesRoute
@@ -216,6 +237,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedComprasRoute: AuthenticatedComprasRoute,
+  AuthenticatedConfiguracionRoute: AuthenticatedConfiguracionRoute,
   AuthenticatedContactosRoute: AuthenticatedContactosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedInformesRoute: AuthenticatedInformesRoute,

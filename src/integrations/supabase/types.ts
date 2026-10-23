@@ -8,6 +8,33 @@ export type Database = {
   };
   public: {
     Tables: {
+      app_roles: {
+        Row: {
+          created_at: string;
+          id: string;
+          is_system: boolean;
+          name: string;
+          permissions: Json;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          is_system?: boolean;
+          name: string;
+          permissions?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          is_system?: boolean;
+          name?: string;
+          permissions?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       customers: {
         Row: {
           address: string | null;
@@ -195,20 +222,34 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string;
+          email: string | null;
           full_name: string | null;
           id: string;
+          role_id: string | null;
         };
         Insert: {
           created_at?: string;
+          email?: string | null;
           full_name?: string | null;
           id: string;
+          role_id?: string | null;
         };
         Update: {
           created_at?: string;
+          email?: string | null;
           full_name?: string | null;
           id?: string;
+          role_id?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "profiles_role_id_fkey";
+            columns: ["role_id"];
+            isOneToOne: false;
+            referencedRelation: "app_roles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       stock_movements: {
         Row: {
@@ -359,6 +400,18 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      archive_product: {
+        Args: { p_product_id: string };
+        Returns: undefined;
+      };
+      has_app_permission: {
+        Args: { action_name?: string; module_name: string };
+        Returns: boolean;
+      };
+      is_app_admin: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
       save_movement_batch: {
         Args: { edit_batch?: string; edit_id?: string; payload: Json };
         Returns: {

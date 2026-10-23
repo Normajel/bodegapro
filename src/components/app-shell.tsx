@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import {
   LayoutDashboard,
@@ -8,19 +8,22 @@ import {
   ShoppingCart,
   Users,
   FileBarChart,
+  Settings,
   LogOut,
   Menu,
   X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { AppAccessContext, hasPermission } from "@/lib/permissions";
 
 const NAV_ITEMS = [
-  { to: "/dashboard", label: "Panel", icon: LayoutDashboard },
-  { to: "/productos", label: "Inventario", icon: Package },
-  { to: "/movimientos", label: "Movimientos", icon: ArrowLeftRight },
-  { to: "/compras", label: "Compras", icon: ShoppingCart },
-  { to: "/contactos", label: "Contactos", icon: Users },
-  { to: "/informes", label: "Informes", icon: FileBarChart },
+  { to: "/dashboard", label: "Panel", icon: LayoutDashboard, module: "dashboard" },
+  { to: "/productos", label: "Inventario", icon: Package, module: "inventory" },
+  { to: "/movimientos", label: "Movimientos", icon: ArrowLeftRight, module: "movements" },
+  { to: "/compras", label: "Compras", icon: ShoppingCart, module: "purchases" },
+  { to: "/contactos", label: "Contactos", icon: Users, module: "contacts" },
+  { to: "/informes", label: "Informes", icon: FileBarChart, module: "reports" },
+  { to: "/configuracion", label: "Configuración", icon: Settings, module: "settings" },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -28,6 +31,40 @@ export function AppShell({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+  const {
+    data: access,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["current-user-access"],
+    queryFn: async () => {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!user) throw new Error("No se encontró la sesión activa");
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role_id, app_roles(name, permissions)")
+        .eq("id", user.id)
+        .single();
+      if (error) throw error;
+      return data.app_roles;
+    },
+  });
+
+  const visibleNavItems = NAV_ITEMS.filter(({ module }) =>
+    module === "settings"
+      ? access?.name === "ADMIN"
+      : hasPermission(access?.name, access?.permissions, module),
+  );
+  const activeModule = NAV_ITEMS.find(({ to }) => pathname.startsWith(to))?.module;
+  const canViewCurrentPage =
+    activeModule === "settings"
+      ? access?.name === "ADMIN"
+      : !activeModule || hasPermission(access?.name, access?.permissions, activeModule);
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
@@ -38,7 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const nav = (
     <nav className="flex flex-1 flex-col gap-1">
-      {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
+      {visibleNavItems.map(({ to, label, icon: Icon }) => {
         const active = pathname.startsWith(to);
         return (
           <Link
@@ -58,6 +95,30 @@ export function AppShell({ children }: { children: ReactNode }) {
       })}
     </nav>
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+        Cargando permisos…
+      </div>
+    );
+  }
+
+  if (isError || !access) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <div className="card max-w-md space-y-3 p-6 text-center">
+          <h1 className="font-semibold">No se pudo cargar tu perfil</h1>
+          <p className="text-sm text-muted-foreground">
+            Contacta a un administrador para verificar tu usuario y sus permisos.
+          </p>
+          <button className="btn btn-secondary" onClick={handleSignOut}>
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -89,7 +150,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
         {open && (
           <div className="flex flex-col gap-1 border-b border-border bg-sidebar p-3 md:hidden">
-            {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+            {visibleNavItems.map(({ to, label, icon: Icon }) => (
               <Link
                 key={to}
                 to={to}
@@ -109,7 +170,21 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           </div>
         )}
-        <main className="flex-1 p-4 md:p-8">{children}</main>
+        <AppAccessContext.Provider value={access}>
+          <main className="flex-1 p-4 md:p-8">
+            {canViewCurrentPage ? (
+              children
+            ) : (
+              <div className="card mx-auto max-w-xl space-y-2 p-6 text-center">
+                <h1 className="font-semibold">Acceso no habilitado</h1>
+                <p className="text-sm text-muted-foreground">
+                  Tu perfil no tiene permiso para ver esta sección. Contacta a un administrador si
+                  necesitas acceso.
+                </p>
+              </div>
+            )}
+          </main>
+        </AppAccessContext.Provider>
       </div>
     </div>
   );

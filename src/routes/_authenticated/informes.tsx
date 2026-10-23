@@ -28,7 +28,7 @@ const REPORTS: { id: ReportType; label: string; description: string }[] = [
   {
     id: "prices",
     label: "Informe de Precios",
-    description: "Compara las tres últimas compras por producto y proveedor.",
+    description: "Compara fecha, proveedor y precio de las tres últimas compras del período.",
   },
   {
     id: "general-inventory",
@@ -207,10 +207,15 @@ function InformesPage() {
         return [
           "SKU",
           "Descripción",
-          "Proveedor",
           "Cantidad",
+          "Fecha última compra",
+          "Proveedor última compra",
           "Precio última compra",
+          "Fecha penúltima compra",
+          "Proveedor penúltima compra",
           "Precio penúltima compra",
+          "Fecha antepenúltima compra",
+          "Proveedor antepenúltima compra",
           "Precio antepenúltima compra",
         ];
       case "general-inventory":
@@ -303,11 +308,19 @@ function InformesPage() {
             const cells = [
               product.sku,
               product.name,
-              history[0]?.suppliers?.name ?? "",
               Number(product.stock_quantity),
-              ...[0, 1, 2].map((index) =>
-                history[index]?.unit_cost == null ? "" : Number(history[index].unit_cost),
-              ),
+              ...[0, 1, 2].flatMap((index) => {
+                const purchase = history[index];
+                return [
+                  purchase
+                    ? new Date(purchase.created_at).toLocaleDateString("es-CL", {
+                        timeZone: "America/Santiago",
+                      })
+                    : "",
+                  purchase?.suppliers?.name ?? "",
+                  purchase?.unit_cost == null ? "" : Number(purchase.unit_cost),
+                ];
+              }),
             ];
             return {
               id: product.id,
@@ -588,7 +601,7 @@ function InformesPage() {
         width: Math.min(32, Math.max(header.length + 2, index < 2 ? 24 : 18)),
         style: {
           numFmt:
-            (reportType === "prices" && index >= 4) ||
+            (reportType === "prices" && [5, 8, 11].includes(index)) ||
             (reportType === "general-inventory" && index === 9) ||
             (reportType === "inventory" && (index === 5 || index === 6)) ||
             (reportType === "movements" && (index === 6 || index === 7)) ||
@@ -755,7 +768,9 @@ function InformesPage() {
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="table-base min-w-[850px]">
+        <table
+          className={`table-base ${reportType === "prices" ? "min-w-[1450px]" : "min-w-[850px]"}`}
+        >
           <thead>
             <tr>
               {headers.map((header) => (
@@ -791,7 +806,7 @@ function InformesPage() {
                   {row.cells.map((cell, index) => {
                     const isMoney =
                       (reportType === "inventory" && (index === 5 || index === 6)) ||
-                      (reportType === "prices" && index >= 4) ||
+                      (reportType === "prices" && [5, 8, 11].includes(index)) ||
                       (reportType === "general-inventory" && index === 9) ||
                       (reportType === "movements" && (index === 6 || index === 7)) ||
                       (reportType === "pending" && (index === 10 || index === 11));

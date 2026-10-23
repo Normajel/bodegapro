@@ -1,0 +1,508 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { Plus, Save, Trash2, Users, X } from "lucide-react";
+import { toast } from "sonner";
+import type { Json, Tables } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
+import { createManagedUser } from "@/lib/user-admin.functions";
+import {
+  PERMISSION_ACTIONS,
+  PERMISSION_MODULES,
+  parseRolePermissions,
+  type RolePermissions,
+} from "@/lib/permissions";
+
+export const Route = createFileRoute("/_authenticated/configuracion")({
+  head: () => ({
+    meta: [
+      { title: "Configuración — BodegaPro" },
+      { name: "description", content: "Gestiona los usuarios y permisos de BodegaPro." },
+    ],
+  }),
+  component: ConfiguracionPage,
+});
+
+type Role = Tables<"app_roles">;
+type Profile = Tables<"profiles"> & {
+  app_roles: { name: string } | null;
+};
+type Tab = "users" | "roles";
+
+const emptyPermissions: RolePermissions = {};
+
+function ConfiguracionPage() {
+  const queryClient = useQueryClient();
+  const [tab, setTab] = useState<Tab>("users");
+  const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [roleName, setRoleName] = useState("");
+  const [rolePermissions, setRolePermissions] = useState<RolePermissions>(emptyPermissions);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [newUserRoleId, setNewUserRoleId] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const {
+    data: roles = [],
+    isLoading: rolesLoading,
+    isError: rolesError,
+  } = useQuery({
+    queryKey: ["app-roles"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("app_roles").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const {
+    data: profiles = [],
+    isLoading: profilesLoading,
+    isError: profilesError,
+  } = useQuery({
+    queryKey: ["managed-profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, role_id, created_at, app_roles(name)")
+        .order("created_at");
+      if (error) throw error;
+      return data as Profile[];
+    },
+  });
+
+  const selectedRole = roles.find((role) => role.id === selectedRoleId);
+  const selectableRoles = useMemo(() => roles.filter((role) => role.name !== "ADMIN"), [roles]);
+
+  function startNewRole() {
+    setSelectedRoleId("");
+    setEditingRoleId(null);
+    setRoleName("");
+    setRolePermissions({});
+  }
+
+  function startEditRole(role: Role) {
+    setEditingRoleId(role.id);
+    setRoleName(role.name);
+    setRolePermissions(parseRolePermissions(role.permissions));
+  }
+
+  function setPermission(module: string, action: string, enabled: boolean) {
+    setRolePermissions((current) => ({
+      ...current,
+      [module]: {
+        ...current[module],
+        [action]: enabled,
+        ...(action === "view" && !enabled
+          ? { create: false, edit: false, delete: false }
+          : action !== "view" && enabled
+            ? { view: true }
+            : {}),
+      },
+    }));
+  }
+
+  async function saveRole(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedName = roleName.trim().toLocaleUpperCase("es-CL");
+    if (!normalizedName) {
+      toast.error("Escribe el nombre del perfil");
+      return;
+    }
+    if (normalizedName === "ADMIN") {
+      toast.error("El perfil ADMIN está reservado y siempre conserva todos los permisos");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        name: normalizedName,
+        permissions: rolePermissions as Json,
+      };
+      const result = editingRoleId
+        ? await supabase.from("app_roles").update(payload).eq("id", editingRoleId)
+        : await supabase.from("app_roles").insert(payload);
+      if (result.error) throw result.error;
+      toast.success(editingRoleId ? "Perfil actualizado" : "Perfil creado");
+      setEditingRoleId(null);
+      setRoleName("");
+      setRolePermissions({});
+      await queryClient.invalidateQueries({ queryKey: ["app-roles"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar el perfil");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteRole(role: Role) {
+    if (role.is_system) {
+      toast.error("Los perfiles predeterminados no se pueden eliminar");
+      return;
+    }
+    if (!window.confirm(`¿Eliminar el perfil "${role.name}"?`)) return;
+    const { error } = await supabase.from("app_roles").delete().eq("id", role.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Perfil eliminado");
+    if (editingRoleId === role.id) startNewRole();
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["app-roles"] }),
+      queryClient.invalidateQueries({ queryKey: ["managed-profiles"] }),
+    ]);
+  }
+
+  async function assignRole(profile: Profile, roleId: string) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ role_id: roleId })
+      .eq("id", profile.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Perfil actualizado para ${profile.full_name || profile.email || "usuario"}`);
+    await queryClient.invalidateQueries({ queryKey: ["managed-profiles"] });
+  }
+
+  async function addUser(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!newUserRoleId) {
+      toast.error("Selecciona un perfil para el nuevo usuario");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await createManagedUser({
+        data: {
+          email: email.trim(),
+          fullName: fullName.trim(),
+          password,
+          roleId: newUserRoleId,
+        },
+      });
+      toast.success("Usuario creado. Entrégale la contraseña temporal de forma segura.");
+      setFullName("");
+      setEmail("");
+      setPassword("");
+      await queryClient.invalidateQueries({ queryKey: ["managed-profiles"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo crear el usuario");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Configuración</h1>
+        <p className="text-sm text-muted-foreground">
+          Crea usuarios y decide qué secciones y acciones puede usar cada perfil.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          className={`btn ${tab === "users" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setTab("users")}
+        >
+          <Users className="h-4 w-4" /> Usuarios
+        </button>
+        <button
+          className={`btn ${tab === "roles" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setTab("roles")}
+        >
+          Perfiles y permisos
+        </button>
+      </div>
+
+      {tab === "users" ? (
+        <div className="space-y-5">
+          <form onSubmit={addUser} className="card space-y-4 p-4">
+            <h2 className="font-semibold">Crear usuario</h2>
+            {rolesError ? (
+              <p className="text-sm text-destructive">No se pudieron cargar los perfiles.</p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="label" htmlFor="user-full-name">
+                    Nombre
+                  </label>
+                  <input
+                    id="user-full-name"
+                    className="input"
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    maxLength={120}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="user-email">
+                    Correo electrónico
+                  </label>
+                  <input
+                    id="user-email"
+                    type="email"
+                    className="input"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    maxLength={254}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="user-password">
+                    Contraseña temporal
+                  </label>
+                  <input
+                    id="user-password"
+                    type="password"
+                    className="input"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    minLength={10}
+                    autoComplete="new-password"
+                    required
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">Mínimo 10 caracteres.</p>
+                </div>
+                <div>
+                  <label className="label" htmlFor="user-role">
+                    Perfil
+                  </label>
+                  <select
+                    id="user-role"
+                    className="input"
+                    value={newUserRoleId}
+                    onChange={(event) => setNewUserRoleId(event.target.value)}
+                    required
+                    disabled={rolesLoading}
+                  >
+                    <option value="">Selecciona un perfil…</option>
+                    {selectableRoles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+            <button className="btn btn-primary" type="submit" disabled={saving || rolesLoading}>
+              <Plus className="h-4 w-4" /> {saving ? "Creando…" : "Crear usuario"}
+            </button>
+          </form>
+
+          <section className="card overflow-x-auto">
+            <div className="border-b p-4">
+              <h2 className="font-semibold">Usuarios registrados</h2>
+            </div>
+            <table className="table-base min-w-[650px]">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Correo</th>
+                  <th>Perfil asignado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {profilesLoading ? (
+                  <tr>
+                    <td colSpan={3} className="py-6 text-center text-muted-foreground">
+                      Cargando usuarios…
+                    </td>
+                  </tr>
+                ) : profilesError ? (
+                  <tr>
+                    <td colSpan={3} className="py-6 text-center text-destructive">
+                      No se pudieron cargar los usuarios.
+                    </td>
+                  </tr>
+                ) : profiles.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="py-6 text-center text-muted-foreground">
+                      No hay usuarios.
+                    </td>
+                  </tr>
+                ) : (
+                  profiles.map((profile) => (
+                    <tr key={profile.id}>
+                      <td>{profile.full_name || "—"}</td>
+                      <td>{profile.email || "—"}</td>
+                      <td>
+                        {profile.app_roles?.name === "ADMIN" ? (
+                          <span className="badge badge-success">ADMIN</span>
+                        ) : (
+                          <select
+                            className="input max-w-xs"
+                            value={profile.role_id ?? ""}
+                            onChange={(event) => void assignRole(profile, event.target.value)}
+                            aria-label={`Perfil de ${profile.full_name || profile.email || "usuario"}`}
+                          >
+                            {selectableRoles.map((role) => (
+                              <option key={role.id} value={role.id}>
+                                {role.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </section>
+        </div>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+          <section className="card overflow-hidden">
+            <div className="flex items-center justify-between gap-2 border-b p-4">
+              <h2 className="font-semibold">Perfiles disponibles</h2>
+              <button className="btn btn-secondary" type="button" onClick={startNewRole}>
+                <Plus className="h-4 w-4" /> Nuevo perfil
+              </button>
+            </div>
+            {rolesLoading ? (
+              <p className="p-4 text-sm text-muted-foreground">Cargando perfiles…</p>
+            ) : rolesError ? (
+              <p className="p-4 text-sm text-destructive">No se pudieron cargar los perfiles.</p>
+            ) : (
+              <ul className="divide-y">
+                {roles.map((role) => (
+                  <li key={role.id} className="flex items-center justify-between gap-2 p-3">
+                    <button
+                      type="button"
+                      className="flex-1 text-left"
+                      onClick={() => {
+                        setSelectedRoleId(role.id);
+                        startEditRole(role);
+                      }}
+                    >
+                      <span className="font-medium">{role.name}</span>
+                      {role.is_system && (
+                        <span className="ml-2 text-xs text-muted-foreground">Predeterminado</span>
+                      )}
+                    </button>
+                    {role.name !== "ADMIN" && !role.is_system && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost p-1.5 text-destructive"
+                        aria-label={`Eliminar perfil ${role.name}`}
+                        onClick={() => void deleteRole(role)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <form onSubmit={saveRole} className="card space-y-4 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-semibold">
+                {editingRoleId ? "Editar permisos" : "Nuevo perfil"}
+              </h2>
+              {editingRoleId && (
+                <button
+                  type="button"
+                  className="btn btn-ghost p-1.5"
+                  aria-label="Nuevo perfil"
+                  onClick={startNewRole}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div>
+              <label className="label" htmlFor="role-name">
+                Nombre del perfil
+              </label>
+              <input
+                id="role-name"
+                className="input"
+                value={roleName}
+                onChange={(event) => setRoleName(event.target.value)}
+                maxLength={60}
+                disabled={selectedRole?.name === "ADMIN"}
+                required
+              />
+            </div>
+            {selectedRole?.name === "ADMIN" ? (
+              <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                ADMIN siempre conserva acceso total y no se puede modificar.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Selecciona qué puede ver y qué acciones puede realizar este perfil.
+                </p>
+                <div className="overflow-x-auto rounded-md border">
+                  <table className="table-base min-w-[480px]">
+                    <thead>
+                      <tr>
+                        <th>Sección</th>
+                        {PERMISSION_ACTIONS.map((action) => (
+                          <th key={action.key}>{action.label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {PERMISSION_MODULES.map((module) => (
+                        <tr key={module.key}>
+                          <td className="font-medium">{module.label}</td>
+                          {PERMISSION_ACTIONS.map((action) => {
+                            const available = (module.actions as readonly string[]).includes(
+                              action.key,
+                            );
+                            return (
+                              <td key={action.key}>
+                                {available ? (
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 accent-primary"
+                                    checked={rolePermissions[module.key]?.[action.key] === true}
+                                    onChange={(event) =>
+                                      setPermission(module.key, action.key, event.target.checked)
+                                    }
+                                    aria-label={`${action.label} ${module.label}`}
+                                  />
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  El acceso a Configuración y administración de usuarios está reservado a ADMIN.
+                </p>
+              </>
+            )}
+            <button
+              className="btn btn-primary"
+              type="submit"
+              disabled={saving || selectedRole?.name === "ADMIN"}
+            >
+              <Save className="h-4 w-4" /> {saving ? "Guardando…" : "Guardar perfil"}
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}

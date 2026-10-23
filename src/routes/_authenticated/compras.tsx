@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Pencil, Plus, Truck, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { hasPermission, useAppAccess } from "@/lib/permissions";
 
 export const Route = createFileRoute("/_authenticated/compras")({
   head: () => ({
@@ -44,6 +45,10 @@ function newLine(): OrderItemDraft {
 }
 
 function ComprasPage() {
+  const access = useAppAccess();
+  const canCreate = hasPermission(access?.name, access?.permissions, "purchases", "create");
+  const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
+  const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
@@ -289,10 +294,12 @@ function ComprasPage() {
             Órdenes de compra, recepciones y saldos pendientes.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={openNewOrder}>
-          <Plus className="h-4 w-4" />
-          Nueva orden de compra
-        </button>
+        {canCreate && (
+          <button className="btn btn-primary" onClick={openNewOrder}>
+            <Plus className="h-4 w-4" />
+            Nueva orden de compra
+          </button>
+        )}
       </div>
 
       <div className="card overflow-x-auto">
@@ -355,29 +362,33 @@ function ComprasPage() {
                     </td>
                     <td>
                       <div className="flex justify-end gap-1">
-                        {status === "pendiente" && (
+                        {status === "pendiente" && (canEdit || canDelete) && (
                           <>
-                            <button
-                              type="button"
-                              className="btn btn-ghost p-1.5"
-                              aria-label={`Editar ${order.order_number}`}
-                              title="Editar orden"
-                              disabled={saving}
-                              onClick={() => openEditOrder(order.id)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-ghost p-1.5 text-destructive"
-                              disabled={saving}
-                              onClick={() => cancelOrder(order.id, order.order_number)}
-                            >
-                              Anular
-                            </button>
+                            {canEdit && (
+                              <button
+                                type="button"
+                                className="btn btn-ghost p-1.5"
+                                aria-label={`Editar ${order.order_number}`}
+                                title="Editar orden"
+                                disabled={saving}
+                                onClick={() => openEditOrder(order.id)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button
+                                type="button"
+                                className="btn btn-ghost p-1.5 text-destructive"
+                                disabled={saving}
+                                onClick={() => cancelOrder(order.id, order.order_number)}
+                              >
+                                Anular
+                              </button>
+                            )}
                           </>
                         )}
-                        {(status === "pendiente" || status === "parcial") && (
+                        {canEdit && (status === "pendiente" || status === "parcial") && (
                           <button
                             type="button"
                             className="btn btn-secondary"
@@ -398,7 +409,7 @@ function ComprasPage() {
         </table>
       </div>
 
-      {formOpen && (
+      {formOpen && (editingOrderId ? canEdit : canCreate) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4">
           <div className="card my-4 w-full max-w-4xl space-y-4 p-6">
             <div className="flex items-center justify-between">
@@ -566,7 +577,7 @@ function ComprasPage() {
         </div>
       )}
 
-      {receiveOpen && activeOrder && (
+      {receiveOpen && activeOrder && canEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4">
           <div className="card my-4 w-full max-w-3xl space-y-4 p-6">
             <div className="flex items-center justify-between">
