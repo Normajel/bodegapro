@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Plus, Save, Trash2, Users, X } from "lucide-react";
+import { Pencil, Plus, Save, Trash2, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Json, Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
-import { createManagedUser } from "@/lib/user-admin.functions";
+import { createManagedUser, updateManagedUser } from "@/lib/user-admin.functions";
 import {
   PERMISSION_ACTIONS,
   PERMISSION_MODULES,
@@ -42,6 +42,11 @@ function ConfiguracionPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newUserRoleId, setNewUserRoleId] = useState("");
+  const [editingUser, setEditingUser] = useState<Profile | null>(null);
+  const [editFullName, setEditFullName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const [editRoleId, setEditRoleId] = useState("");
   const [saving, setSaving] = useState(false);
 
   const {
@@ -157,17 +162,46 @@ function ConfiguracionPage() {
     ]);
   }
 
-  async function assignRole(profile: Profile, roleId: string) {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ role_id: roleId })
-      .eq("id", profile.id);
-    if (error) {
-      toast.error(error.message);
-      return;
+  function openEditUser(profile: Profile) {
+    setEditingUser(profile);
+    setEditFullName(profile.full_name ?? "");
+    setEditEmail(profile.email ?? "");
+    setEditPassword("");
+    setEditRoleId(profile.role_id ?? "");
+  }
+
+  function closeEditUser() {
+    setEditingUser(null);
+    setEditPassword("");
+  }
+
+  async function saveUser(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingUser) return;
+
+    setSaving(true);
+    try {
+      const result = await updateManagedUser({
+        data: {
+          userId: editingUser.id,
+          email: editEmail.trim(),
+          fullName: editFullName.trim(),
+          ...(editPassword ? { password: editPassword } : {}),
+          ...(editingUser.app_roles?.name === "ADMIN" ? {} : { roleId: editRoleId }),
+        },
+      });
+      toast.success(
+        result.passwordUpdated
+          ? "Usuario actualizado. Entrégale la nueva contraseña temporal de forma segura."
+          : "Usuario actualizado correctamente",
+      );
+      closeEditUser();
+      await queryClient.invalidateQueries({ queryKey: ["managed-profiles"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo actualizar el usuario");
+    } finally {
+      setSaving(false);
     }
-    toast.success(`Perfil actualizado para ${profile.full_name || profile.email || "usuario"}`);
-    await queryClient.invalidateQueries({ queryKey: ["managed-profiles"] });
   }
 
   async function addUser(event: React.FormEvent<HTMLFormElement>) {
@@ -311,24 +345,25 @@ function ConfiguracionPage() {
                   <th>Nombre</th>
                   <th>Correo</th>
                   <th>Perfil asignado</th>
+                  <th className="w-20 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {profilesLoading ? (
                   <tr>
-                    <td colSpan={3} className="py-6 text-center text-muted-foreground">
+                    <td colSpan={4} className="py-6 text-center text-muted-foreground">
                       Cargando usuarios…
                     </td>
                   </tr>
                 ) : profilesError ? (
                   <tr>
-                    <td colSpan={3} className="py-6 text-center text-destructive">
+                    <td colSpan={4} className="py-6 text-center text-destructive">
                       No se pudieron cargar los usuarios.
                     </td>
                   </tr>
                 ) : profiles.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="py-6 text-center text-muted-foreground">
+                    <td colSpan={4} className="py-6 text-center text-muted-foreground">
                       No hay usuarios.
                     </td>
                   </tr>
@@ -338,22 +373,22 @@ function ConfiguracionPage() {
                       <td>{profile.full_name || "—"}</td>
                       <td>{profile.email || "—"}</td>
                       <td>
-                        {profile.app_roles?.name === "ADMIN" ? (
-                          <span className="badge badge-success">ADMIN</span>
-                        ) : (
-                          <select
-                            className="input max-w-xs"
-                            value={profile.role_id ?? ""}
-                            onChange={(event) => void assignRole(profile, event.target.value)}
-                            aria-label={`Perfil de ${profile.full_name || profile.email || "usuario"}`}
-                          >
-                            {selectableRoles.map((role) => (
-                              <option key={role.id} value={role.id}>
-                                {role.name}
-                              </option>
-                            ))}
-                          </select>
-                        )}
+                        <span
+                          className={`badge ${profile.app_roles?.name === "ADMIN" ? "badge-success" : "badge-muted"}`}
+                        >
+                          {profile.app_roles?.name || "Sin perfil"}
+                        </span>
+                      </td>
+                      <td className="text-right">
+                        <button
+                          type="button"
+                          className="btn btn-ghost p-1.5"
+                          aria-label={`Editar usuario ${profile.full_name || profile.email || ""}`}
+                          title="Editar usuario"
+                          onClick={() => openEditUser(profile)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -361,6 +396,108 @@ function ConfiguracionPage() {
               </tbody>
             </table>
           </section>
+          {editingUser && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4">
+              <form onSubmit={saveUser} className="card w-full max-w-xl space-y-4 p-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-display text-lg font-bold">Editar usuario</h2>
+                  <button
+                    type="button"
+                    className="btn btn-ghost p-1.5"
+                    onClick={closeEditUser}
+                    disabled={saving}
+                    aria-label="Cerrar"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="label" htmlFor="edit-user-name">
+                      Nombre
+                    </label>
+                    <input
+                      id="edit-user-name"
+                      className="input"
+                      value={editFullName}
+                      onChange={(event) => setEditFullName(event.target.value)}
+                      maxLength={120}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor="edit-user-email">
+                      Correo electrónico
+                    </label>
+                    <input
+                      id="edit-user-email"
+                      type="email"
+                      className="input"
+                      value={editEmail}
+                      onChange={(event) => setEditEmail(event.target.value)}
+                      maxLength={254}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor="edit-user-password">
+                      Nueva contraseña temporal
+                    </label>
+                    <input
+                      id="edit-user-password"
+                      type="password"
+                      className="input"
+                      value={editPassword}
+                      onChange={(event) => setEditPassword(event.target.value)}
+                      minLength={10}
+                      maxLength={128}
+                      autoComplete="new-password"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Déjala vacía para conservar la contraseña actual.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="label" htmlFor="edit-user-role">
+                      Perfil
+                    </label>
+                    {editingUser.app_roles?.name === "ADMIN" ? (
+                      <p className="input bg-muted">ADMIN (protegido)</p>
+                    ) : (
+                      <select
+                        id="edit-user-role"
+                        className="input"
+                        value={editRoleId}
+                        onChange={(event) => setEditRoleId(event.target.value)}
+                        required
+                      >
+                        <option value="">Selecciona un perfil…</option>
+                        {selectableRoles.map((role) => (
+                          <option key={role.id} value={role.id}>
+                            {role.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={closeEditUser}
+                    disabled={saving}
+                  >
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                    <Save className="h-4 w-4" />
+                    {saving ? "Guardando…" : "Guardar cambios"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
