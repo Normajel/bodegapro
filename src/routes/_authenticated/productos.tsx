@@ -145,7 +145,10 @@ function ProductosPage() {
   } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id, name").order("name");
+      const { data, error } = await supabase
+        .from("supplier_directory")
+        .select("id, name")
+        .order("name");
       if (error) throw error;
       return data;
     },

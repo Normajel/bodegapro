@@ -126,7 +126,7 @@ function InformesPage() {
       const { data, error } = await supabase
         .from("stock_movements")
         .select(
-          "id, product_id, created_at, quantity_value, unit_cost, purchase_order, document_type, document_number, supplier_id, suppliers(name)",
+          "id, product_id, created_at, quantity_value, unit_cost, purchase_order, document_type, document_number, supplier_id",
         )
         .eq("type", "entrada")
         .gte("created_at", santiagoDateTimeIso(from))
@@ -149,7 +149,7 @@ function InformesPage() {
       const { data, error } = await supabase
         .from("stock_movements")
         .select(
-          "id, created_at, type, quantity_value, measure_unit, unit_cost, document_type, document_number, reference, notes, unit_type, unit_type_value, purchase_order, suppliers(name), customers(name), products(name, sku)",
+          "id, created_at, type, quantity_value, measure_unit, unit_cost, document_type, document_number, reference, notes, unit_type, unit_type_value, purchase_order, supplier_id, customer_id, products(name, sku)",
         )
         .gte("created_at", santiagoDateTimeIso(from))
         .lt("created_at", santiagoDateTimeIso(to, 24))
@@ -201,11 +201,29 @@ function InformesPage() {
   } = useQuery({
     queryKey: ["report-suppliers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id, name");
+      const { data, error } = await supabase.from("supplier_directory").select("id, name");
       if (error) throw error;
       return data;
     },
-    enabled: reportType === "pending",
+    enabled:
+      reportType === "pending" ||
+      reportType === "prices" ||
+      reportType === "general-inventory" ||
+      reportType === "movements",
+  });
+
+  const {
+    data: customers = [],
+    isLoading: customersLoading,
+    isError: customersError,
+  } = useQuery({
+    queryKey: ["report-customer-directory"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("customer_directory").select("id, name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: reportType === "movements",
   });
 
   const report = REPORTS.find((item) => item.id === reportType) ?? REPORTS[0]!;
@@ -348,7 +366,7 @@ function InformesPage() {
                         timeZone: "America/Santiago",
                       })
                     : "",
-                  purchase?.suppliers?.name ?? "",
+                  suppliers.find((supplier) => supplier.id === purchase?.supplier_id)?.name ?? "",
                   purchase?.unit_cost == null ? "" : Number(purchase.unit_cost),
                 ];
               }),
@@ -466,7 +484,9 @@ function InformesPage() {
             movement.measure_unit ?? "",
             unitCost,
             movementValue,
-            movement.suppliers?.name ?? movement.customers?.name ?? "",
+            suppliers.find((supplier) => supplier.id === movement.supplier_id)?.name ??
+              customers.find((customer) => customer.id === movement.customer_id)?.name ??
+              "",
             movement.document_type ?? "",
             movement.document_number ?? "",
             movement.purchase_order ?? "",
@@ -513,7 +533,7 @@ function InformesPage() {
           .filter((row) => Number(row.cells[8]) > 0);
       }
     }
-  }, [movements, orderItems, orders, products, purchases, reportType, suppliers]);
+  }, [customers, movements, orderItems, orders, products, purchases, reportType, suppliers]);
 
   const filteredRows = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("es-CL");
@@ -543,7 +563,7 @@ function InformesPage() {
     reportType === "prices" || reportType === "general-inventory"
       ? productsLoading || purchasesLoading
       : reportType === "movements"
-        ? movementsLoading
+        ? movementsLoading || customersLoading || suppliersLoading
         : reportType === "pending"
           ? ordersLoading || orderItemsLoading || productsLoading || suppliersLoading
           : productsLoading;
@@ -551,7 +571,7 @@ function InformesPage() {
     reportType === "prices" || reportType === "general-inventory"
       ? productsError || purchasesError
       : reportType === "movements"
-        ? movementsError
+        ? movementsError || customersError || suppliersError
         : reportType === "pending"
           ? ordersError || orderItemsError || productsError || suppliersError
           : productsError;

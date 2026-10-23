@@ -179,7 +179,7 @@ function MovimientosPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("stock_movements")
-        .select("*, products(name, sku, unit, unit_cost), suppliers(name), customers(name)")
+        .select("*, products(name, sku, unit, unit_cost)")
         .order("created_at", { ascending: false })
         .limit(500);
 
@@ -205,7 +205,10 @@ function MovimientosPage() {
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id, name").order("name");
+      const { data, error } = await supabase
+        .from("supplier_directory")
+        .select("id, name")
+        .order("name");
 
       if (error) throw error;
       return data;
@@ -215,7 +218,10 @@ function MovimientosPage() {
   const { data: customers = [] } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("customers").select("id, name").order("name");
+      const { data, error } = await supabase
+        .from("customer_directory")
+        .select("id, name")
+        .order("name");
 
       if (error) throw error;
       return data;
@@ -963,14 +969,15 @@ function MovimientosPage() {
                         <div>
                           {m.unit_type
                             ? (UNIT_TYPE_LABELS[m.unit_type] ?? m.unit_type)
-                            : (m.customers?.name ?? "—")}
+                            : (customers.find((customer) => customer.id === m.customer_id)?.name ??
+                              "—")}
                         </div>
                         {(m.unit_type_value || m.measure_unit) && (
                           <div className="text-xs">{m.unit_type_value || m.measure_unit}</div>
                         )}
                       </>
                     ) : (
-                      (m.suppliers?.name ?? "—")
+                      (suppliers.find((supplier) => supplier.id === m.supplier_id)?.name ?? "—")
                     )}
                   </td>
 
@@ -978,7 +985,9 @@ function MovimientosPage() {
                     <div>
                       {m.type === "entrada"
                         ? m.purchase_order || m.document_number || "—"
-                        : m.customers?.name || m.reference || "—"}
+                        : customers.find((customer) => customer.id === m.customer_id)?.name ||
+                          m.reference ||
+                          "—"}
                     </div>
                     {m.type === "salida" && m.document_number && (
                       <div className="text-xs">Valor / Número: {m.document_number}</div>

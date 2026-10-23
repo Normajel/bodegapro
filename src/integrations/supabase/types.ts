@@ -397,7 +397,20 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      customer_directory: {
+        Row: {
+          id: string;
+          name: string;
+        };
+        Relationships: [];
+      };
+      supplier_directory: {
+        Row: {
+          id: string;
+          name: string;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       reset_business_data: {
