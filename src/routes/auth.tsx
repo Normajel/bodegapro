@@ -1,7 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Turnstile } from "@marsidev/react-turnstile";
 import { supabase } from "@/integrations/supabase/client";
+
+const turnstileSiteKey = import.meta.env["VITE_TURNSTILE_SITE_KEY"];
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -9,7 +12,10 @@ export const Route = createFileRoute("/auth")({
       { title: "Acceder — BodegaPro" },
       { name: "description", content: "Inicia sesión en BodegaPro para gestionar tu bodega." },
       { property: "og:title", content: "Acceder — BodegaPro" },
-      { property: "og:description", content: "Inicia sesión en BodegaPro para gestionar tu bodega." },
+      {
+        property: "og:description",
+        content: "Inicia sesión en BodegaPro para gestionar tu bodega.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -21,18 +27,32 @@ function AuthPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaInstance, setCaptchaInstance] = useState(0);
+  const [captchaFailed, setCaptchaFailed] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault();
+    if (!turnstileSiteKey || !captchaToken) {
+      toast.error("Completa la verificación de seguridad antes de iniciar sesión.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+        options: { captchaToken },
+      });
       if (error) throw error;
       navigate({ to: "/dashboard" });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Error de autenticación");
+    } catch {
+      toast.error("No se pudo iniciar sesión. Revisa tus datos y la verificación de seguridad.");
     } finally {
+      setCaptchaToken("");
+      setCaptchaInstance((instance) => instance + 1);
       setLoading(false);
     }
   }
@@ -45,37 +65,69 @@ function AuthPage() {
             B
           </div>
           <h1 className="text-2xl font-bold tracking-tight">BodegaPro</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Gestión de bodega para tu equipo
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Gestión de bodega para tu equipo</p>
         </div>
 
         <div className="card p-6">
           <form onSubmit={handleEmail} className="space-y-4">
             <div>
-              <label className="label" htmlFor="email">Correo electrónico</label>
+              <label className="label" htmlFor="email">
+                Correo electrónico
+              </label>
               <input
                 id="email"
                 type="email"
                 className="input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="username"
+                maxLength={254}
                 required
               />
             </div>
             <div>
-              <label className="label" htmlFor="password">Contraseña</label>
+              <label className="label" htmlFor="password">
+                Contraseña
+              </label>
               <input
                 id="password"
                 type="password"
                 className="input"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
+                autoComplete="current-password"
                 required
               />
             </div>
-            <button type="submit" className="btn btn-primary w-full" disabled={loading}>
+            {turnstileSiteKey ? (
+              <Turnstile
+                key={captchaInstance}
+                siteKey={turnstileSiteKey}
+                onSuccess={(token) => {
+                  setCaptchaToken(token);
+                  setCaptchaFailed(false);
+                }}
+                onExpire={() => setCaptchaToken("")}
+                onError={() => {
+                  setCaptchaToken("");
+                  setCaptchaFailed(true);
+                }}
+              />
+            ) : (
+              <p className="text-sm text-destructive">
+                La verificación de seguridad no está configurada. Contacta al administrador.
+              </p>
+            )}
+            {captchaFailed && (
+              <p role="alert" className="text-sm text-destructive">
+                No se pudo cargar la verificación. Comprueba tu conexión e inténtalo nuevamente.
+              </p>
+            )}
+            <button
+              type="submit"
+              className="btn btn-primary w-full"
+              disabled={loading || !turnstileSiteKey || !captchaToken}
+            >
               {loading ? "Cargando…" : "Iniciar sesión"}
             </button>
           </form>

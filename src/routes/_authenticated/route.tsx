@@ -11,6 +11,22 @@ export const Route = createFileRoute("/_authenticated")({
     if (!user) {
       throw redirect({ to: "/auth" });
     }
+
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("app_roles(name)")
+      .eq("id", user.id)
+      .single();
+    if (error) throw error;
+
+    if (profile.app_roles?.name === "ADMIN") {
+      const { data: assurance, error: assuranceError } =
+        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (assuranceError) throw assuranceError;
+      if (assurance.currentLevel !== "aal2") {
+        throw redirect({ to: "/mfa" });
+      }
+    }
   },
   component: AuthenticatedLayout,
 });

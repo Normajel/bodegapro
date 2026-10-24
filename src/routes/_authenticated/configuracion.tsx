@@ -332,11 +332,14 @@ function ConfiguracionPage() {
                     className="input"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    minLength={10}
+                    minLength={12}
                     autoComplete="new-password"
                     required
                   />
-                  <p className="mt-1 text-xs text-muted-foreground">Mínimo 10 caracteres.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Mínimo 12 caracteres. Usa una contraseña única, idealmente generada por un
+                    administrador de contraseñas.
+                  </p>
                 </div>
                 <div>
                   <label className="label" htmlFor="user-role">
@@ -496,7 +499,7 @@ function ConfiguracionPage() {
                       className="input"
                       value={editPassword}
                       onChange={(event) => setEditPassword(event.target.value)}
-                      minLength={10}
+                      minLength={12}
                       maxLength={128}
                       autoComplete="new-password"
                     />

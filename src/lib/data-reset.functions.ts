@@ -36,6 +36,9 @@ export const resetBusinessData = createServerFn({ method: "POST" })
     if (profile.app_roles?.name !== "ADMIN") {
       throw new Error("Solo un usuario ADMIN puede reiniciar los datos");
     }
+    if (context.claims["aal"] !== "aal2") {
+      throw new Error("Se requiere verificar el segundo factor para reiniciar los datos");
+    }
 
     const ownerCode = process.env["BODEGAPRO_RESET_CODE"];
     if (!ownerCode || ownerCode.length < 20) {

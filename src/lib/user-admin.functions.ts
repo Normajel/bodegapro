@@ -5,7 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const createUserSchema = z.object({
   email: z.string().trim().email().max(254),
   fullName: z.string().trim().min(1).max(120),
-  password: z.string().min(10).max(128),
+  password: z.string().min(12).max(128),
   roleId: z.string().uuid(),
 });
 
@@ -13,7 +13,7 @@ const updateUserSchema = z.object({
   userId: z.string().uuid(),
   email: z.string().trim().email().max(254),
   fullName: z.string().trim().min(1).max(120),
-  password: z.string().min(10).max(128).optional(),
+  password: z.string().min(12).max(128).optional(),
   roleId: z.string().uuid().optional(),
 });
 
@@ -31,6 +31,9 @@ export const createManagedUser = createServerFn({ method: "POST" })
       throw new Error(`No se pudo verificar el administrador: ${profileError.message}`);
     if (currentProfile.app_roles?.name !== "ADMIN") {
       throw new Error("Solo un usuario ADMIN puede crear cuentas");
+    }
+    if (context.claims["aal"] !== "aal2") {
+      throw new Error("Se requiere verificar el segundo factor para administrar usuarios");
     }
 
     const { data: role, error: roleError } = await context.supabase
@@ -88,6 +91,9 @@ export const updateManagedUser = createServerFn({ method: "POST" })
       throw new Error(`No se pudo verificar el administrador: ${profileError.message}`);
     if (currentProfile.app_roles?.name !== "ADMIN") {
       throw new Error("Solo un usuario ADMIN puede modificar cuentas");
+    }
+    if (context.claims["aal"] !== "aal2") {
+      throw new Error("Se requiere verificar el segundo factor para administrar usuarios");
     }
 
     const { data: profile, error: targetError } = await context.supabase
