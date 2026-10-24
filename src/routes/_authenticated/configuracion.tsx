@@ -40,11 +40,13 @@ function ConfiguracionPage() {
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>(emptyPermissions);
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
+  const [newUsername, setNewUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newUserRoleId, setNewUserRoleId] = useState("");
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [editFullName, setEditFullName] = useState("");
+  const [editUsername, setEditUsername] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [editRoleId, setEditRoleId] = useState("");
@@ -75,7 +77,7 @@ function ConfiguracionPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, role_id, created_at, app_roles(name)")
+        .select("id, full_name, email, username, role_id, created_at, app_roles(name)")
         .order("created_at");
       if (error) throw error;
       return data as Profile[];
@@ -169,6 +171,7 @@ function ConfiguracionPage() {
   function openEditUser(profile: Profile) {
     setEditingUser(profile);
     setEditFullName(profile.full_name ?? "");
+    setEditUsername(profile.username ?? "");
     setEditEmail(profile.email ?? "");
     setEditPassword("");
     setEditRoleId(profile.role_id ?? "");
@@ -188,6 +191,7 @@ function ConfiguracionPage() {
       const result = await updateManagedUser({
         data: {
           userId: editingUser.id,
+          username: editUsername.trim(),
           email: editEmail.trim(),
           fullName: editFullName.trim(),
           ...(editPassword ? { password: editPassword } : {}),
@@ -219,6 +223,7 @@ function ConfiguracionPage() {
     try {
       await createManagedUser({
         data: {
+          username: newUsername.trim(),
           email: email.trim(),
           fullName: fullName.trim(),
           password,
@@ -227,6 +232,7 @@ function ConfiguracionPage() {
       });
       toast.success("Usuario creado. Entrégale la contraseña temporal de forma segura.");
       setFullName("");
+      setNewUsername("");
       setEmail("");
       setPassword("");
       await queryClient.invalidateQueries({ queryKey: ["managed-profiles"] });
@@ -309,8 +315,25 @@ function ConfiguracionPage() {
                   />
                 </div>
                 <div>
+                  <label className="label" htmlFor="user-username">
+                    Usuario
+                  </label>
+                  <input
+                    id="user-username"
+                    className="input"
+                    value={newUsername}
+                    onChange={(event) => setNewUsername(event.target.value.toLowerCase())}
+                    maxLength={32}
+                    pattern="[a-z0-9][a-z0-9_.\-]{2,31}"
+                    title="3 a 32 caracteres: letras minúsculas, números, _ . -"
+                    autoCapitalize="none"
+                    placeholder="bodega_1"
+                    required
+                  />
+                </div>
+                <div>
                   <label className="label" htmlFor="user-email">
-                    Correo electrónico
+                    Correo (solo recuperación y autenticación)
                   </label>
                   <input
                     id="user-email"
@@ -376,6 +399,7 @@ function ConfiguracionPage() {
               <thead>
                 <tr>
                   <th>Nombre</th>
+                  <th>Usuario</th>
                   <th>Correo</th>
                   <th>Perfil asignado</th>
                   <th className="w-20 text-right">Acciones</th>
@@ -384,19 +408,19 @@ function ConfiguracionPage() {
               <tbody>
                 {profilesLoading ? (
                   <tr>
-                    <td colSpan={4} className="py-6 text-center text-muted-foreground">
+                    <td colSpan={5} className="py-6 text-center text-muted-foreground">
                       Cargando usuarios…
                     </td>
                   </tr>
                 ) : profilesError ? (
                   <tr>
-                    <td colSpan={4} className="py-6 text-center text-destructive">
+                    <td colSpan={5} className="py-6 text-center text-destructive">
                       No se pudieron cargar los usuarios.
                     </td>
                   </tr>
                 ) : profiles.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-6 text-center text-muted-foreground">
+                    <td colSpan={5} className="py-6 text-center text-muted-foreground">
                       No hay usuarios.
                     </td>
                   </tr>
@@ -404,6 +428,7 @@ function ConfiguracionPage() {
                   profiles.map((profile) => (
                     <tr key={profile.id}>
                       <td>{profile.full_name || "—"}</td>
+                      <td className="font-mono">{profile.username || "—"}</td>
                       <td>{profile.email || "—"}</td>
                       <td>
                         <span
@@ -476,8 +501,24 @@ function ConfiguracionPage() {
                     />
                   </div>
                   <div>
+                    <label className="label" htmlFor="edit-user-username">
+                      Usuario
+                    </label>
+                    <input
+                      id="edit-user-username"
+                      className="input"
+                      value={editUsername}
+                      onChange={(event) => setEditUsername(event.target.value.toLowerCase())}
+                      maxLength={32}
+                      pattern="[a-z0-9][a-z0-9_.\-]{2,31}"
+                      title="3 a 32 caracteres: letras minúsculas, números, _ . -"
+                      autoCapitalize="none"
+                      required
+                    />
+                  </div>
+                  <div>
                     <label className="label" htmlFor="edit-user-email">
-                      Correo electrónico
+                      Correo (solo recuperación y autenticación)
                     </label>
                     <input
                       id="edit-user-email"

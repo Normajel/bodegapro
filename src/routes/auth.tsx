@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { supabase } from "@/integrations/supabase/client";
+import { signInWithUsername } from "@/lib/username-login.functions";
 
 const turnstileSiteKey = import.meta.env["VITE_TURNSTILE_SITE_KEY"];
 
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaInstance, setCaptchaInstance] = useState(0);
@@ -41,10 +42,12 @@ function AuthPage() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-        options: { captchaToken },
+      const session = await signInWithUsername({
+        data: { username: username.trim(), password, captchaToken },
+      });
+      const { error } = await supabase.auth.setSession({
+        access_token: session.accessToken,
+        refresh_token: session.refreshToken,
       });
       if (error) throw error;
       navigate({ to: "/dashboard" });
@@ -71,17 +74,19 @@ function AuthPage() {
         <div className="card p-6">
           <form onSubmit={handleEmail} className="space-y-4">
             <div>
-              <label className="label" htmlFor="email">
-                Correo electrónico
+              <label className="label" htmlFor="username">
+                Usuario
               </label>
               <input
-                id="email"
-                type="email"
+                id="username"
+                type="text"
                 className="input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 autoComplete="username"
-                maxLength={254}
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={32}
                 required
               />
             </div>

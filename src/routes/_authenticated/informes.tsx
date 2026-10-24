@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { Download, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Download, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { dateKey, money, santiagoDateTimeIso } from "@/lib/warehouse";
@@ -90,6 +90,8 @@ function InformesPage() {
   const [search, setSearch] = useState("");
   const [movementFilters, setMovementFilters] = useState<MovementFilters>(EMPTY_MOVEMENT_FILTERS);
   const [exporting, setExporting] = useState(false);
+  const [pageSize, setPageSize] = useState<10 | 20>(10);
+  const [page, setPage] = useState(1);
 
   const validPeriod = from <= to;
   const {
@@ -557,6 +559,17 @@ function InformesPage() {
   const hasMovementFilters =
     reportType === "movements" && Object.values(movementFilters).some(Boolean);
 
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = useMemo(
+    () => filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredRows, currentPage, pageSize],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [reportType, search, movementFilters, pageSize, from, to]);
+
   const isLoading =
     reportType === "prices" || reportType === "general-inventory"
       ? productsLoading || purchasesLoading
@@ -940,7 +953,7 @@ function InformesPage() {
                 </td>
               </tr>
             ) : (
-              filteredRows.map((row) => (
+              pageRows.map((row) => (
                 <tr key={row.id}>
                   {row.cells.map((cell, index) => {
                     const isMoney =
@@ -969,6 +982,44 @@ function InformesPage() {
             )}
           </tbody>
         </table>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <label className="flex items-center gap-2">
+          <span className="text-muted-foreground">Filas por página</span>
+          <select
+            className="input w-20"
+            value={pageSize}
+            onChange={(event) => setPageSize(Number(event.target.value) === 20 ? 20 : 10)}
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+          </select>
+        </label>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="btn btn-secondary p-1.5"
+            onClick={() => setPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage <= 1}
+            aria-label="Página anterior"
+            title="Anterior"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-muted-foreground">
+            Página {currentPage} de {totalPages}
+          </span>
+          <button
+            type="button"
+            className="btn btn-secondary p-1.5"
+            onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage >= totalPages}
+            aria-label="Página siguiente"
+            title="Siguiente"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
       <p className="text-right text-xs text-muted-foreground">
         {filteredRows.length.toLocaleString("es-CL")}{" "}

@@ -2,7 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+const usernameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z0-9][a-z0-9_.-]{2,31}$/, "Usuario de 3 a 32 caracteres: letras, números, _ . -");
+
 const createUserSchema = z.object({
+  username: usernameSchema,
   email: z.string().trim().email().max(254),
   fullName: z.string().trim().min(1).max(120),
   password: z.string().min(12).max(128),
@@ -11,6 +18,7 @@ const createUserSchema = z.object({
 
 const updateUserSchema = z.object({
   userId: z.string().uuid(),
+  username: usernameSchema,
   email: z.string().trim().email().max(254),
   fullName: z.string().trim().min(1).max(120),
   password: z.string().min(12).max(128).optional(),
@@ -47,6 +55,13 @@ export const createManagedUser = createServerFn({ method: "POST" })
       throw new Error("No se puede asignar ADMIN desde el alta de usuarios");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: takenUsername } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("username", data.username)
+      .maybeSingle();
+    if (takenUsername) throw new Error("Ese nombre de usuario ya está en uso");
+
     const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
@@ -60,6 +75,7 @@ export const createManagedUser = createServerFn({ method: "POST" })
     const { error: assignError } = await supabaseAdmin
       .from("profiles")
       .update({
+        username: data.username,
         email: data.email,
         full_name: data.fullName,
         role_id: role.id,
@@ -98,7 +114,7 @@ export const updateManagedUser = createServerFn({ method: "POST" })
 
     const { data: profile, error: targetError } = await context.supabase
       .from("profiles")
-      .select("id, full_name, email, role_id, app_roles(name)")
+      .select("id, full_name, email, username, role_id, app_roles(name)")
       .eq("id", data.userId)
       .single();
 
@@ -123,9 +139,18 @@ export const updateManagedUser = createServerFn({ method: "POST" })
     }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: takenUsername } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("username", data.username)
+      .neq("id", data.userId)
+      .maybeSingle();
+    if (takenUsername) throw new Error("Ese nombre de usuario ya está en uso");
+
     const { error: profileUpdateError } = await supabaseAdmin
       .from("profiles")
       .update({
+        username: data.username,
         email: data.email,
         full_name: data.fullName,
         role_id: roleId,
@@ -147,6 +172,7 @@ export const updateManagedUser = createServerFn({ method: "POST" })
       const { error: rollbackError } = await supabaseAdmin
         .from("profiles")
         .update({
+          username: profile.username,
           email: profile.email,
           full_name: profile.full_name,
           role_id: profile.role_id,
