@@ -1684,8 +1684,8 @@ function MovimientosPage() {
       {/* Formulario de movimiento */}
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
-          <div className="card my-2 w-full max-w-4xl p-4 sm:my-4 sm:p-6">
-            <div className="mb-4 flex items-center justify-between">
+          <div className="card my-2 flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col gap-3 overflow-hidden p-4 text-sm sm:my-4 sm:p-5">
+            <div className="flex shrink-0 items-center justify-between">
               <h2 className="font-display text-lg font-bold">
                 {editingId
                   ? editingPurchaseEntryId
@@ -1714,645 +1714,326 @@ function MovimientosPage() {
                 e.preventDefault();
                 save(false);
               }}
-              className="space-y-4"
+              className="flex min-h-0 flex-1 flex-col gap-3"
             >
-              <div className="grid grid-cols-2 gap-2">
-                {(["entrada", "salida"] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    disabled={!!editingId}
-                    className={`btn ${form.type === t ? "btn-primary" : "btn-secondary"}`}
-                    onClick={() => {
-                      setForm({ ...form, type: t });
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-2">
+                  {(["entrada", "salida"] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      disabled={!!editingId}
+                      className={`btn ${form.type === t ? "btn-primary" : "btn-secondary"}`}
+                      onClick={() => {
+                        setForm({ ...form, type: t });
 
-                      if (t === "entrada") {
-                        setPurchaseItems([newPurchaseItem()]);
-                      }
-                    }}
-                  >
-                    {t === "entrada" ? "Entrada" : "Salida"}
-                  </button>
-                ))}
-              </div>
-
-              {isPurchaseForm ? (
-                <>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div>
-                      <label className="label">Proveedor</label>
-                      <select
-                        className="input"
-                        value={form.supplier_id}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            supplier_id: e.target.value,
-                          })
+                        if (t === "entrada") {
+                          setPurchaseItems([newPurchaseItem()]);
                         }
-                      >
-                        <option value="">Sin proveedor</option>
-                        {suppliers.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                      }}
+                    >
+                      {t === "entrada" ? "Entrada" : "Salida"}
+                    </button>
+                  ))}
+                </div>
 
-                    <div>
-                      <label className="label">Orden de compra</label>
-                      <input
-                        className="input"
-                        value={purchaseOrder}
-                        onChange={(e) => setPurchaseOrder(e.target.value)}
-                        placeholder="Número de orden de compra"
-                      />
-                    </div>
+                {isPurchaseForm ? (
+                  <>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div>
+                        <label className="label">Proveedor</label>
+                        <select
+                          className="input"
+                          value={form.supplier_id}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              supplier_id: e.target.value,
+                            })
+                          }
+                        >
+                          <option value="">Sin proveedor</option>
+                          {suppliers.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                    <div>
-                      <label className="label">Tipo de documento *</label>
-                      <select
-                        className="input"
-                        value={documentType}
-                        onChange={(e) =>
-                          setDocumentType(e.target.value as "factura" | "guia_despacho")
-                        }
-                      >
-                        <option value="factura">Factura</option>
-                        <option value="guia_despacho">Guía de despacho</option>
-                      </select>
-                    </div>
+                      <div>
+                        <label className="label">Orden de compra</label>
+                        <input
+                          className="input"
+                          value={purchaseOrder}
+                          onChange={(e) => setPurchaseOrder(e.target.value)}
+                          placeholder="Número de orden de compra"
+                        />
+                      </div>
 
-                    <div>
-                      <label className="label">Número de documento *</label>
-                      <input
-                        className="input"
-                        value={documentNumber}
-                        onChange={(e) => setDocumentNumber(e.target.value)}
-                        placeholder="Número de factura o guía"
-                        required
-                      />
-                    </div>
-                  </div>
+                      <div>
+                        <label className="label">Tipo de documento *</label>
+                        <select
+                          className="input"
+                          value={documentType}
+                          onChange={(e) =>
+                            setDocumentType(e.target.value as "factura" | "guia_despacho")
+                          }
+                        >
+                          <option value="factura">Factura</option>
+                          <option value="guia_despacho">Guía de despacho</option>
+                        </select>
+                      </div>
 
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="font-semibold">Productos de la compra</h3>
-
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => setPurchaseItems((items) => [...items, newPurchaseItem()])}
-                      >
-                        <Plus className="h-4 w-4" />
-                        Agregar producto
-                      </button>
-                    </div>
-
-                    {purchaseItems.map((item, index) => {
-                      const matches = products
-                        .filter((p) => {
-                          const term = item.search.trim().toLowerCase();
-
-                          if (!term) return false;
-
-                          return (
-                            p.name.toLowerCase().includes(term) ||
-                            (p.sku ?? "").toLowerCase().includes(term)
-                          );
-                        })
-                        .slice(0, 8);
-
-                      const history = item.product_id
-                        ? (pricesByProduct[item.product_id] ?? [])
-                        : [];
-
-                      return (
-                        <div key={item.key} className="space-y-3 rounded-lg border p-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold">Producto {index + 1}</span>
-
-                            <button
-                              type="button"
-                              className="btn btn-ghost p-1.5 text-destructive"
-                              onClick={() => removePurchaseItem(item.key)}
-                              aria-label="Quitar producto"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-
-                          <div className="relative">
-                            <label className="label">Descripción *</label>
-
-                            <input
-                              className="input"
-                              value={item.search}
-                              placeholder="Escribe para buscar un producto..."
-                              onChange={(e) =>
-                                updatePurchaseItem(item.key, {
-                                  search: e.target.value,
-                                  product_id: "",
-                                  unit_price: 0,
-                                })
-                              }
-                              autoComplete="off"
-                            />
-
-                            {!item.product_id && matches.length > 0 && (
-                              <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-background shadow-lg">
-                                {matches.map((p) => (
-                                  <button
-                                    key={p.id}
-                                    type="button"
-                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
-                                    onClick={() => selectProduct(item.key, p.id)}
-                                  >
-                                    <span className="font-medium">{p.name}</span>
-
-                                    <span className="block text-xs text-muted-foreground">
-                                      SKU: {p.sku || "—"} · Stock: {p.stock ?? 0} {p.unit ?? ""}
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-
-                            {!item.product_id &&
-                              item.search.trim() !== "" &&
-                              matches.length === 0 && (
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  No se encontraron productos con esa descripción.
-                                </p>
-                              )}
-                          </div>
-
-                          {item.product_id && (
-                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                              <div>
-                                <label className="label">Cantidad *</label>
-                                <input
-                                  className="input"
-                                  type="number"
-                                  min="0.001"
-                                  step="0.001"
-                                  value={item.quantity}
-                                  onChange={(e) =>
-                                    updatePurchaseItem(item.key, {
-                                      quantity: Number(e.target.value),
-                                    })
-                                  }
-                                  required
-                                />
-                              </div>
-
-                              <div>
-                                <label className="label">Unidad de medida *</label>
-                                <input
-                                  className="input"
-                                  value={item.unit}
-                                  onChange={(e) =>
-                                    updatePurchaseItem(item.key, {
-                                      unit: e.target.value,
-                                    })
-                                  }
-                                  placeholder="Ej. unidad, caja, litro"
-                                  required
-                                />
-                              </div>
-
-                              <div>
-                                <label className="label">Precio unitario *</label>
-                                <input
-                                  className="input"
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={item.unit_price}
-                                  onChange={(e) =>
-                                    updatePurchaseItem(item.key, {
-                                      unit_price: Number(e.target.value),
-                                    })
-                                  }
-                                  required
-                                />
-                              </div>
-                            </div>
-                          )}
-
-                          {item.product_id && (
-                            <div className="rounded-md bg-muted/50 p-3">
-                              <p className="mb-2 text-sm font-semibold">Historial de precios</p>
-
-                              {history.length > 0 ? (
-                                <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-                                  {history.map((price, priceIndex) => (
-                                    <span key={`${price.created_at}-${priceIndex}`}>
-                                      <span className="text-muted-foreground">
-                                        {priceIndex === 0
-                                          ? "Último"
-                                          : priceIndex === 1
-                                            ? "Anterior"
-                                            : "Hace 2 compras"}
-                                        :
-                                      </span>{" "}
-                                      <strong>{formatMoney(price.unit_price)}</strong>
-                                      <span className="text-muted-foreground">
-                                        {" "}
-                                        ({new Date(price.created_at).toLocaleDateString("es-CL")})
-                                      </span>
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">
-                                  No hay compras anteriores registradas para este producto.
-                                </p>
-                              )}
-
-                              <p className="mt-2 text-sm">
-                                Subtotal:{" "}
-                                <strong>{formatMoney(item.quantity * item.unit_price)}</strong>
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    <div className="flex justify-end rounded-lg border p-3">
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Total de la compra</p>
-                        <p className="text-xl font-bold">{formatMoney(purchaseTotal)}</p>
+                      <div>
+                        <label className="label">Número de documento *</label>
+                        <input
+                          className="input"
+                          value={documentNumber}
+                          onChange={(e) => setDocumentNumber(e.target.value)}
+                          placeholder="Número de factura o guía"
+                          required
+                        />
                       </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="label">Observaciones</label>
-                    <textarea
-                      className="input"
-                      rows={2}
-                      value={form.notes}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                      placeholder="Observaciones de la compra"
-                    />
-                  </div>
-                </>
-              ) : form.type === "salida" ? (
-                <>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <div>
-                      <label className="label">Tipo de unidad *</label>
-                      <select
-                        className="input"
-                        value={form.unit_type}
-                        onChange={(e) => setForm({ ...form, unit_type: e.target.value })}
-                      >
-                        {Object.entries(UNIT_TYPE_LABELS).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="font-semibold">Productos de la compra</h3>
 
-                    <div>
-                      <label className="label">Valor / Número</label>
-                      <input
-                        className="input"
-                        value={form.document_number}
-                        onChange={(e) => setForm({ ...form, document_number: e.target.value })}
-                      />
-                    </div>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => setPurchaseItems((items) => [...items, newPurchaseItem()])}
+                        >
+                          <Plus className="h-4 w-4" />
+                          Agregar producto
+                        </button>
+                      </div>
 
-                    <div>
-                      <label className="label">UNIDADES</label>
-                      <select
-                        className="input"
-                        value={form.unit_type_value}
-                        onChange={(e) => setForm({ ...form, unit_type_value: e.target.value })}
-                      >
-                        <option value="">Selecciona una unidad…</option>
-                        {UNIDADES.map((unit) => (
-                          <option key={unit} value={unit}>
-                            {unit}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                      {purchaseItems.map((item, index) => {
+                        const matches = products
+                          .filter((p) => {
+                            const term = item.search.trim().toLowerCase();
 
-                    <div>
-                      <label className="label">Nombre maestro</label>
-                      <select
-                        className="input"
-                        value={form.customer_id}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            customer_id: e.target.value,
-                            reference:
-                              customers.find((customer) => customer.id === e.target.value)?.name ??
-                              "",
+                            if (!term) return false;
+
+                            return (
+                              p.name.toLowerCase().includes(term) ||
+                              (p.sku ?? "").toLowerCase().includes(term)
+                            );
                           })
-                        }
-                      >
-                        <option value="">
-                          {form.reference
-                            ? `Maestro anterior: ${form.reference}`
-                            : "Selecciona un maestro…"}
-                        </option>
-                        {customers.map((customer) => (
-                          <option key={customer.id} value={customer.id}>
-                            {customer.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+                          .slice(0, 8);
 
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="font-semibold">Productos de la salida</h3>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => setPurchaseItems((items) => [...items, newPurchaseItem()])}
-                      >
-                        <Plus className="h-4 w-4" />
-                        Agregar producto
-                      </button>
-                    </div>
+                        const history = item.product_id
+                          ? (pricesByProduct[item.product_id] ?? [])
+                          : [];
 
-                    {purchaseItems.map((item, index) => {
-                      const term = item.search.trim().toLowerCase();
-                      const matches = products
-                        .filter(
-                          (product) =>
-                            term &&
-                            (product.name.toLowerCase().includes(term) ||
-                              (product.sku ?? "").toLowerCase().includes(term)),
-                        )
-                        .slice(0, 8);
-                      const isListedUnit = UNITS.includes(item.unit as (typeof UNITS)[number]);
-                      const useCustomUnit = item.unitIsOther || !isListedUnit;
+                        return (
+                          <div key={item.key} className="space-y-2 rounded-lg border p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold">Producto {index + 1}</span>
 
-                      return (
-                        <div key={item.key} className="space-y-3 rounded-lg border p-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold">Producto {index + 1}</span>
-                            <button
-                              type="button"
-                              className="btn btn-ghost p-1.5 text-destructive"
-                              onClick={() => removePurchaseItem(item.key)}
-                              aria-label={`Quitar producto ${index + 1}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
+                              <button
+                                type="button"
+                                className="btn btn-ghost p-1.5 text-destructive"
+                                onClick={() => removePurchaseItem(item.key)}
+                                aria-label="Quitar producto"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
 
-                          <div className="relative">
-                            <label className="label">Descripción *</label>
-                            <input
-                              className="input"
-                              value={item.search}
-                              placeholder="Escribe para buscar un producto..."
-                              autoComplete="off"
-                              onChange={(e) =>
-                                updatePurchaseItem(item.key, {
-                                  search: e.target.value,
-                                  product_id: "",
-                                  unit_price: 0,
-                                })
-                              }
-                            />
-                            {!item.product_id && matches.length > 0 && (
-                              <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-background shadow-lg">
-                                {matches.map((product) => (
-                                  <button
-                                    key={product.id}
-                                    type="button"
-                                    className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
-                                    onClick={() => selectProduct(item.key, product.id)}
-                                  >
-                                    <span className="font-medium">{product.name}</span>
-                                    <span className="block text-xs text-muted-foreground">
-                                      SKU: {product.sku || "—"} · Stock: {product.stock ?? 0}{" "}
-                                      {product.unit ?? ""}
-                                    </span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                            {item.product_id && (
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                SKU:{" "}
-                                {products.find((product) => product.id === item.product_id)?.sku ??
-                                  "—"}
-                              </p>
-                            )}
-                          </div>
+                            <div className="relative">
+                              <label className="label">Descripción *</label>
 
-                          {item.product_id && (
-                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                              <div>
-                                <label className="label">Cantidad *</label>
-                                <input
-                                  className="input"
-                                  type="number"
-                                  min="0.001"
-                                  step="0.001"
-                                  value={item.quantity}
-                                  onChange={(e) =>
-                                    updatePurchaseItem(item.key, {
-                                      quantity: Number(e.target.value),
-                                    })
-                                  }
-                                  required
-                                />
-                              </div>
+                              <input
+                                className="input"
+                                value={item.search}
+                                placeholder="Escribe para buscar un producto..."
+                                onChange={(e) =>
+                                  updatePurchaseItem(item.key, {
+                                    search: e.target.value,
+                                    product_id: "",
+                                    unit_price: 0,
+                                  })
+                                }
+                                autoComplete="off"
+                              />
 
-                              <div>
-                                <label className="label">Unidad de medida *</label>
-                                <select
-                                  className="input"
-                                  value={useCustomUnit ? "Otra" : item.unit}
-                                  onChange={(e) => {
-                                    if (e.target.value === "Otra") {
-                                      updatePurchaseItem(item.key, { unitIsOther: true });
-                                    } else {
-                                      updatePurchaseItem(item.key, {
-                                        unit: e.target.value,
-                                        unitIsOther: false,
-                                      });
-                                    }
-                                  }}
-                                >
-                                  {UNITS.map((unit) => (
-                                    <option key={unit} value={unit}>
-                                      {unit}
-                                    </option>
+                              {!item.product_id && matches.length > 0 && (
+                                <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-background shadow-lg">
+                                  {matches.map((p) => (
+                                    <button
+                                      key={p.id}
+                                      type="button"
+                                      className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                                      onClick={() => selectProduct(item.key, p.id)}
+                                    >
+                                      <span className="font-medium">{p.name}</span>
+
+                                      <span className="block text-xs text-muted-foreground">
+                                        SKU: {p.sku || "—"} · Stock: {p.stock ?? 0} {p.unit ?? ""}
+                                      </span>
+                                    </button>
                                   ))}
-                                  <option value="Otra">Otra...</option>
-                                </select>
-                                {useCustomUnit && (
+                                </div>
+                              )}
+
+                              {!item.product_id &&
+                                item.search.trim() !== "" &&
+                                matches.length === 0 && (
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    No se encontraron productos con esa descripción.
+                                  </p>
+                                )}
+                            </div>
+
+                            {item.product_id && (
+                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                <div>
+                                  <label className="label">Cantidad *</label>
                                   <input
-                                    className="input mt-1"
-                                    value={item.unit}
-                                    placeholder="Escribe la unidad"
+                                    className="input"
+                                    type="number"
+                                    min="0.001"
+                                    step="0.001"
+                                    value={item.quantity}
                                     onChange={(e) =>
                                       updatePurchaseItem(item.key, {
-                                        unit: e.target.value,
-                                        unitIsOther: true,
+                                        quantity: Number(e.target.value),
                                       })
                                     }
                                     required
                                   />
+                                </div>
+
+                                <div>
+                                  <label className="label">Unidad de medida *</label>
+                                  <input
+                                    className="input"
+                                    value={item.unit}
+                                    onChange={(e) =>
+                                      updatePurchaseItem(item.key, {
+                                        unit: e.target.value,
+                                      })
+                                    }
+                                    placeholder="Ej. unidad, caja, litro"
+                                    required
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="label">Precio unitario *</label>
+                                  <input
+                                    className="input"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={item.unit_price}
+                                    onChange={(e) =>
+                                      updatePurchaseItem(item.key, {
+                                        unit_price: Number(e.target.value),
+                                      })
+                                    }
+                                    required
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {item.product_id && (
+                              <div className="rounded-md bg-muted/50 p-3">
+                                <p className="mb-2 text-sm font-semibold">Historial de precios</p>
+
+                                {history.length > 0 ? (
+                                  <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                                    {history.map((price, priceIndex) => (
+                                      <span key={`${price.created_at}-${priceIndex}`}>
+                                        <span className="text-muted-foreground">
+                                          {priceIndex === 0
+                                            ? "Último"
+                                            : priceIndex === 1
+                                              ? "Anterior"
+                                              : "Hace 2 compras"}
+                                          :
+                                        </span>{" "}
+                                        <strong>{formatMoney(price.unit_price)}</strong>
+                                        <span className="text-muted-foreground">
+                                          {" "}
+                                          ({new Date(price.created_at).toLocaleDateString("es-CL")})
+                                        </span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">
+                                    No hay compras anteriores registradas para este producto.
+                                  </p>
                                 )}
-                              </div>
 
-                              <div>
-                                <label className="label">Costo unitario *</label>
-                                <input
-                                  className="input"
-                                  type="number"
-                                  min="0"
-                                  step="1"
-                                  value={item.unit_price}
-                                  onChange={(e) =>
-                                    updatePurchaseItem(item.key, {
-                                      unit_price: Number(e.target.value),
-                                    })
-                                  }
-                                  required
-                                />
-                              </div>
-
-                              <div className="flex flex-col justify-end">
-                                <span className="label">Total</span>
-                                <p className="py-2 font-semibold">
-                                  {formatMoney(item.quantity * item.unit_price)}
+                                <p className="mt-2 text-sm">
+                                  Subtotal:{" "}
+                                  <strong>{formatMoney(item.quantity * item.unit_price)}</strong>
                                 </p>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                            )}
+                          </div>
+                        );
+                      })}
 
-                    <div className="flex justify-end rounded-lg border p-3">
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Total de la salida</p>
-                        <p className="text-xl font-bold">{formatMoney(exitTotal)}</p>
+                      <div className="flex justify-end rounded-lg border p-3">
+                        <div className="text-right">
+                          <p className="text-sm text-muted-foreground">Total de la compra</p>
+                          <p className="text-xl font-bold">{formatMoney(purchaseTotal)}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="label">Observaciones</label>
-                    <textarea
-                      className="input"
-                      rows={2}
-                      value={form.notes}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <label className="label">Producto *</label>
-                    <select
-                      className="input"
-                      value={form.product_id}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          product_id: e.target.value,
-                        })
-                      }
-                      required
-                    >
-                      <option value="">Selecciona un producto…</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.sku}) — stock: {p.stock}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="label">Cantidad *</label>
-                    <input
-                      type="number"
-                      min={1}
-                      className="input"
-                      value={form.quantity}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          quantity: Number(e.target.value),
-                        })
-                      }
-                      required
-                    />
-                  </div>
-
-                  {form.type === "entrada" ? (
                     <div>
-                      <label className="label">Proveedor</label>
-                      <select
+                      <label className="label">Observaciones</label>
+                      <textarea
                         className="input"
-                        value={form.supplier_id}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            supplier_id: e.target.value,
-                          })
-                        }
-                      >
-                        <option value="">Sin proveedor</option>
-                        {suppliers.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
+                        rows={2}
+                        value={form.notes}
+                        onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                        placeholder="Observaciones de la compra"
+                      />
                     </div>
-                  ) : (
-                    <>
+                  </>
+                ) : form.type === "salida" ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
                       <div>
                         <label className="label">Tipo de unidad *</label>
                         <select
                           className="input"
                           value={form.unit_type}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              unit_type: e.target.value,
-                            })
-                          }
+                          onChange={(e) => setForm({ ...form, unit_type: e.target.value })}
                         >
-                          {Object.entries(UNIT_TYPE_LABELS).map(([v, l]) => (
-                            <option key={v} value={v}>
-                              {l}
+                          {Object.entries(UNIT_TYPE_LABELS).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
                             </option>
                           ))}
                         </select>
                       </div>
+
+                      <div>
+                        <label className="label">Valor / Número</label>
+                        <input
+                          className="input"
+                          value={form.document_number}
+                          onChange={(e) => setForm({ ...form, document_number: e.target.value })}
+                        />
+                      </div>
+
                       <div>
                         <label className="label">UNIDADES</label>
                         <select
                           className="input"
                           value={form.unit_type_value}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              unit_type_value: e.target.value,
-                            })
-                          }
+                          onChange={(e) => setForm({ ...form, unit_type_value: e.target.value })}
                         >
                           <option value="">Selecciona una unidad…</option>
                           {UNIDADES.map((unit) => (
@@ -2362,22 +2043,343 @@ function MovimientosPage() {
                           ))}
                         </select>
                       </div>
-                    </>
-                  )}
 
-                  <div>
-                    <label className="label">Observaciones</label>
-                    <textarea
-                      className="input"
-                      rows={2}
-                      value={form.notes}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    />
-                  </div>
-                </>
-              )}
+                      <div>
+                        <label className="label">Nombre maestro</label>
+                        <select
+                          className="input"
+                          value={form.customer_id}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              customer_id: e.target.value,
+                              reference:
+                                customers.find((customer) => customer.id === e.target.value)
+                                  ?.name ?? "",
+                            })
+                          }
+                        >
+                          <option value="">
+                            {form.reference
+                              ? `Maestro anterior: ${form.reference}`
+                              : "Selecciona un maestro…"}
+                          </option>
+                          {customers.map((customer) => (
+                            <option key={customer.id} value={customer.id}>
+                              {customer.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
 
-              <div className="flex flex-wrap justify-end gap-2 pt-2">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="font-semibold">Productos de la salida</h3>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => setPurchaseItems((items) => [...items, newPurchaseItem()])}
+                        >
+                          <Plus className="h-4 w-4" />
+                          Agregar producto
+                        </button>
+                      </div>
+
+                      {purchaseItems.map((item, index) => {
+                        const term = item.search.trim().toLowerCase();
+                        const matches = products
+                          .filter(
+                            (product) =>
+                              term &&
+                              (product.name.toLowerCase().includes(term) ||
+                                (product.sku ?? "").toLowerCase().includes(term)),
+                          )
+                          .slice(0, 8);
+                        const isListedUnit = UNITS.includes(item.unit as (typeof UNITS)[number]);
+                        const useCustomUnit = item.unitIsOther || !isListedUnit;
+
+                        return (
+                          <div key={item.key} className="space-y-2 rounded-lg border p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold">Producto {index + 1}</span>
+                              <button
+                                type="button"
+                                className="btn btn-ghost p-1.5 text-destructive"
+                                onClick={() => removePurchaseItem(item.key)}
+                                aria-label={`Quitar producto ${index + 1}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+
+                            <div className="relative">
+                              <label className="label">Descripción *</label>
+                              <input
+                                className="input"
+                                value={item.search}
+                                placeholder="Escribe para buscar un producto..."
+                                autoComplete="off"
+                                onChange={(e) =>
+                                  updatePurchaseItem(item.key, {
+                                    search: e.target.value,
+                                    product_id: "",
+                                    unit_price: 0,
+                                  })
+                                }
+                              />
+                              {!item.product_id && matches.length > 0 && (
+                                <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-background shadow-lg">
+                                  {matches.map((product) => (
+                                    <button
+                                      key={product.id}
+                                      type="button"
+                                      className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                                      onClick={() => selectProduct(item.key, product.id)}
+                                    >
+                                      <span className="font-medium">{product.name}</span>
+                                      <span className="block text-xs text-muted-foreground">
+                                        SKU: {product.sku || "—"} · Stock: {product.stock ?? 0}{" "}
+                                        {product.unit ?? ""}
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              {item.product_id && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  SKU:{" "}
+                                  {products.find((product) => product.id === item.product_id)
+                                    ?.sku ?? "—"}
+                                </p>
+                              )}
+                            </div>
+
+                            {item.product_id && (
+                              <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                                <div>
+                                  <label className="label">Cantidad *</label>
+                                  <input
+                                    className="input"
+                                    type="number"
+                                    min="0.001"
+                                    step="0.001"
+                                    value={item.quantity}
+                                    onChange={(e) =>
+                                      updatePurchaseItem(item.key, {
+                                        quantity: Number(e.target.value),
+                                      })
+                                    }
+                                    required
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="label">Unidad de medida *</label>
+                                  <select
+                                    className="input"
+                                    value={useCustomUnit ? "Otra" : item.unit}
+                                    onChange={(e) => {
+                                      if (e.target.value === "Otra") {
+                                        updatePurchaseItem(item.key, { unitIsOther: true });
+                                      } else {
+                                        updatePurchaseItem(item.key, {
+                                          unit: e.target.value,
+                                          unitIsOther: false,
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    {UNITS.map((unit) => (
+                                      <option key={unit} value={unit}>
+                                        {unit}
+                                      </option>
+                                    ))}
+                                    <option value="Otra">Otra...</option>
+                                  </select>
+                                  {useCustomUnit && (
+                                    <input
+                                      className="input mt-1"
+                                      value={item.unit}
+                                      placeholder="Escribe la unidad"
+                                      onChange={(e) =>
+                                        updatePurchaseItem(item.key, {
+                                          unit: e.target.value,
+                                          unitIsOther: true,
+                                        })
+                                      }
+                                      required
+                                    />
+                                  )}
+                                </div>
+
+                                <div>
+                                  <label className="label">Costo unitario *</label>
+                                  <input
+                                    className="input"
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={item.unit_price}
+                                    onChange={(e) =>
+                                      updatePurchaseItem(item.key, {
+                                        unit_price: Number(e.target.value),
+                                      })
+                                    }
+                                    required
+                                  />
+                                </div>
+
+                                <div className="flex flex-col justify-end">
+                                  <span className="label">Total</span>
+                                  <p className="py-2 font-semibold">
+                                    {formatMoney(item.quantity * item.unit_price)}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      <div className="flex justify-end rounded-lg border p-3">
+                        <div className="text-right">
+                          <p className="text-sm text-muted-foreground">Total de la salida</p>
+                          <p className="text-xl font-bold">{formatMoney(exitTotal)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="label">Observaciones</label>
+                      <textarea
+                        className="input"
+                        rows={2}
+                        value={form.notes}
+                        onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="label">Producto *</label>
+                      <select
+                        className="input"
+                        value={form.product_id}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            product_id: e.target.value,
+                          })
+                        }
+                        required
+                      >
+                        <option value="">Selecciona un producto…</option>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({p.sku}) — stock: {p.stock}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="label">Cantidad *</label>
+                      <input
+                        type="number"
+                        min={1}
+                        className="input"
+                        value={form.quantity}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            quantity: Number(e.target.value),
+                          })
+                        }
+                        required
+                      />
+                    </div>
+
+                    {form.type === "entrada" ? (
+                      <div>
+                        <label className="label">Proveedor</label>
+                        <select
+                          className="input"
+                          value={form.supplier_id}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              supplier_id: e.target.value,
+                            })
+                          }
+                        >
+                          <option value="">Sin proveedor</option>
+                          {suppliers.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="label">Tipo de unidad *</label>
+                          <select
+                            className="input"
+                            value={form.unit_type}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                unit_type: e.target.value,
+                              })
+                            }
+                          >
+                            {Object.entries(UNIT_TYPE_LABELS).map(([v, l]) => (
+                              <option key={v} value={v}>
+                                {l}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="label">UNIDADES</label>
+                          <select
+                            className="input"
+                            value={form.unit_type_value}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                unit_type_value: e.target.value,
+                              })
+                            }
+                          >
+                            <option value="">Selecciona una unidad…</option>
+                            {UNIDADES.map((unit) => (
+                              <option key={unit} value={unit}>
+                                {unit}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
+                    )}
+
+                    <div>
+                      <label className="label">Observaciones</label>
+                      <textarea
+                        className="input"
+                        rows={2}
+                        value={form.notes}
+                        onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t pt-3">
                 <button
                   type="button"
                   className="btn btn-secondary"
