@@ -60,14 +60,54 @@ type PriceRecord = {
 
 type PurchaseEntry = {
   id: string;
-  created_at: string;
-  supplier_id: string | null;
-  document_type: "factura" | "guia_despacho";
-  document_number: string;
-  purchase_order: string | null;
   cancelled_at: string | null;
   cancellation_reason: string | null;
 };
+type PurchaseEntryLink = {
+  purchase_entry_id: string;
+  stock_movement_id: string;
+};
+type PurchaseEntryItem = {
+  stock_movement_id: string | null;
+  product_id: string;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+};
+type SaleCancellation = {
+  stock_movement_id: string;
+  cancelled_at: string;
+  cancellation_reason: string | null;
+};
+type RegisteredDocumentMovement = {
+  id: string;
+  created_at: string;
+  type: "entrada" | "salida";
+  batch_id: string | null;
+  supplier_id: string | null;
+  customer_id: string | null;
+  document_type: string | null;
+  document_number: string | null;
+  purchase_order: string | null;
+  notes: string | null;
+};
+type RegisteredDocument = {
+  id: string;
+  movement_ids: string[];
+  created_at: string;
+  type: "entrada" | "salida";
+  document_type: string | null;
+  document_number: string;
+  purchase_order: string | null;
+  supplier_id: string | null;
+  customer_id: string | null;
+  purchase_entry_id: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+};
+type PurchaseDocumentFilter = "" | "factura" | "guia_despacho";
+type PurchaseStatusFilter = "" | "vigente" | "anulada";
+type PurchaseOperationFilter = "" | "entrada" | "salida";
 
 const emptyForm: FormState = {
   product_id: "",
@@ -144,12 +184,23 @@ function MovimientosPage() {
   const canCreate = hasPermission(access?.name, access?.permissions, "movements", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "movements", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "movements", "delete");
+  const canEditPurchases = hasPermission(access?.name, access?.permissions, "purchases", "edit");
+  const canDeletePurchases = hasPermission(
+    access?.name,
+    access?.permissions,
+    "purchases",
+    "delete",
+  );
   const queryClient = useQueryClient();
   const db = supabase as any;
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
+  const [editingPurchaseEntryId, setEditingPurchaseEntryId] = useState<string | null>(null);
+  const [editingRegisteredMovementIds, setEditingRegisteredMovementIds] = useState<string[] | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([newPurchaseItem()]);
@@ -159,6 +210,11 @@ function MovimientosPage() {
   const [filterType, setFilterType] = useState<"" | "entrada" | "salida">("");
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
+  const [purchaseSearch, setPurchaseSearch] = useState("");
+  const [purchaseOperationFilter, setPurchaseOperationFilter] =
+    useState<PurchaseOperationFilter>("");
+  const [purchaseDocumentFilter, setPurchaseDocumentFilter] = useState<PurchaseDocumentFilter>("");
+  const [purchaseStatusFilter, setPurchaseStatusFilter] = useState<PurchaseStatusFilter>("");
 
   useEffect(() => {
     const channel = supabase
@@ -228,30 +284,86 @@ function MovimientosPage() {
     },
   });
 
-  const { data: purchases = [], isLoading: purchasesLoading } = useQuery<PurchaseEntry[]>({
+  const {
+    data: purchases = [],
+    isLoading: purchaseEntriesLoading,
+    isError: purchaseEntriesError,
+  } = useQuery<PurchaseEntry[]>({
     queryKey: ["purchase-entries"],
     queryFn: async () => {
       const { data, error } = await db
         .from("purchase_entries")
-        .select(
-          `
-          id,
-          created_at,
-          supplier_id,
-          document_type,
-          document_number,
-          purchase_order,
-          cancelled_at,
-          cancellation_reason
-        `,
-        )
-        .order("created_at", { ascending: false })
-        .limit(500);
+        .select("id, cancelled_at, cancellation_reason");
 
       if (error) throw error;
       return data ?? [];
     },
   });
+
+  const {
+    data: purchaseEntryLinks = [],
+    isLoading: purchaseEntryLinksLoading,
+    isError: purchaseEntryLinksError,
+  } = useQuery<PurchaseEntryLink[]>({
+    queryKey: ["purchase-entry-movement-links"],
+    queryFn: async () => {
+      const { data, error } = await db
+        .from("purchase_entry_items")
+        .select("purchase_entry_id, stock_movement_id")
+        .not("stock_movement_id", "is", null);
+
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const {
+    data: saleCancellations = [],
+    isLoading: saleCancellationsLoading,
+    isError: saleCancellationsError,
+  } = useQuery<SaleCancellation[]>({
+    queryKey: ["sale-document-cancellations"],
+    queryFn: async () => {
+      const { data, error } = await db
+        .from("stock_movement_document_cancellations")
+        .select("stock_movement_id, cancelled_at, cancellation_reason");
+
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const {
+    data: registeredDocumentMovements = [],
+    isLoading: registeredDocumentMovementsLoading,
+    isError: registeredDocumentMovementsError,
+  } = useQuery<RegisteredDocumentMovement[]>({
+    queryKey: ["registered-document-movements"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("stock_movements")
+        .select(
+          "id, created_at, type, batch_id, supplier_id, customer_id, document_type, document_number, purchase_order, notes",
+        )
+        .not("document_number", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(2000);
+
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const purchasesLoading =
+    purchaseEntriesLoading ||
+    purchaseEntryLinksLoading ||
+    saleCancellationsLoading ||
+    registeredDocumentMovementsLoading;
+  const registeredDocumentsError =
+    purchaseEntriesError ||
+    purchaseEntryLinksError ||
+    saleCancellationsError ||
+    registeredDocumentMovementsError;
 
   const { data: priceHistory = [] } = useQuery<PriceRecord[]>({
     queryKey: ["purchase-price-history"],
@@ -281,6 +393,101 @@ function MovimientosPage() {
 
     return grouped;
   }, [priceHistory]);
+
+  const filteredPurchases = useMemo(() => {
+    const term = purchaseSearch.trim().toLocaleLowerCase("es-CL");
+    const linksByMovement = new Map(
+      purchaseEntryLinks.map((link) => [link.stock_movement_id, link.purchase_entry_id]),
+    );
+    const entriesById = new Map(purchases.map((purchase) => [purchase.id, purchase]));
+    const salesCancelledByMovement = new Map(
+      saleCancellations.map((cancellation) => [cancellation.stock_movement_id, cancellation]),
+    );
+    const documents = new Map<string, RegisteredDocument>();
+
+    for (const movement of registeredDocumentMovements) {
+      const documentNumber = movement.document_number?.trim();
+      if (!documentNumber) continue;
+
+      const entityId = movement.type === "entrada" ? movement.supplier_id : movement.customer_id;
+      const fallbackKey = [
+        movement.type,
+        movement.document_type ?? "",
+        documentNumber.toLocaleLowerCase("es-CL"),
+        movement.purchase_order ?? "",
+        entityId ?? "",
+        movement.created_at.slice(0, 10),
+      ].join(":");
+      const key = movement.batch_id ?? fallbackKey;
+      const purchaseEntryId = linksByMovement.get(movement.id) ?? null;
+      const purchaseEntry = purchaseEntryId ? entriesById.get(purchaseEntryId) : undefined;
+      const saleCancellation = salesCancelledByMovement.get(movement.id);
+      const existing = documents.get(key);
+
+      if (existing) {
+        existing.movement_ids.push(movement.id);
+        if (!existing.purchase_entry_id && purchaseEntryId) {
+          existing.purchase_entry_id = purchaseEntryId;
+          existing.cancelled_at = purchaseEntry?.cancelled_at ?? null;
+          existing.cancellation_reason = purchaseEntry?.cancellation_reason ?? null;
+        }
+        if (!existing.cancelled_at && saleCancellation) {
+          existing.cancelled_at = saleCancellation.cancelled_at;
+          existing.cancellation_reason = saleCancellation.cancellation_reason;
+        }
+        continue;
+      }
+
+      documents.set(key, {
+        id: key,
+        movement_ids: [movement.id],
+        created_at: movement.created_at,
+        type: movement.type,
+        document_type: movement.document_type,
+        document_number: documentNumber,
+        purchase_order: movement.purchase_order,
+        supplier_id: movement.supplier_id,
+        customer_id: movement.customer_id,
+        purchase_entry_id: purchaseEntryId,
+        cancelled_at: purchaseEntry?.cancelled_at ?? saleCancellation?.cancelled_at ?? null,
+        cancellation_reason:
+          purchaseEntry?.cancellation_reason ?? saleCancellation?.cancellation_reason ?? null,
+      });
+    }
+
+    return Array.from(documents.values()).filter((purchase) => {
+      const isCancelled = Boolean(purchase.cancelled_at);
+      const matchesOperation =
+        !purchaseOperationFilter || purchase.type === purchaseOperationFilter;
+      const matchesDocumentType =
+        !purchaseDocumentFilter || purchase.document_type === purchaseDocumentFilter;
+      const matchesStatus =
+        !purchaseStatusFilter || (purchaseStatusFilter === "anulada" ? isCancelled : !isCancelled);
+      const matchesSearch =
+        !term ||
+        purchase.document_number.toLocaleLowerCase("es-CL").includes(term) ||
+        (purchase.purchase_order ?? "").toLocaleLowerCase("es-CL").includes(term) ||
+        (purchase.type === "entrada"
+          ? (suppliers.find((supplier) => supplier.id === purchase.supplier_id)?.name ?? "")
+          : (customers.find((customer) => customer.id === purchase.customer_id)?.name ?? "")
+        )
+          .toLocaleLowerCase("es-CL")
+          .includes(term);
+
+      return matchesOperation && matchesDocumentType && matchesStatus && matchesSearch;
+    });
+  }, [
+    customers,
+    purchaseOperationFilter,
+    purchaseDocumentFilter,
+    purchaseEntryLinks,
+    purchaseSearch,
+    purchaseStatusFilter,
+    purchases,
+    registeredDocumentMovements,
+    saleCancellations,
+    suppliers,
+  ]);
 
   const filtered = useMemo(() => {
     return movements.filter((m) => {
@@ -340,6 +547,8 @@ function MovimientosPage() {
   function openNew() {
     setEditingId(null);
     setEditingBatchId(null);
+    setEditingPurchaseEntryId(null);
+    setEditingRegisteredMovementIds(null);
     setForm(emptyForm);
     setPurchaseItems([newPurchaseItem()]);
     setPurchaseOrder("");
@@ -348,9 +557,22 @@ function MovimientosPage() {
     setFormOpen(true);
   }
 
-  function openEdit(m: Movement) {
+  function openEdit(m: Movement, relatedMovements: Movement[] = movements) {
+    if (
+      m.type === "entrada" &&
+      purchaseEntryLinks.some((link) => link.stock_movement_id === m.id)
+    ) {
+      toast.error("Edita esta entrada desde Compras y Ventas registradas");
+      return;
+    }
+
     setEditingId(m.id);
     setEditingBatchId(m.batch_id);
+    setEditingPurchaseEntryId(null);
+    setEditingRegisteredMovementIds(null);
+    setDocumentType(m.document_type === "guia_despacho" ? "guia_despacho" : "factura");
+    setDocumentNumber(m.document_number ?? "");
+    setPurchaseOrder(m.purchase_order ?? "");
     setForm({
       product_id: m.product_id,
       type: m.type,
@@ -365,7 +587,7 @@ function MovimientosPage() {
     });
     if (m.type === "salida") {
       const batchMovements = m.batch_id
-        ? movements.filter((movement) => movement.batch_id === m.batch_id)
+        ? relatedMovements.filter((movement) => movement.batch_id === m.batch_id)
         : [m];
       setPurchaseItems(
         batchMovements.map((movement) => {
@@ -385,6 +607,107 @@ function MovimientosPage() {
       );
     }
     setFormOpen(true);
+  }
+
+  async function openEditRegisteredDocument(document: RegisteredDocument) {
+    if (document.cancelled_at) {
+      toast.error("No se puede editar un documento anulado");
+      return;
+    }
+
+    if (document.type === "entrada") {
+      if (!document.purchase_entry_id) {
+        toast.error("Esta compra no está vinculada a un registro editable");
+        return;
+      }
+
+      setSaving(true);
+      try {
+        const { data, error } = await db
+          .from("purchase_entry_items")
+          .select("stock_movement_id, product_id, quantity, unit, unit_price")
+          .eq("purchase_entry_id", document.purchase_entry_id)
+          .order("created_at");
+
+        if (error) throw error;
+        const items = (data ?? []) as PurchaseEntryItem[];
+        if (items.length === 0 || items.some((item) => !item.stock_movement_id)) {
+          throw new Error("La compra no tiene líneas vinculadas al stock que se puedan editar");
+        }
+        const firstItem = items[0];
+        if (!firstItem?.stock_movement_id) {
+          throw new Error("La compra no tiene líneas vinculadas al stock que se puedan editar");
+        }
+
+        const firstMovement = registeredDocumentMovements.find((movement) =>
+          items.some((item) => item.stock_movement_id === movement.id),
+        );
+        const entryItems = items.map((item) => {
+          if (!item.stock_movement_id) {
+            throw new Error("La compra contiene una línea sin movimiento de stock");
+          }
+          const product = products.find((current) => current.id === item.product_id);
+          const unit = item.unit || product?.unit || "unidad";
+          return {
+            key: item.stock_movement_id,
+            id: item.stock_movement_id,
+            product_id: item.product_id,
+            search: product?.name ?? "",
+            quantity: Number(item.quantity),
+            unit,
+            unitIsOther: !UNITS.includes(unit as (typeof UNITS)[number]),
+            unit_price: Number(item.unit_price),
+          };
+        });
+
+        setEditingId(firstItem.stock_movement_id);
+        setEditingBatchId(null);
+        setEditingPurchaseEntryId(document.purchase_entry_id);
+        setEditingRegisteredMovementIds(null);
+        setForm({
+          ...emptyForm,
+          type: "entrada",
+          supplier_id: document.supplier_id ?? "",
+          notes: firstMovement?.notes ?? "",
+        });
+        setPurchaseItems(entryItems);
+        setPurchaseOrder(document.purchase_order ?? "");
+        setDocumentType(document.document_type === "guia_despacho" ? "guia_despacho" : "factura");
+        setDocumentNumber(document.document_number);
+        setFormOpen(true);
+      } catch (err) {
+        toast.error(getMovementErrorMessage(err, "No se pudo cargar la compra para editar"));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    if (!canEdit) {
+      toast.error("No tienes permiso para editar ventas");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { data, error } = await db
+        .from("stock_movements")
+        .select("*, products(name, sku, unit, unit_cost)")
+        .in("id", document.movement_ids)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      if (!data?.length || data.length !== document.movement_ids.length) {
+        throw new Error("No se pudieron cargar todas las líneas de la venta");
+      }
+
+      openEdit(data[0] as Movement, data as Movement[]);
+      setEditingRegisteredMovementIds(document.movement_ids);
+    } catch (err) {
+      toast.error(getMovementErrorMessage(err, "No se pudo cargar la venta para editar"));
+    } finally {
+      setSaving(false);
+    }
   }
 
   function updatePurchaseItem(key: string, changes: Partial<PurchaseItem>) {
@@ -423,9 +746,10 @@ function MovimientosPage() {
   const exitTotal = purchaseItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
 
   async function save(print: boolean) {
-    const isNewPurchase = form.type === "entrada" && !editingId;
+    const isEditingPurchase = form.type === "entrada" && Boolean(editingPurchaseEntryId);
+    const isNewPurchase = form.type === "entrada" && !editingId && !editingPurchaseEntryId;
 
-    if (isNewPurchase) {
+    if (isNewPurchase || isEditingPurchase) {
       const validItems = purchaseItems.filter((item) => item.product_id);
 
       if (validItems.length === 0) {
@@ -456,28 +780,43 @@ function MovimientosPage() {
 
       try {
         const itemsPayload = validItems.map((item) => ({
+          ...(isEditingPurchase && item.id ? { id: item.id } : {}),
           product_id: item.product_id,
           quantity: item.quantity,
           unit: item.unit.trim() || "unidad",
           unit_price: item.unit_price,
         }));
 
-        const { data, error } = await db.rpc("registrar_entrada_compra", {
-          p_supplier_id: form.supplier_id || null,
-          p_purchase_order: purchaseOrder.trim() || null,
-          p_document_type: documentType,
-          p_document_number: documentNumber.trim(),
-          p_notes: form.notes.trim() || null,
-          p_items: itemsPayload,
-        });
+        const { data, error } = isEditingPurchase
+          ? await db.rpc("editar_entrada_compra", {
+              p_purchase_entry_id: editingPurchaseEntryId,
+              p_supplier_id: form.supplier_id || null,
+              p_purchase_order: purchaseOrder.trim() || null,
+              p_document_type: documentType,
+              p_document_number: documentNumber.trim(),
+              p_notes: form.notes.trim() || null,
+              p_items: itemsPayload,
+            })
+          : await db.rpc("registrar_entrada_compra", {
+              p_supplier_id: form.supplier_id || null,
+              p_purchase_order: purchaseOrder.trim() || null,
+              p_document_type: documentType,
+              p_document_number: documentNumber.trim(),
+              p_notes: form.notes.trim() || null,
+              p_items: itemsPayload,
+            });
 
         if (error) throw error;
 
-        const purchaseId = String(data);
+        const purchaseId = isEditingPurchase ? editingPurchaseEntryId! : String(data);
         const supplierName =
           suppliers.find((s) => s.id === form.supplier_id)?.name ?? "Sin proveedor";
 
-        toast.success("Compra registrada y stock actualizado");
+        toast.success(
+          isEditingPurchase
+            ? "Compra modificada y stock actualizado"
+            : "Compra registrada y stock actualizado",
+        );
 
         if (print) {
           generarComprobanteCompra({
@@ -504,6 +843,9 @@ function MovimientosPage() {
 
         setFormOpen(false);
         setEditingId(null);
+        setEditingBatchId(null);
+        setEditingPurchaseEntryId(null);
+        setEditingRegisteredMovementIds(null);
         setForm(emptyForm);
         setPurchaseItems([newPurchaseItem()]);
         setPurchaseOrder("");
@@ -518,6 +860,12 @@ function MovimientosPage() {
           }),
           queryClient.invalidateQueries({
             queryKey: ["purchase-price-history"],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["registered-document-movements"],
+          }),
+          queryClient.invalidateQueries({
+            queryKey: ["purchase-entry-movement-links"],
           }),
         ]);
       } catch (err) {
@@ -559,27 +907,35 @@ function MovimientosPage() {
 
       try {
         const selectedMaster = customers.find((customer) => customer.id === form.customer_id);
-        const { data, error } = await db.rpc("save_movement_batch", {
-          payload: {
-            type: "salida",
-            supplier_id: null,
-            customer_id: form.customer_id || null,
-            reference: selectedMaster?.name ?? (form.reference.trim() || null),
-            notes: form.notes.trim() || null,
-            unit_type: form.unit_type,
-            unit_type_value: form.unit_type_value || null,
-            document_number: form.document_number.trim() || null,
-            lines: validItems.map((item) => ({
-              ...(item.id ? { id: item.id } : {}),
-              product_id: item.product_id,
-              quantity: item.quantity,
-              measure_unit: item.unit.trim(),
-              unit_cost: item.unit_price,
-            })),
-          },
-          edit_batch: editingBatchId,
-          edit_id: editingBatchId ? null : editingId,
-        });
+        const payload = {
+          type: "salida",
+          supplier_id: null,
+          customer_id: form.customer_id || null,
+          reference: selectedMaster?.name ?? (form.reference.trim() || null),
+          notes: form.notes.trim() || null,
+          unit_type: form.unit_type,
+          unit_type_value: form.unit_type_value || null,
+          purchase_order: editingId ? purchaseOrder.trim() || null : null,
+          document_type: editingId ? documentType : null,
+          document_number: form.document_number.trim() || null,
+          lines: validItems.map((item) => ({
+            ...(item.id ? { id: item.id } : {}),
+            product_id: item.product_id,
+            quantity: item.quantity,
+            measure_unit: item.unit.trim(),
+            unit_cost: item.unit_price,
+          })),
+        };
+        const { data, error } = editingRegisteredMovementIds
+          ? await db.rpc("editar_salida_documento", {
+              p_movement_ids: editingRegisteredMovementIds,
+              p_payload: payload,
+            })
+          : await db.rpc("save_movement_batch", {
+              payload,
+              edit_batch: editingBatchId,
+              edit_id: editingBatchId ? null : editingId,
+            });
 
         if (error) throw error;
 
@@ -590,7 +946,7 @@ function MovimientosPage() {
         const folio = savedRows[0]?.folio ?? null;
 
         toast.success(
-          editingId
+          editingRegisteredMovementIds || editingId
             ? "Salida modificada y stock actualizado"
             : `Salida ${folioLabel("salida", folio)} registrada`,
         );
@@ -620,12 +976,15 @@ function MovimientosPage() {
         setFormOpen(false);
         setEditingId(null);
         setEditingBatchId(null);
+        setEditingPurchaseEntryId(null);
+        setEditingRegisteredMovementIds(null);
         setForm({ ...emptyForm, type: "salida" });
         setPurchaseItems([newPurchaseItem()]);
 
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["movements"] }),
           queryClient.invalidateQueries({ queryKey: ["products"] }),
+          queryClient.invalidateQueries({ queryKey: ["registered-document-movements"] }),
         ]);
       } catch (err) {
         toast.error(getMovementErrorMessage(err, "Error al registrar la salida"));
@@ -718,7 +1077,60 @@ function MovimientosPage() {
     }
   }
 
-  async function handleCancelPurchase(purchase: (typeof purchases)[number]) {
+  async function handleCancelPurchase(purchase: RegisteredDocument) {
+    if (purchase.type === "salida") {
+      if (!canDelete) {
+        toast.error("No tienes permiso para anular ventas");
+        return;
+      }
+      if (purchase.cancelled_at) {
+        toast.error("Esta venta ya fue anulada");
+        return;
+      }
+
+      const reason = window.prompt(
+        `Indica el motivo para anular el documento ${purchase.document_number}:`,
+      );
+      if (reason === null) return;
+      if (
+        !window.confirm(
+          `¿Confirmas la anulación de la venta ${purchase.document_number}? Se repondrán las cantidades al stock.`,
+        )
+      ) {
+        return;
+      }
+
+      setSaving(true);
+      try {
+        const { error } = await db.rpc("anular_salida_documento", {
+          p_movement_ids: purchase.movement_ids,
+          p_reason: reason.trim() || null,
+        });
+        if (error) throw error;
+
+        toast.success("Venta anulada y stock repuesto");
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["sale-document-cancellations"] }),
+          queryClient.invalidateQueries({ queryKey: ["registered-document-movements"] }),
+          queryClient.invalidateQueries({ queryKey: ["movements"] }),
+          queryClient.invalidateQueries({ queryKey: ["products"] }),
+        ]);
+      } catch (err) {
+        toast.error(getMovementErrorMessage(err, "No se pudo anular la venta"));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    if (!canDeletePurchases) {
+      toast.error("No tienes permiso para anular compras");
+      return;
+    }
+    if (purchase.type !== "entrada" || !purchase.purchase_entry_id) {
+      toast.error("Este documento no está vinculado a una compra anulable");
+      return;
+    }
     if (purchase.cancelled_at) {
       toast.error("Esta compra ya fue anulada");
       return;
@@ -742,7 +1154,7 @@ function MovimientosPage() {
 
     try {
       const { error } = await db.rpc("anular_compra", {
-        p_purchase_entry_id: purchase.id,
+        p_purchase_entry_id: purchase.purchase_entry_id,
         p_reason: reason.trim() || null,
       });
 
@@ -753,6 +1165,12 @@ function MovimientosPage() {
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["purchase-entries"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["registered-document-movements"],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["purchase-entry-movement-links"],
         }),
         queryClient.invalidateQueries({ queryKey: ["movements"] }),
         queryClient.invalidateQueries({ queryKey: ["products"] }),
@@ -790,7 +1208,7 @@ function MovimientosPage() {
     // Protección adicional para movimientos compensatorios de anulaciones.
     const { data: movement, error: movementError } = await db
       .from("stock_movements")
-      .select("reference")
+      .select("reference, document_number")
       .eq("id", id)
       .maybeSingle();
 
@@ -799,12 +1217,18 @@ function MovimientosPage() {
       return;
     }
 
+    if (movement?.document_number) {
+      toast.error("Anula el documento completo desde Compras y Ventas registradas");
+      return;
+    }
+
     if (
       typeof movement?.reference === "string" &&
-      movement.reference.startsWith("Anulación de compra:")
+      (movement.reference.startsWith("Anulación de compra:") ||
+        movement.reference.startsWith("Anulación de venta:"))
     ) {
       toast.error(
-        "Este movimiento corresponde a una anulación de compra y no se puede eliminar individualmente.",
+        "Este movimiento corresponde a una anulación y no se puede eliminar individualmente.",
       );
       return;
     }
@@ -828,7 +1252,7 @@ function MovimientosPage() {
   }
 
   const hasFilters = filterType || filterFrom || filterTo;
-  const isPurchaseForm = form.type === "entrada" && !editingId;
+  const isPurchaseForm = form.type === "entrada" && (!editingId || Boolean(editingPurchaseEntryId));
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -1041,44 +1465,161 @@ function MovimientosPage() {
         <div>
           <h2 className="text-lg font-bold">Compras y Ventas registradas</h2>
           <p className="text-sm text-muted-foreground">
-            Vigente indica un documento no anulado; “Completa” se podrá asignar cuando la orden de
-            compra esté recibida en su totalidad.
+            Compras y ventas tomadas de los movimientos registrados, con proveedor o maestro,
+            documento y orden de compra. Filtra los documentos para encontrar compras anulables.
           </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(14rem,2fr)_minmax(11rem,1fr)_minmax(11rem,1fr)_minmax(11rem,1fr)_auto]">
+          <div>
+            <label className="label" htmlFor="purchase-document-search">
+              Buscar documento
+            </label>
+            <input
+              id="purchase-document-search"
+              className="input"
+              type="search"
+              placeholder="Número de documento u OC"
+              value={purchaseSearch}
+              onChange={(event) => setPurchaseSearch(event.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="purchase-operation-filter">
+              Tipo de movimiento
+            </label>
+            <select
+              id="purchase-operation-filter"
+              className="input"
+              value={purchaseOperationFilter}
+              onChange={(event) =>
+                setPurchaseOperationFilter(event.target.value as PurchaseOperationFilter)
+              }
+            >
+              <option value="">Compras y ventas</option>
+              <option value="entrada">Compra</option>
+              <option value="salida">Venta</option>
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="purchase-document-type-filter">
+              Tipo de documento
+            </label>
+            <select
+              id="purchase-document-type-filter"
+              className="input"
+              value={purchaseDocumentFilter}
+              onChange={(event) =>
+                setPurchaseDocumentFilter(event.target.value as PurchaseDocumentFilter)
+              }
+            >
+              <option value="">Todos los documentos</option>
+              <option value="factura">Factura</option>
+              <option value="guia_despacho">Guía de despacho</option>
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="purchase-document-status-filter">
+              Estado
+            </label>
+            <select
+              id="purchase-document-status-filter"
+              className="input"
+              value={purchaseStatusFilter}
+              onChange={(event) =>
+                setPurchaseStatusFilter(event.target.value as PurchaseStatusFilter)
+              }
+            >
+              <option value="">Todos los estados</option>
+              <option value="vigente">Vigente</option>
+              <option value="anulada">Anulada</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              type="button"
+              className="btn btn-secondary w-full"
+              disabled={
+                !purchaseSearch &&
+                !purchaseOperationFilter &&
+                !purchaseDocumentFilter &&
+                !purchaseStatusFilter
+              }
+              onClick={() => {
+                setPurchaseSearch("");
+                setPurchaseOperationFilter("");
+                setPurchaseDocumentFilter("");
+                setPurchaseStatusFilter("");
+              }}
+            >
+              Limpiar filtros
+            </button>
+          </div>
         </div>
 
         <table className="table-base">
           <thead>
             <tr>
               <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Proveedor / Maestro</th>
               <th>Tipo de documento</th>
               <th>Número de documento</th>
               <th>Orden de compra</th>
               <th>Estado</th>
-              <th className="w-32">Acción</th>
+              <th className="w-52">Acción</th>
             </tr>
           </thead>
 
           <tbody>
             {purchasesLoading ? (
               <tr>
-                <td colSpan={6} className="py-6 text-center">
-                  Cargando compras…
+                <td colSpan={8} className="py-6 text-center">
+                  Cargando compras y ventas…
                 </td>
               </tr>
-            ) : purchases.length === 0 ? (
+            ) : registeredDocumentsError ? (
               <tr>
-                <td colSpan={6} className="py-6 text-center text-muted-foreground">
-                  No hay compras registradas.
+                <td colSpan={8} className="py-6 text-center text-destructive">
+                  No se pudieron cargar los documentos registrados. Intenta actualizar la página.
+                </td>
+              </tr>
+            ) : registeredDocumentMovements.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="py-6 text-center text-muted-foreground">
+                  No hay compras ni ventas registradas con documentos.
+                </td>
+              </tr>
+            ) : filteredPurchases.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="py-6 text-center text-muted-foreground">
+                  No hay documentos que coincidan con esos filtros.
                 </td>
               </tr>
             ) : (
-              purchases.map((purchase) => (
+              filteredPurchases.map((purchase) => (
                 <tr key={purchase.id}>
                   <td className="whitespace-nowrap">
                     {new Date(purchase.created_at).toLocaleDateString("es-CL")}
                   </td>
 
-                  <td>{purchase.document_type === "factura" ? "Factura" : "Guía de despacho"}</td>
+                  <td>{purchase.type === "entrada" ? "Compra" : "Venta"}</td>
+
+                  <td>
+                    {purchase.type === "entrada"
+                      ? (suppliers.find((supplier) => supplier.id === purchase.supplier_id)?.name ??
+                        "—")
+                      : (customers.find((customer) => customer.id === purchase.customer_id)?.name ??
+                        "—")}
+                  </td>
+
+                  <td>
+                    {purchase.document_type === "factura"
+                      ? "Factura"
+                      : purchase.document_type === "guia_despacho"
+                        ? "Guía de despacho"
+                        : "—"}
+                  </td>
 
                   <td className="font-mono">{purchase.document_number}</td>
 
@@ -1099,17 +1640,39 @@ function MovimientosPage() {
                   </td>
 
                   <td>
-                    {!purchase.cancelled_at && (
-                      <button
-                        type="button"
-                        className="btn btn-ghost text-destructive"
-                        disabled={saving}
-                        onClick={() => handleCancelPurchase(purchase)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Anular
-                      </button>
-                    )}
+                    <div className="flex flex-wrap gap-1">
+                      {!purchase.cancelled_at &&
+                        ((purchase.type === "entrada" &&
+                          purchase.purchase_entry_id &&
+                          canEditPurchases) ||
+                          (purchase.type === "salida" && canEdit)) && (
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            disabled={saving}
+                            onClick={() => openEditRegisteredDocument(purchase)}
+                            title="Editar documento y sus líneas"
+                          >
+                            <Pencil className="h-4 w-4" />
+                            Editar
+                          </button>
+                        )}
+                      {!purchase.cancelled_at &&
+                        ((purchase.type === "entrada" &&
+                          purchase.purchase_entry_id &&
+                          canDeletePurchases) ||
+                          (purchase.type === "salida" && canDelete)) && (
+                          <button
+                            type="button"
+                            className="btn btn-ghost text-destructive"
+                            disabled={saving}
+                            onClick={() => handleCancelPurchase(purchase)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Anular
+                          </button>
+                        )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -1125,7 +1688,11 @@ function MovimientosPage() {
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-lg font-bold">
                 {editingId
-                  ? "Modificar movimiento"
+                  ? editingPurchaseEntryId
+                    ? "Modificar compra"
+                    : editingRegisteredMovementIds
+                      ? "Modificar venta"
+                      : "Modificar movimiento"
                   : isPurchaseForm
                     ? "Registrar entrada de compra"
                     : form.type === "salida"
