@@ -615,6 +615,65 @@ function MovimientosPage() {
       return;
     }
 
+    if (document.type === "entrada" && !document.purchase_entry_id) {
+      if (!canEditPurchases) {
+        toast.error("No tienes permiso para editar compras");
+        return;
+      }
+
+      setSaving(true);
+      try {
+        const { data, error } = await db
+          .from("stock_movements")
+          .select("*, products(name, sku, unit, unit_cost)")
+          .in("id", document.movement_ids)
+          .order("created_at", { ascending: true });
+
+        if (error) throw error;
+        const rows = (data ?? []) as Movement[];
+        const firstRow = rows[0];
+        if (!firstRow || rows.length !== document.movement_ids.length) {
+          throw new Error("No se pudieron cargar todas las líneas de la compra");
+        }
+
+        setEditingId(firstRow.id);
+        setEditingBatchId(null);
+        setEditingPurchaseEntryId(null);
+        setEditingRegisteredMovementIds(document.movement_ids);
+        setForm({
+          ...emptyForm,
+          type: "entrada",
+          supplier_id: document.supplier_id ?? "",
+          notes: firstRow.notes ?? "",
+        });
+        setPurchaseItems(
+          rows.map((movement) => {
+            const product = products.find((item) => item.id === movement.product_id);
+            const unit = movement.measure_unit ?? product?.unit ?? "unidad";
+            return {
+              key: movement.id,
+              id: movement.id,
+              product_id: movement.product_id,
+              search: product?.name ?? movement.products?.name ?? "",
+              quantity: Number(movement.quantity_value ?? movement.quantity),
+              unit,
+              unitIsOther: !UNITS.includes(unit as (typeof UNITS)[number]),
+              unit_price: movement.unit_cost ?? product?.unit_cost ?? 0,
+            };
+          }),
+        );
+        setPurchaseOrder(document.purchase_order ?? "");
+        setDocumentType(document.document_type === "guia_despacho" ? "guia_despacho" : "factura");
+        setDocumentNumber(document.document_number);
+        setFormOpen(true);
+      } catch (err) {
+        toast.error(getMovementErrorMessage(err, "No se pudo cargar la compra para editar"));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     if (document.type === "entrada") {
       if (!document.purchase_entry_id) {
         toast.error("Esta compra no está vinculada a un registro editable");
@@ -746,6 +805,79 @@ function MovimientosPage() {
   const exitTotal = purchaseItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
 
   async function save(print: boolean) {
+    if (form.type === "entrada" && editingRegisteredMovementIds) {
+      const validItems = purchaseItems.filter((item) => item.product_id);
+
+      if (validItems.length === 0) {
+        toast.error("Agrega al menos un producto a la compra");
+        return;
+      }
+      if (
+        validItems.some(
+          (item) =>
+            !item.quantity ||
+            item.quantity <= 0 ||
+            !Number.isFinite(item.quantity) ||
+            !item.unit.trim(),
+        )
+      ) {
+        toast.error("Revisa las cantidades y unidades de medida");
+        return;
+      }
+      if (validItems.some((item) => !Number.isFinite(item.unit_price) || item.unit_price < 0)) {
+        toast.error("Revisa los precios de los productos");
+        return;
+      }
+      if (!documentNumber.trim()) {
+        toast.error("Ingresa el número de factura o guía de despacho");
+        return;
+      }
+
+      setSaving(true);
+      try {
+        const { error } = await db.rpc("editar_entrada_documento", {
+          p_movement_ids: editingRegisteredMovementIds,
+          p_payload: {
+            supplier_id: form.supplier_id || null,
+            notes: form.notes.trim() || null,
+            purchase_order: purchaseOrder.trim() || null,
+            document_type: documentType,
+            document_number: documentNumber.trim(),
+            lines: validItems.map((item) => ({
+              ...(item.id ? { id: item.id } : {}),
+              product_id: item.product_id,
+              quantity: item.quantity,
+              measure_unit: item.unit.trim(),
+              unit_cost: item.unit_price,
+            })),
+          },
+        });
+        if (error) throw error;
+
+        toast.success("Compra modificada y stock actualizado");
+        setFormOpen(false);
+        setEditingId(null);
+        setEditingRegisteredMovementIds(null);
+        setForm(emptyForm);
+        setPurchaseItems([newPurchaseItem()]);
+        setPurchaseOrder("");
+        setDocumentType("factura");
+        setDocumentNumber("");
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["movements"] }),
+          queryClient.invalidateQueries({ queryKey: ["products"] }),
+          queryClient.invalidateQueries({ queryKey: ["registered-document-movements"] }),
+          queryClient.invalidateQueries({ queryKey: ["purchase-price-history"] }),
+        ]);
+      } catch (err) {
+        toast.error(getMovementErrorMessage(err, "No se pudo modificar la compra"));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     const isEditingPurchase = form.type === "entrada" && Boolean(editingPurchaseEntryId);
     const isNewPurchase = form.type === "entrada" && !editingId && !editingPurchaseEntryId;
 
@@ -1127,14 +1259,15 @@ function MovimientosPage() {
       toast.error("No tienes permiso para anular compras");
       return;
     }
-    if (purchase.type !== "entrada" || !purchase.purchase_entry_id) {
-      toast.error("Este documento no está vinculado a una compra anulable");
+    if (purchase.type !== "entrada") {
+      toast.error("Este documento no es una compra");
       return;
     }
     if (purchase.cancelled_at) {
       toast.error("Esta compra ya fue anulada");
       return;
     }
+    const isUnlinked = !purchase.purchase_entry_id;
 
     const reason = window.prompt(
       `Indica el motivo para anular el documento ${purchase.document_number}:`,
@@ -1153,16 +1286,22 @@ function MovimientosPage() {
     setSaving(true);
 
     try {
-      const { error } = await db.rpc("anular_compra", {
-        p_purchase_entry_id: purchase.purchase_entry_id,
-        p_reason: reason.trim() || null,
-      });
+      const { error } = isUnlinked
+        ? await db.rpc("anular_entrada_documento", {
+            p_movement_ids: purchase.movement_ids,
+            p_reason: reason.trim() || null,
+          })
+        : await db.rpc("anular_compra", {
+            p_purchase_entry_id: purchase.purchase_entry_id,
+            p_reason: reason.trim() || null,
+          });
 
       if (error) throw error;
 
       toast.success("Compra anulada y stock actualizado");
 
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["sale-document-cancellations"] }),
         queryClient.invalidateQueries({
           queryKey: ["purchase-entries"],
         }),
@@ -1252,7 +1391,9 @@ function MovimientosPage() {
   }
 
   const hasFilters = filterType || filterFrom || filterTo;
-  const isPurchaseForm = form.type === "entrada" && (!editingId || Boolean(editingPurchaseEntryId));
+  const isPurchaseForm =
+    form.type === "entrada" &&
+    (!editingId || Boolean(editingPurchaseEntryId) || Boolean(editingRegisteredMovementIds));
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -1642,9 +1783,7 @@ function MovimientosPage() {
                   <td>
                     <div className="flex flex-wrap gap-1">
                       {!purchase.cancelled_at &&
-                        ((purchase.type === "entrada" &&
-                          purchase.purchase_entry_id &&
-                          canEditPurchases) ||
+                        ((purchase.type === "entrada" && canEditPurchases) ||
                           (purchase.type === "salida" && canEdit)) && (
                           <button
                             type="button"
@@ -1658,9 +1797,7 @@ function MovimientosPage() {
                           </button>
                         )}
                       {!purchase.cancelled_at &&
-                        ((purchase.type === "entrada" &&
-                          purchase.purchase_entry_id &&
-                          canDeletePurchases) ||
+                        ((purchase.type === "entrada" && canDeletePurchases) ||
                           (purchase.type === "salida" && canDelete)) && (
                           <button
                             type="button"
@@ -1691,7 +1828,9 @@ function MovimientosPage() {
                   ? editingPurchaseEntryId
                     ? "Modificar compra"
                     : editingRegisteredMovementIds
-                      ? "Modificar venta"
+                      ? form.type === "entrada"
+                        ? "Modificar compra"
+                        : "Modificar venta"
                       : "Modificar movimiento"
                   : isPurchaseForm
                     ? "Registrar entrada de compra"

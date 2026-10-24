@@ -97,6 +97,8 @@ function ComprasPage() {
   const canCreate = hasPermission(access?.name, access?.permissions, "purchases", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
+  const canApprove =
+    canEdit && ["ADMIN", "GERENTE"].includes((access?.name ?? "").trim().toUpperCase());
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
@@ -708,7 +710,9 @@ function ComprasPage() {
                     <td>
                       {status === "anulada" ? (
                         "—"
-                      ) : canEdit && status === "pendiente" && approvalStatus === "por_aprobar" ? (
+                      ) : canApprove &&
+                        status === "pendiente" &&
+                        approvalStatus === "por_aprobar" ? (
                         <button
                           type="button"
                           className="badge badge-warning inline-flex items-center gap-1.5 transition-colors hover:bg-warning/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
