@@ -30,7 +30,9 @@ ALTER TABLE public.purchase_order_items
     CHECK (
       (item_type = 'producto' AND product_id IS NOT NULL)
       OR (item_type = 'servicio' AND product_id IS NULL)
-    );
+    ),
+  ADD CONSTRAINT purchase_order_services_not_receivable_check
+    CHECK (item_type = 'producto' OR received_quantity = 0);
 
 DROP FUNCTION IF EXISTS public.save_purchase_order(uuid, text, jsonb, uuid, uuid);
 DROP FUNCTION IF EXISTS public.save_purchase_order(uuid, text, jsonb, uuid);
@@ -120,7 +122,7 @@ BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Debes iniciar sesión'; END IF;
   IF p_supplier_id IS NULL THEN RAISE EXCEPTION 'Selecciona un proveedor'; END IF;
   IF p_order_date IS NULL THEN RAISE EXCEPTION 'Selecciona la fecha de la orden'; END IF;
-  IF p_payment_terms NOT IN (
+  IF p_payment_terms IS NULL OR p_payment_terms NOT IN (
     'contado', 'credito_10_dias', 'credito_30_dias',
     'credito_60_dias', 'credito_90_dias', 'otro'
   ) THEN
