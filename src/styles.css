@@ -2,7 +2,11 @@
 @source "../src";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark {
+  &:is(.dark *) {
+    @slot;
+  }
+}
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
@@ -153,6 +157,13 @@
     background-color: var(--color-destructive);
     color: var(--color-destructive-foreground);
   }
+  .btn-destructive:hover:not(:disabled) {
+    filter: brightness(0.95);
+  }
+  .btn:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
   .btn-ghost {
     color: var(--color-muted-foreground);
   }
@@ -249,5 +260,14 @@
     .card {
       max-width: 100%;
     }
+    .purchase-order-print .table-base td {
+      white-space: normal;
+    }
+  }
+
+  /* La orden de compra conserva fondos y colores al imprimir o guardar PDF */
+  .purchase-order-print {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

@@ -1375,7 +1375,7 @@ function ComprasPage() {
                       <p>Fono: {company?.phone || "—"}</p>
                     </div>
                     <p className="pt-1">
-                      Dirección envío Factura Electrónica XML, email{" "}
+                      Envío Factura Electrónica, email{" "}
                       {company?.billing_email || company?.email || "—"}
                     </p>
                   </div>
