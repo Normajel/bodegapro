@@ -73,27 +73,36 @@ export type Database = {
       };
       purchase_order_items: {
         Row: {
+          description: string;
           id: string;
+          item_type: string;
+          line_total: number;
           measure_unit: string;
-          product_id: string;
+          product_id: string | null;
           purchase_order_id: string;
           quantity: number;
           received_quantity: number;
           unit_cost: number;
         };
         Insert: {
+          description: string;
           id?: string;
+          item_type?: string;
+          line_total?: never;
           measure_unit: string;
-          product_id: string;
+          product_id: string | null;
           purchase_order_id: string;
           quantity: number;
           received_quantity?: number;
           unit_cost: number;
         };
         Update: {
+          description?: string;
           id?: string;
+          item_type?: string;
+          line_total?: never;
           measure_unit?: string;
-          product_id?: string;
+          product_id?: string | null;
           purchase_order_id?: string;
           quantity?: number;
           received_quantity?: number;
@@ -116,36 +125,90 @@ export type Database = {
           },
         ];
       };
-      purchase_orders: {
+      purchase_cost_centers: {
         Row: {
           created_at: string;
-          created_by: string | null;
           id: string;
-          notes: string | null;
-          order_number: string;
-          status: string;
-          supplier_id: string;
-          updated_at: string;
+          name: string;
         };
         Insert: {
           created_at?: string;
-          created_by?: string | null;
           id?: string;
-          notes?: string | null;
-          order_number: string;
-          status?: string;
-          supplier_id: string;
-          updated_at?: string;
+          name: string;
         };
         Update: {
           created_at?: string;
-          created_by?: string | null;
           id?: string;
+          name?: string;
+        };
+        Relationships: [];
+      };
+      purchase_orders: {
+        Row: {
+          approval_status: string;
+          approved_at: string | null;
+          approved_by: string | null;
+          cost_center_id: string | null;
+          created_at: string;
+          created_by: string | null;
+          description: string | null;
+          id: string;
+          net_total: number;
+          notes: string | null;
+          order_number: string;
+          order_date: string;
+          payment_terms: string;
+          payment_terms_other: string | null;
+          status: string;
+          supplier_id: string;
+          total_amount: number;
+          updated_at: string;
+          vat_amount: number;
+          vat_rate: number;
+        };
+        Insert: {
+          approval_status?: string;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          cost_center_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          id?: string;
+          net_total?: number;
+          notes?: string | null;
+          order_number: string;
+          order_date?: string;
+          payment_terms?: string;
+          payment_terms_other?: string | null;
+          status?: string;
+          supplier_id: string;
+          total_amount?: number;
+          updated_at?: string;
+          vat_amount?: number;
+          vat_rate?: number;
+        };
+        Update: {
+          approval_status?: string;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          cost_center_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          id?: string;
+          net_total?: number;
           notes?: string | null;
           order_number?: string;
+          order_date?: string;
+          payment_terms?: string;
+          payment_terms_other?: string | null;
           status?: string;
           supplier_id?: string;
+          total_amount?: number;
           updated_at?: string;
+          vat_amount?: number;
+          vat_rate?: number;
         };
         Relationships: [
           {
@@ -153,6 +216,13 @@ export type Database = {
             columns: ["supplier_id"];
             isOneToOne: false;
             referencedRelation: "suppliers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_orders_cost_center_id_fkey";
+            columns: ["cost_center_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_cost_centers";
             referencedColumns: ["id"];
           },
         ];
@@ -462,12 +532,21 @@ export type Database = {
       };
       save_purchase_order: {
         Args: {
+          p_cost_center_id?: string | null;
+          p_description?: string | null;
           p_lines: Json;
           p_notes: string | null;
+          p_order_date?: string;
           p_order_id?: string;
+          p_payment_terms?: string;
+          p_payment_terms_other?: string | null;
           p_supplier_id: string;
         };
         Returns: string;
+      };
+      approve_purchase_order: {
+        Args: { p_order_id: string };
+        Returns: undefined;
       };
       receive_purchase_order: {
         Args: {

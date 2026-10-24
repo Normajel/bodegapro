@@ -169,11 +169,11 @@ function InformesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("purchase_orders")
-        .select("id, order_number, supplier_id, status, created_at")
+        .select("id, order_number, supplier_id, status, order_date")
         .in("status", ["pendiente", "parcial"])
-        .gte("created_at", santiagoDateTimeIso(from))
-        .lt("created_at", santiagoDateTimeIso(to, 24))
-        .order("created_at", { ascending: false });
+        .gte("order_date", from)
+        .lte("order_date", to)
+        .order("order_date", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -500,7 +500,9 @@ function InformesPage() {
       case "pending": {
         const openOrderIds = new Set(orders.map((order) => order.id));
         return orderItems
-          .filter((item) => openOrderIds.has(item.purchase_order_id))
+          .filter(
+            (item) => openOrderIds.has(item.purchase_order_id) && item.item_type === "producto",
+          )
           .map((item) => {
             const order = orders.find((entry) => entry.id === item.purchase_order_id);
             const product = products.find((entry) => entry.id === item.product_id);
@@ -508,11 +510,7 @@ function InformesPage() {
             const pending = Number(item.quantity) - Number(item.received_quantity);
             const cells = [
               order?.order_number ?? "",
-              order
-                ? new Date(order.created_at).toLocaleDateString("es-CL", {
-                    timeZone: "America/Santiago",
-                  })
-                : "",
+              order ? new Date(`${order.order_date}T00:00:00`).toLocaleDateString("es-CL") : "",
               supplier?.name ?? "",
               STATUS_LABELS[order?.status ?? ""] ?? order?.status ?? "",
               product?.name ?? "",

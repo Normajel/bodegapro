@@ -19,7 +19,7 @@ import { AppAccessContext, hasPermission } from "@/lib/permissions";
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Panel", icon: LayoutDashboard, module: "dashboard" },
   { to: "/productos", label: "Inventario", icon: Package, module: "inventory" },
-  { to: "/compras", label: "Compras", icon: ShoppingCart, module: "purchases" },
+  { to: "/compras", label: "Ordenes de Compra", icon: ShoppingCart, module: "purchases" },
   { to: "/movimientos", label: "Movimientos", icon: ArrowLeftRight, module: "movements" },
   { to: "/contactos", label: "Contactos", icon: Users, module: "contacts" },
   { to: "/informes", label: "Informes", icon: FileBarChart, module: "reports" },
