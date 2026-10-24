@@ -141,15 +141,15 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Header móvil */}
-      <div className="flex min-h-screen flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border bg-card px-4 py-3 md:hidden">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-card px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden">
           <span className="font-display text-lg font-bold">BodegaPro</span>
           <button onClick={() => setOpen(!open)} className="btn btn-ghost p-2" aria-label="Menú">
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </header>
         {open && (
-          <div className="flex flex-col gap-1 border-b border-border bg-sidebar p-3 md:hidden">
+          <div className="flex max-h-[calc(100vh-3.5rem)] flex-col gap-1 overflow-y-auto border-b border-border bg-sidebar p-3 md:hidden">
             {visibleNavItems.map(({ to, label, icon: Icon }) => (
               <Link
                 key={to}
@@ -171,7 +171,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         )}
         <AppAccessContext.Provider value={access}>
-          <main className="flex-1 p-4 md:p-8">
+          <main className="min-w-0 flex-1 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4 md:p-8">
             {canViewCurrentPage ? (
               children
             ) : (

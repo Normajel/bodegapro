@@ -712,7 +712,7 @@ function ProductosPage() {
 
       {formOpen && (editing ? canEdit : canCreate) && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4"
           role="presentation"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget && !saving) {

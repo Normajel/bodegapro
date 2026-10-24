@@ -1683,8 +1683,8 @@ function MovimientosPage() {
 
       {/* Formulario de movimiento */}
       {formOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4">
-          <div className="card my-4 w-full max-w-4xl p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
+          <div className="card my-2 w-full max-w-4xl p-4 sm:my-4 sm:p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-lg font-bold">
                 {editingId
@@ -1889,7 +1889,7 @@ function MovimientosPage() {
                           </div>
 
                           {item.product_id && (
-                            <div className="grid gap-3 sm:grid-cols-3">
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                               <div>
                                 <label className="label">Cantidad *</label>
                                 <input

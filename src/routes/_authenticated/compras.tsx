@@ -791,8 +791,8 @@ function ComprasPage() {
       </div>
 
       {formOpen && (editingOrderId ? canEdit : canCreate) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4">
-          <div className="card my-4 w-full max-w-5xl space-y-4 p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
+          <div className="card my-2 w-full max-w-5xl space-y-4 p-4 sm:my-4 sm:p-6">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-lg font-bold">
                 {editingOrderId ? "Editar orden de compra" : "Nueva orden de compra"}
@@ -993,7 +993,7 @@ function ComprasPage() {
                         />
                       </div>
                     )}
-                    <div className="grid gap-3 sm:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                       <div>
                         <label className="label">Cantidad *</label>
                         <input
@@ -1093,8 +1093,8 @@ function ComprasPage() {
       )}
 
       {costCentersOpen && canEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4">
-          <div className="card my-4 w-full max-w-2xl space-y-4 p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
+          <div className="card my-2 w-full max-w-2xl space-y-4 p-4 sm:my-4 sm:p-6">
             <div className="flex items-center justify-between">
               <h2 className="font-display text-lg font-bold">Centros de costo</h2>
               <button
@@ -1194,7 +1194,7 @@ function ComprasPage() {
               .purchase-order-print-actions { display: none !important; }
             }
           `}</style>
-          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
             <div className="purchase-order-print card my-4 w-full max-w-3xl space-y-5 p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -1327,8 +1327,8 @@ function ComprasPage() {
       )}
 
       {receiveOpen && activeOrder && canEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4">
-          <div className="card my-4 w-full max-w-3xl space-y-4 p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
+          <div className="card my-2 w-full max-w-3xl space-y-4 p-4 sm:my-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-display text-lg font-bold">

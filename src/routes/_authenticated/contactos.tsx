@@ -247,7 +247,7 @@ function ContactosPage() {
       </div>
 
       {formOpen && (editingId ? canEdit : canCreate) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4">
           <div className="card w-full max-w-md p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-lg font-bold">

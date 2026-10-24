@@ -1,0 +1,10 @@
+{
+  "name": "BodegaPro",
+  "short_name": "BodegaPro",
+  "description": "Gestión de bodega: inventario, movimientos, contactos e informes.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "icons": [{ "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon" }]
+}
