@@ -792,8 +792,8 @@ function ComprasPage() {
 
       {formOpen && (editingOrderId ? canEdit : canCreate) && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
-          <div className="card my-2 w-full max-w-5xl space-y-4 p-4 sm:my-4 sm:p-6">
-            <div className="flex items-center justify-between">
+          <div className="card my-2 flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col gap-3 overflow-hidden p-4 text-sm sm:my-4 sm:p-5">
+            <div className="flex shrink-0 items-center justify-between">
               <h2 className="font-display text-lg font-bold">
                 {editingOrderId ? "Editar orden de compra" : "Nueva orden de compra"}
               </h2>
@@ -806,275 +806,279 @@ function ComprasPage() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <form className="space-y-4" onSubmit={saveOrder}>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
-                  <label className="label">Fecha *</label>
-                  <input
-                    className="input"
-                    type="date"
-                    value={orderDate}
-                    onChange={(event) => setOrderDate(event.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label">Proveedor *</label>
-                  <select
-                    className="input"
-                    value={supplierId}
-                    onChange={(event) => setSupplierId(event.target.value)}
-                    required
-                  >
-                    <option value="">Selecciona proveedor…</option>
-                    {suppliers.map((supplier) => (
-                      <option key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Condiciones de pago *</label>
-                  <select
-                    className="input"
-                    value={paymentTerms}
-                    onChange={(event) => setPaymentTerms(event.target.value as PaymentTerms)}
-                    required
-                  >
-                    {Object.entries(PAYMENT_TERMS_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {paymentTerms === "otro" && (
+            <form className="flex min-h-0 flex-1 flex-col gap-3" onSubmit={saveOrder}>
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
-                    <label className="label">Otra condición de pago *</label>
+                    <label className="label">Fecha *</label>
                     <input
                       className="input"
-                      value={paymentTermsOther}
-                      onChange={(event) => setPaymentTermsOther(event.target.value)}
-                      maxLength={120}
-                      placeholder="Especifica la condición"
+                      type="date"
+                      value={orderDate}
+                      onChange={(event) => setOrderDate(event.target.value)}
                       required
                     />
                   </div>
-                )}
-                <div>
-                  <label className="label">Centro de costo</label>
-                  <select
-                    className="input"
-                    value={costCenterId}
-                    onChange={(event) => setCostCenterId(event.target.value)}
-                  >
-                    <option value="">Sin asignar</option>
-                    {costCenters.map((center) => (
-                      <option key={center.id} value={center.id}>
-                        {center.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Observaciones</label>
-                  <input
-                    className="input"
-                    value={notes}
-                    onChange={(event) => setNotes(event.target.value)}
-                  />
-                </div>
-                <div className="sm:col-span-2 lg:col-span-3">
-                  <label className="label">Descripción general</label>
-                  <textarea
-                    className="input min-h-20"
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                    rows={2}
-                    maxLength={2000}
-                    placeholder="Descripción general de la orden de compra"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-semibold">Productos y servicios</h3>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => setLines((current) => [...current, newLine("producto")])}
+                  <div>
+                    <label className="label">Proveedor *</label>
+                    <select
+                      className="input"
+                      value={supplierId}
+                      onChange={(event) => setSupplierId(event.target.value)}
+                      required
                     >
-                      <Plus className="h-4 w-4" />
-                      Agregar producto
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => setLines((current) => [...current, newLine("servicio")])}
+                      <option value="">Selecciona proveedor…</option>
+                      {suppliers.map((supplier) => (
+                        <option key={supplier.id} value={supplier.id}>
+                          {supplier.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Condiciones de pago *</label>
+                    <select
+                      className="input"
+                      value={paymentTerms}
+                      onChange={(event) => setPaymentTerms(event.target.value as PaymentTerms)}
+                      required
                     >
-                      <Plus className="h-4 w-4" />
-                      Agregar servicio
-                    </button>
+                      {Object.entries(PAYMENT_TERMS_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {paymentTerms === "otro" && (
+                    <div>
+                      <label className="label">Otra condición de pago *</label>
+                      <input
+                        className="input"
+                        value={paymentTermsOther}
+                        onChange={(event) => setPaymentTermsOther(event.target.value)}
+                        maxLength={120}
+                        placeholder="Especifica la condición"
+                        required
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="label">Centro de costo</label>
+                    <select
+                      className="input"
+                      value={costCenterId}
+                      onChange={(event) => setCostCenterId(event.target.value)}
+                    >
+                      <option value="">Sin asignar</option>
+                      {costCenters.map((center) => (
+                        <option key={center.id} value={center.id}>
+                          {center.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Observaciones</label>
+                    <input
+                      className="input"
+                      value={notes}
+                      onChange={(event) => setNotes(event.target.value)}
+                    />
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-3">
+                    <label className="label">Descripción general</label>
+                    <textarea
+                      className="input min-h-0"
+                      value={description}
+                      onChange={(event) => setDescription(event.target.value)}
+                      rows={2}
+                      maxLength={2000}
+                      placeholder="Descripción general de la orden de compra"
+                    />
                   </div>
                 </div>
-                {lines.map((line, index) => (
-                  <div key={line.key} className="space-y-3 rounded-lg border p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold">
-                        {line.item_type === "producto" ? "Producto" : "Servicio"} {index + 1}
-                      </span>
+
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-semibold">Productos y servicios</h3>
+                    <div className="flex gap-2">
                       <button
                         type="button"
-                        className="btn btn-ghost text-destructive"
-                        aria-label={`Quitar producto ${index + 1}`}
-                        onClick={() =>
-                          setLines((current) => {
-                            const remaining = current.filter((item) => item.key !== line.key);
-                            return remaining.length ? remaining : [newLine()];
-                          })
-                        }
+                        className="btn btn-secondary"
+                        onClick={() => setLines((current) => [...current, newLine("producto")])}
                       >
-                        Quitar
+                        <Plus className="h-4 w-4" />
+                        Agregar producto
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => setLines((current) => [...current, newLine("servicio")])}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Agregar servicio
                       </button>
                     </div>
-                    <div>
-                      <label className="label">Tipo de línea</label>
-                      <select
-                        className="input"
-                        value={line.item_type}
-                        onChange={(event) => {
-                          const itemType = event.target.value as PurchaseItemType;
-                          updateLine(line.key, {
-                            item_type: itemType,
-                            product_id: "",
-                            description: "",
-                            measure_unit: itemType === "servicio" ? "SERV" : "UN",
-                            unit_cost: 0,
-                          });
-                        }}
-                      >
-                        <option value="producto">Producto de inventario</option>
-                        <option value="servicio">Servicio</option>
-                      </select>
-                    </div>
-                    {line.item_type === "producto" ? (
-                      <div>
-                        <label className="label">Producto *</label>
-                        <select
-                          className="input"
-                          value={line.product_id}
-                          onChange={(event) => selectProduct(line.key, event.target.value)}
-                          required
-                        >
-                          <option value="">Selecciona un producto…</option>
-                          {products.map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.name} ({product.sku}) · Stock {product.stock}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : (
-                      <div>
-                        <label className="label">Detalle del servicio *</label>
-                        <textarea
-                          className="input min-h-20"
-                          value={line.description}
-                          onChange={(event) =>
-                            updateLine(line.key, { description: event.target.value })
-                          }
-                          rows={2}
-                          maxLength={500}
-                          placeholder="Describe el servicio contratado"
-                          required
-                        />
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                      <div>
-                        <label className="label">Cantidad *</label>
-                        <input
-                          className="input"
-                          type="number"
-                          min="0.001"
-                          step="0.001"
-                          value={line.quantity}
-                          onChange={(event) =>
-                            updateLine(line.key, { quantity: Number(event.target.value) })
-                          }
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="label">Unidad *</label>
-                        <input
-                          className="input"
-                          value={line.measure_unit}
-                          onChange={(event) =>
-                            updateLine(line.key, { measure_unit: event.target.value })
-                          }
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="label">Precio neto unitario *</label>
-                        <input
-                          className="input"
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={line.unit_cost}
-                          onChange={(event) =>
-                            updateLine(line.key, { unit_cost: Number(event.target.value) })
-                          }
-                          required
-                        />
-                      </div>
-                      <div className="flex flex-col justify-end">
-                        <span className="label">Subtotal neto</span>
-                        <p className="py-2 font-semibold">
-                          {money(Math.round(line.quantity * line.unit_cost))}
-                        </p>
-                      </div>
-                    </div>
                   </div>
-                ))}
-                <div className="flex justify-end rounded-lg border p-3">
-                  <div className="w-full max-w-sm space-y-1 text-right">
-                    {(() => {
-                      const netTotal = lines.reduce(
-                        (sum, line) => sum + Math.round(line.quantity * line.unit_cost),
-                        0,
-                      );
-                      const vatAmount = Math.round(netTotal * 0.19);
-                      return (
-                        <>
-                          <p className="flex justify-between gap-4">
-                            <span className="text-muted-foreground">Subtotal neto</span>
-                            <span className="font-medium">{money(netTotal)}</span>
+                  {lines.map((line, index) => (
+                    <div key={line.key} className="space-y-2 rounded-lg border p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold">
+                          {line.item_type === "producto" ? "Producto" : "Servicio"} {index + 1}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-ghost text-destructive"
+                          aria-label={`Quitar producto ${index + 1}`}
+                          onClick={() =>
+                            setLines((current) => {
+                              const remaining = current.filter((item) => item.key !== line.key);
+                              return remaining.length ? remaining : [newLine()];
+                            })
+                          }
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-[12rem_1fr]">
+                        <div>
+                          <label className="label">Tipo de línea</label>
+                          <select
+                            className="input"
+                            value={line.item_type}
+                            onChange={(event) => {
+                              const itemType = event.target.value as PurchaseItemType;
+                              updateLine(line.key, {
+                                item_type: itemType,
+                                product_id: "",
+                                description: "",
+                                measure_unit: itemType === "servicio" ? "SERV" : "UN",
+                                unit_cost: 0,
+                              });
+                            }}
+                          >
+                            <option value="producto">Producto de inventario</option>
+                            <option value="servicio">Servicio</option>
+                          </select>
+                        </div>
+                        {line.item_type === "producto" ? (
+                          <div>
+                            <label className="label">Producto *</label>
+                            <select
+                              className="input"
+                              value={line.product_id}
+                              onChange={(event) => selectProduct(line.key, event.target.value)}
+                              required
+                            >
+                              <option value="">Selecciona un producto…</option>
+                              {products.map((product) => (
+                                <option key={product.id} value={product.id}>
+                                  {product.name} ({product.sku}) · Stock {product.stock}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="label">Detalle del servicio *</label>
+                            <textarea
+                              className="input min-h-0"
+                              value={line.description}
+                              onChange={(event) =>
+                                updateLine(line.key, { description: event.target.value })
+                              }
+                              rows={2}
+                              maxLength={500}
+                              placeholder="Describe el servicio contratado"
+                              required
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <div>
+                          <label className="label">Cantidad *</label>
+                          <input
+                            className="input"
+                            type="number"
+                            min="0.001"
+                            step="0.001"
+                            value={line.quantity}
+                            onChange={(event) =>
+                              updateLine(line.key, { quantity: Number(event.target.value) })
+                            }
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="label">Unidad *</label>
+                          <input
+                            className="input"
+                            value={line.measure_unit}
+                            onChange={(event) =>
+                              updateLine(line.key, { measure_unit: event.target.value })
+                            }
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="label">Precio neto unitario *</label>
+                          <input
+                            className="input"
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={line.unit_cost}
+                            onChange={(event) =>
+                              updateLine(line.key, { unit_cost: Number(event.target.value) })
+                            }
+                            required
+                          />
+                        </div>
+                        <div className="flex flex-col justify-end">
+                          <span className="label">Subtotal neto</span>
+                          <p className="py-1.5 font-semibold">
+                            {money(Math.round(line.quantity * line.unit_cost))}
                           </p>
-                          <p className="flex justify-between gap-4">
-                            <span className="text-muted-foreground">Total neto</span>
-                            <span className="font-medium">{money(netTotal)}</span>
-                          </p>
-                          <p className="flex justify-between gap-4">
-                            <span className="text-muted-foreground">IVA (19%)</span>
-                            <span className="font-medium">{money(vatAmount)}</span>
-                          </p>
-                          <p className="flex justify-between gap-4 border-t pt-2 text-lg font-bold">
-                            <span>Total</span>
-                            <span>{money(netTotal + vatAmount)}</span>
-                          </p>
-                        </>
-                      );
-                    })()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex justify-end rounded-lg border p-3">
+                    <div className="w-full max-w-xs space-y-0.5 text-right">
+                      {(() => {
+                        const netTotal = lines.reduce(
+                          (sum, line) => sum + Math.round(line.quantity * line.unit_cost),
+                          0,
+                        );
+                        const vatAmount = Math.round(netTotal * 0.19);
+                        return (
+                          <>
+                            <p className="flex justify-between gap-4">
+                              <span className="text-muted-foreground">Subtotal neto</span>
+                              <span className="font-medium">{money(netTotal)}</span>
+                            </p>
+                            <p className="flex justify-between gap-4">
+                              <span className="text-muted-foreground">Total neto</span>
+                              <span className="font-medium">{money(netTotal)}</span>
+                            </p>
+                            <p className="flex justify-between gap-4">
+                              <span className="text-muted-foreground">IVA (19%)</span>
+                              <span className="font-medium">{money(vatAmount)}</span>
+                            </p>
+                            <p className="flex justify-between gap-4 border-t pt-1.5 text-base font-bold">
+                              <span>Total</span>
+                              <span>{money(netTotal + vatAmount)}</span>
+                            </p>
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="flex justify-end gap-2">
+              <div className="flex shrink-0 justify-end gap-2 border-t pt-3">
                 <button
                   type="button"
                   className="btn btn-secondary"
