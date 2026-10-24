@@ -7,7 +7,15 @@ import { formatRut, isValidRut } from "@/lib/rut";
 
 export const COMPANY_QUERY_KEY = ["company-settings"];
 
-const EMPTY = { name: "", rut: "", business_activity: "", address: "", phone: "", email: "" };
+const EMPTY = {
+  name: "",
+  rut: "",
+  business_activity: "",
+  address: "",
+  phone: "",
+  email: "",
+  billing_email: "",
+};
 
 export function CompanySettingsForm() {
   const queryClient = useQueryClient();
@@ -18,7 +26,7 @@ export function CompanySettingsForm() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("company_settings")
-        .select("name, rut, business_activity, address, phone, email")
+        .select("name, rut, business_activity, address, phone, email, billing_email")
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -41,6 +49,7 @@ export function CompanySettingsForm() {
         address: form.address.trim(),
         phone: form.phone.trim(),
         email: form.email.trim(),
+        billing_email: form.billing_email.trim(),
         updated_at: new Date().toISOString(),
         updated_by: userData.user?.id ?? null,
       });
@@ -116,6 +125,16 @@ export function CompanySettingsForm() {
             className="input"
             value={form.email}
             onChange={set("email")}
+            maxLength={200}
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="label">Correo para facturación electrónica (XML)</label>
+          <input
+            type="email"
+            className="input"
+            value={form.billing_email}
+            onChange={set("billing_email")}
             maxLength={200}
           />
         </div>

@@ -38,6 +38,7 @@ export type Database = {
       company_settings: {
         Row: {
           address: string;
+          billing_email: string;
           business_activity: string;
           email: string;
           id: boolean;
@@ -49,6 +50,7 @@ export type Database = {
         };
         Insert: {
           address?: string;
+          billing_email?: string;
           business_activity?: string;
           email?: string;
           id?: boolean;
@@ -60,6 +62,7 @@ export type Database = {
         };
         Update: {
           address?: string;
+          billing_email?: string;
           business_activity?: string;
           email?: string;
           id?: boolean;

@@ -167,7 +167,7 @@ function ComprasPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("company_settings")
-        .select("name, rut, business_activity, address, phone, email")
+        .select("name, rut, business_activity, address, phone, email, billing_email")
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -820,24 +820,36 @@ function ComprasPage() {
       </div>
 
       {formOpen && (editingOrderId ? canEdit : canCreate) && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
-          <div className="card my-2 flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col gap-3 overflow-hidden p-4 text-sm sm:my-4 sm:p-5">
-            <div className="flex shrink-0 items-center justify-between">
-              <h2 className="font-display text-lg font-bold">
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !saving) setFormOpen(false);
+          }}
+        >
+          <section
+            className="card my-auto w-full max-w-3xl p-5 sm:p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="purchase-order-form-title"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 id="purchase-order-form-title" className="font-display text-lg font-bold">
                 {editingOrderId ? "Editar orden de compra" : "Nueva orden de compra"}
               </h2>
               <button
                 type="button"
                 className="btn btn-ghost p-1.5"
                 onClick={() => setFormOpen(false)}
+                disabled={saving}
                 aria-label="Cerrar"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <form className="flex min-h-0 flex-1 flex-col gap-3" onSubmit={saveOrder}>
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <form className="space-y-3" onSubmit={saveOrder}>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="label">Fecha *</label>
                     <input
@@ -915,7 +927,7 @@ function ComprasPage() {
                       onChange={(event) => setNotes(event.target.value)}
                     />
                   </div>
-                  <div className="sm:col-span-2 lg:col-span-3">
+                  <div className="sm:col-span-2">
                     <label className="label">Descripción general</label>
                     <textarea
                       className="input min-h-0"
@@ -1107,7 +1119,7 @@ function ComprasPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex shrink-0 justify-end gap-2 border-t pt-3">
+              <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -1121,7 +1133,7 @@ function ComprasPage() {
                 </button>
               </div>
             </form>
-          </div>
+          </section>
         </div>
       )}
 
@@ -1212,138 +1224,116 @@ function ComprasPage() {
         <>
           <style>{`
             @media print {
+              @page { size: A4; margin: 0; }
+              html, body { background: #fff !important; }
               body * { visibility: hidden !important; }
               .purchase-order-print, .purchase-order-print * { visibility: visible !important; }
               .purchase-order-print {
                 position: absolute !important;
-                inset: 0 !important;
-                width: 100% !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 210mm !important;
+                min-height: 297mm !important;
                 max-width: none !important;
                 margin: 0 !important;
+                padding: 12mm !important;
                 overflow: visible !important;
                 border: 0 !important;
+                border-radius: 0 !important;
                 box-shadow: none !important;
               }
               .purchase-order-print-actions { display: none !important; }
             }
           `}</style>
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
-            <div className="purchase-order-print card my-4 w-full max-w-3xl space-y-5 p-6">
-              {company && company.name ? (
-                <div className="border-b pb-3 text-sm">
-                  <p className="font-display text-lg font-bold">{company.name}</p>
-                  {company.rut && <p>RUT: {company.rut}</p>}
-                  {company.business_activity && <p>Giro: {company.business_activity}</p>}
-                  {company.address && <p>{company.address}</p>}
-                  {(company.phone || company.email) && (
-                    <p>{[company.phone, company.email].filter(Boolean).join(" · ")}</p>
-                  )}
-                </div>
-              ) : (
-                <p className="purchase-order-print-actions text-xs text-muted-foreground">
-                  Completa los datos de la empresa en Configuración → Empresa.
-                </p>
-              )}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="font-display text-xl font-bold">
-                    Orden de compra {previewOrder.order_number}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(`${previewOrder.order_date}T00:00:00`).toLocaleDateString("es-CL")}
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/40 p-2 sm:p-4">
+            <div className="purchase-order-print card my-2 flex w-full max-w-[210mm] flex-col gap-4 bg-white p-4 sm:my-4 sm:min-h-[297mm] sm:p-[12mm]">
+              <div className="purchase-order-print-actions flex justify-end gap-2">
+                <button type="button" className="btn btn-secondary" onClick={() => window.print()}>
+                  <Printer className="h-4 w-4" />
+                  Imprimir
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost p-1.5"
+                  onClick={() => setPreviewOrderId(null)}
+                  aria-label="Cerrar vista previa"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-0.5 text-sm">
+                  <p className="font-display text-base font-bold uppercase">
+                    {company?.name || "Empresa sin configurar"}
                   </p>
+                  {company?.business_activity && <p>{company.business_activity}</p>}
+                  {company?.address && <p>{company.address}</p>}
+                  {company?.phone && <p>Teléfono: {company.phone}</p>}
+                  {company?.email && <p>Email: {company.email}</p>}
                 </div>
-                <div className="purchase-order-print-actions flex gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => window.print()}
-                  >
-                    <Printer className="h-4 w-4" />
-                    Imprimir
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost p-1.5"
-                    onClick={() => setPreviewOrderId(null)}
-                    aria-label="Cerrar vista previa"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                <div className="space-y-1 border-2 border-destructive px-6 py-3 text-center font-bold text-destructive">
+                  {company?.rut && <p>R.U.T.: {company.rut}</p>}
+                  <p>Orden de Compra</p>
+                  <p>Folio N° {previewOrder.order_number}</p>
                 </div>
               </div>
-              <dl className="grid gap-3 border-b pb-4 sm:grid-cols-2">
-                <div>
-                  <dt className="text-sm text-muted-foreground">Proveedor</dt>
-                  <dd className="font-medium">
+              <dl className="grid gap-x-6 gap-y-1 rounded-md border p-3 text-sm sm:grid-cols-2">
+                <div className="space-y-1">
+                  <p>
+                    <span className="font-semibold">Señor(es): </span>
                     {supplierInfo?.name ??
                       suppliers.find((item) => item.id === previewOrder.supplier_id)?.name ??
                       "—"}
-                  </dd>
-                  {supplierInfo && (
-                    <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
-                      {supplierInfo.rut && <p>RUT: {supplierInfo.rut}</p>}
-                      {supplierInfo.address && <p>Dirección: {supplierInfo.address}</p>}
-                      {supplierInfo.city && <p>Ciudad: {supplierInfo.city}</p>}
-                      {supplierInfo.delivery_address && (
-                        <p>Despacho: {supplierInfo.delivery_address}</p>
-                      )}
-                    </div>
+                  </p>
+                  <p>
+                    <span className="font-semibold">Dirección: </span>
+                    {supplierInfo?.address || "No informada"}
+                  </p>
+                  {supplierInfo?.city && (
+                    <p>
+                      <span className="font-semibold">Ciudad: </span>
+                      {supplierInfo.city}
+                    </p>
                   )}
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Centro de costo</dt>
-                  <dd className="font-medium">
-                    {costCenters.find((item) => item.id === previewOrder.cost_center_id)?.name ??
-                      "Sin asignar"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Condiciones de pago</dt>
-                  <dd className="font-medium">
+                  {supplierInfo?.delivery_address && (
+                    <p>
+                      <span className="font-semibold">Despacho: </span>
+                      {supplierInfo.delivery_address}
+                    </p>
+                  )}
+                  <p>
+                    <span className="font-semibold">Condición de pago: </span>
                     {previewOrder.payment_terms === "otro"
                       ? previewOrder.payment_terms_other
                       : PAYMENT_TERMS_LABELS[previewOrder.payment_terms as PaymentTerms]}
-                  </dd>
+                  </p>
                 </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Estado</dt>
-                  <dd>
-                    {STATUS_LABELS[previewOrder.status as OrderStatus] ?? previewOrder.status}
-                  </dd>
+                <div className="space-y-1">
+                  {supplierInfo?.rut && (
+                    <p>
+                      <span className="font-semibold">R.U.T.: </span>
+                      {supplierInfo.rut}
+                    </p>
+                  )}
+                  <p>
+                    <span className="font-semibold">Emisión: </span>
+                    {new Date(`${previewOrder.order_date}T00:00:00`).toLocaleDateString("es-CL")}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Centro de negocio: </span>
+                    {costCenters.find((item) => item.id === previewOrder.cost_center_id)?.name ??
+                      "Sin asignar"}
+                  </p>
                 </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Aprobación</dt>
-                  <dd>
-                    {previewOrder.status === "anulada"
-                      ? "—"
-                      : previewOrder.approval_status === "aprobada"
-                        ? "Aprobada"
-                        : "Por aprobar"}
-                  </dd>
-                </div>
-                {previewOrder.description && (
-                  <div className="sm:col-span-2">
-                    <dt className="text-sm text-muted-foreground">Descripción</dt>
-                    <dd>{previewOrder.description}</dd>
-                  </div>
-                )}
-                {previewOrder.notes && (
-                  <div className="sm:col-span-2">
-                    <dt className="text-sm text-muted-foreground">Observaciones</dt>
-                    <dd>{previewOrder.notes}</dd>
-                  </div>
-                )}
               </dl>
-              <div className="overflow-x-auto">
-                <table className="table-base min-w-[560px]">
+              <div className="flex-1 overflow-x-auto rounded-md border">
+                <table className="table-base min-w-[480px]">
                   <thead>
                     <tr>
-                      <th>Descripción</th>
-                      <th>Cantidad</th>
-                      <th>Unidad</th>
-                      <th>Precio neto</th>
-                      <th>Subtotal neto</th>
+                      <th>Producto o servicio</th>
+                      <th className="text-right">Cantidad</th>
+                      <th className="text-right">Precio</th>
+                      <th className="text-right">Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1354,32 +1344,64 @@ function ComprasPage() {
                             ? `Servicio: ${item.description}`
                             : item.description}
                         </td>
-                        <td>{item.quantity}</td>
-                        <td>{item.measure_unit}</td>
-                        <td>{money(item.unit_cost)}</td>
-                        <td>{money(item.line_total)}</td>
+                        <td className="text-right">
+                          {item.quantity} {item.measure_unit}
+                        </td>
+                        <td className="text-right">{money(item.unit_cost)}</td>
+                        <td className="text-right">{money(item.line_total)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="ml-auto w-full max-w-sm space-y-1 text-right">
-                <p className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Subtotal neto</span>
-                  <span>{money(previewOrder.net_total)}</span>
-                </p>
-                <p className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Total neto</span>
-                  <span>{money(previewOrder.net_total)}</span>
-                </p>
-                <p className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">IVA (19%)</span>
-                  <span>{money(previewOrder.vat_amount)}</span>
-                </p>
-                <p className="flex justify-between gap-4 border-t pt-2 text-xl font-bold">
-                  <span>Total</span>
-                  <span>{money(previewOrder.total_amount)}</span>
-                </p>
+              <div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
+                <div className="flex-1 space-y-1 text-xs">
+                  <p className="text-sm font-semibold">Comentario:</p>
+                  {previewOrder.description && <p>{previewOrder.description}</p>}
+                  {previewOrder.notes && <p>{previewOrder.notes}</p>}
+                  <div className="space-y-0.5 pt-1 font-semibold">
+                    <p>INFORMACION IMPORTANTE</p>
+                    <p>
+                      1.- Toda Factura y Guía de despacho emitida a {company?.name || "—"}, debe
+                      indicar expresamente su número de Orden de Compra correspondiente. Caso
+                      contrario el documento será rechazado.
+                    </p>
+                    <p>2.- Facturar a:</p>
+                    <div className="space-y-0.5 pl-4">
+                      <p>Razón Social: {company?.name || "—"}</p>
+                      <p>R.U.T.: {company?.rut || "—"}</p>
+                      <p>Dirección: {company?.address || "—"}</p>
+                      <p>Giro: {company?.business_activity || "—"}</p>
+                      <p>Fono: {company?.phone || "—"}</p>
+                    </div>
+                    <p className="pt-1">
+                      Dirección envío Factura Electrónica XML, email{" "}
+                      {company?.billing_email || company?.email || "—"}
+                    </p>
+                  </div>
+                </div>
+                <div className="w-full max-w-xs space-y-1 rounded-md bg-muted/40 p-3 text-right">
+                  <p className="flex justify-between gap-4">
+                    <span className="font-semibold">Neto:</span>
+                    <span>{money(previewOrder.net_total)}</span>
+                  </p>
+                  <p className="flex justify-between gap-4">
+                    <span className="font-semibold">IVA:</span>
+                    <span>{money(previewOrder.vat_amount)}</span>
+                  </p>
+                  <p className="flex justify-between gap-4 border-t pt-2 text-lg font-bold">
+                    <span>Total:</span>
+                    <span>{money(previewOrder.total_amount)}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="ml-auto w-full max-w-xs rounded-md border p-3 text-xs">
+                {["Nombre", "R.U.T.", "Fecha", "Recinto", "Firma"].map((label) => (
+                  <p key={label} className="flex items-end gap-2 py-1">
+                    <span className="w-14 shrink-0">{label}:</span>
+                    <span className="flex-1 border-b" />
+                  </p>
+                ))}
               </div>
             </div>
           </div>
