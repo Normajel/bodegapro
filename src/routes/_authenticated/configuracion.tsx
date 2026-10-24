@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Save, Trash2, Users, X } from "lucide-react";
+import { Building2, Pencil, Plus, Save, Trash2, Users, X } from "lucide-react";
+import { CompanySettingsForm } from "@/components/company-settings-form";
 import { toast } from "sonner";
 import type { Json, Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,7 +29,7 @@ type Role = Tables<"app_roles">;
 type Profile = Tables<"profiles"> & {
   app_roles: { name: string } | null;
 };
-type Tab = "users" | "roles";
+type Tab = "users" | "roles" | "company";
 
 const emptyPermissions: RolePermissions = {};
 
@@ -290,6 +291,12 @@ function ConfiguracionPage() {
           onClick={() => setTab("roles")}
         >
           Perfiles y permisos
+        </button>
+        <button
+          className={`btn ${tab === "company" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setTab("company")}
+        >
+          <Building2 className="h-4 w-4" /> Empresa
         </button>
       </div>
 
@@ -655,6 +662,8 @@ function ConfiguracionPage() {
             </div>
           )}
         </div>
+      ) : tab === "company" ? (
+        <CompanySettingsForm />
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
           <section className="card overflow-hidden">

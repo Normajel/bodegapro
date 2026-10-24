@@ -35,6 +35,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      company_settings: {
+        Row: {
+          address: string;
+          business_activity: string;
+          email: string;
+          id: boolean;
+          name: string;
+          phone: string;
+          rut: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          address?: string;
+          business_activity?: string;
+          email?: string;
+          id?: boolean;
+          name?: string;
+          phone?: string;
+          rut?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          address?: string;
+          business_activity?: string;
+          email?: string;
+          id?: boolean;
+          name?: string;
+          phone?: string;
+          rut?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       customers: {
         Row: {
           address: string | null;
@@ -438,33 +474,42 @@ export type Database = {
       suppliers: {
         Row: {
           address: string | null;
+          city: string | null;
           contact_name: string | null;
           created_at: string;
+          delivery_address: string | null;
           email: string | null;
           id: string;
           name: string;
           notes: string | null;
           phone: string | null;
+          rut: string | null;
         };
         Insert: {
           address?: string | null;
+          city?: string | null;
           contact_name?: string | null;
           created_at?: string;
+          delivery_address?: string | null;
           email?: string | null;
           id?: string;
           name: string;
           notes?: string | null;
           phone?: string | null;
+          rut?: string | null;
         };
         Update: {
           address?: string | null;
+          city?: string | null;
           contact_name?: string | null;
           created_at?: string;
+          delivery_address?: string | null;
           email?: string | null;
           id?: string;
           name?: string;
           notes?: string | null;
           phone?: string | null;
+          rut?: string | null;
         };
         Relationships: [];
       };
@@ -550,6 +595,20 @@ export type Database = {
       approve_purchase_order: {
         Args: { p_order_id: string };
         Returns: undefined;
+      };
+      get_supplier_order_info: {
+        Args: { p_supplier_id: string };
+        Returns: {
+          id: string;
+          name: string;
+          rut: string | null;
+          city: string | null;
+          address: string | null;
+          delivery_address: string | null;
+          contact_name: string | null;
+          phone: string | null;
+          email: string | null;
+        }[];
       };
       receive_purchase_order: {
         Args: {

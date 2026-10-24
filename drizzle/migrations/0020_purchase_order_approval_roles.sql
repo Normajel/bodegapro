@@ -12,7 +12,7 @@ AS $$
     FROM public.profiles profile
     JOIN public.app_roles role ON role.id = profile.role_id
     WHERE profile.id = auth.uid()
-      AND upper(btrim(role.name)) IN ('ADMIN', 'GERENTE')
+      AND upper(btrim(role.name)) IN ('ADMIN', 'GERENCIA', 'GERENTE')
   );
 $$;
 

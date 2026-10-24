@@ -5,6 +5,7 @@ import { Check, Eye, MoreHorizontal, Pencil, Plus, Printer, Search, Truck, X } f
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { hasPermission, useAppAccess } from "@/lib/permissions";
+import { COMPANY_QUERY_KEY } from "@/components/company-settings-form";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,7 +99,7 @@ function ComprasPage() {
   const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
   const canApprove =
-    canEdit && ["ADMIN", "GERENTE"].includes((access?.name ?? "").trim().toUpperCase());
+    canEdit && ["ADMIN", "GERENCIA", "GERENTE"].includes((access?.name ?? "").trim().toUpperCase());
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
@@ -161,6 +162,18 @@ function ComprasPage() {
     },
   });
 
+  const { data: company } = useQuery({
+    queryKey: COMPANY_QUERY_KEY,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("name, rut, business_activity, address, phone, email")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: costCenters = [] } = useQuery({
     queryKey: ["purchase-cost-centers"],
     queryFn: async () => {
@@ -188,6 +201,18 @@ function ComprasPage() {
 
   const activeOrder = orders.find((order) => order.id === activeOrderId) ?? null;
   const previewOrder = orders.find((order) => order.id === previewOrderId) ?? null;
+  const previewSupplierId = previewOrder?.supplier_id ?? null;
+  const { data: supplierInfo } = useQuery({
+    queryKey: ["supplier-order-info", previewSupplierId],
+    enabled: !!previewSupplierId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_supplier_order_info", {
+        p_supplier_id: previewSupplierId as string,
+      });
+      if (error) throw error;
+      return data?.[0] ?? null;
+    },
+  });
   const activeOrderItems = useMemo(
     () =>
       orderItems.filter(
@@ -1204,6 +1229,21 @@ function ComprasPage() {
           `}</style>
           <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
             <div className="purchase-order-print card my-4 w-full max-w-3xl space-y-5 p-6">
+              {company && company.name ? (
+                <div className="border-b pb-3 text-sm">
+                  <p className="font-display text-lg font-bold">{company.name}</p>
+                  {company.rut && <p>RUT: {company.rut}</p>}
+                  {company.business_activity && <p>Giro: {company.business_activity}</p>}
+                  {company.address && <p>{company.address}</p>}
+                  {(company.phone || company.email) && (
+                    <p>{[company.phone, company.email].filter(Boolean).join(" · ")}</p>
+                  )}
+                </div>
+              ) : (
+                <p className="purchase-order-print-actions text-xs text-muted-foreground">
+                  Completa los datos de la empresa en Configuración → Empresa.
+                </p>
+              )}
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="font-display text-xl font-bold">
@@ -1236,8 +1276,20 @@ function ComprasPage() {
                 <div>
                   <dt className="text-sm text-muted-foreground">Proveedor</dt>
                   <dd className="font-medium">
-                    {suppliers.find((item) => item.id === previewOrder.supplier_id)?.name ?? "—"}
+                    {supplierInfo?.name ??
+                      suppliers.find((item) => item.id === previewOrder.supplier_id)?.name ??
+                      "—"}
                   </dd>
+                  {supplierInfo && (
+                    <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
+                      {supplierInfo.rut && <p>RUT: {supplierInfo.rut}</p>}
+                      {supplierInfo.address && <p>Dirección: {supplierInfo.address}</p>}
+                      {supplierInfo.city && <p>Ciudad: {supplierInfo.city}</p>}
+                      {supplierInfo.delivery_address && (
+                        <p>Despacho: {supplierInfo.delivery_address}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <dt className="text-sm text-muted-foreground">Centro de costo</dt>

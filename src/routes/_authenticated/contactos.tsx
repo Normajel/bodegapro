@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES } from "@/lib/warehouse";
 import { hasPermission, useAppAccess } from "@/lib/permissions";
+import { formatRut, isValidRut } from "@/lib/rut";
 
 export const Route = createFileRoute("/_authenticated/contactos")({
   head: () => ({
@@ -27,6 +28,9 @@ const EMPTY_FORM = {
   email: "",
   phone: "",
   address: "",
+  rut: "",
+  city: "",
+  delivery_address: "",
   notes: "",
 };
 
@@ -67,6 +71,9 @@ function ContactosPage() {
     email: string | null;
     phone: string | null;
     address: string | null;
+    rut?: string | null;
+    city?: string | null;
+    delivery_address?: string | null;
     notes: string | null;
   }) {
     setEditingId(row.id);
@@ -77,6 +84,9 @@ function ContactosPage() {
       email: row.email ?? "",
       phone: row.phone ?? "",
       address: row.address ?? "",
+      rut: row.rut ?? "",
+      city: row.city ?? "",
+      delivery_address: row.delivery_address ?? "",
       notes: row.notes ?? "",
     });
     setFormOpen(true);
@@ -96,8 +106,16 @@ function ContactosPage() {
           : await supabase.from("customers").insert(payload);
         if (result.error) throw result.error;
       } else {
+        if (form.rut.trim() && !isValidRut(form.rut)) {
+          toast.error("El RUT no es válido");
+          setSaving(false);
+          return;
+        }
         const payload = {
           name: form.name.trim(),
+          rut: form.rut.trim() ? formatRut(form.rut) : null,
+          city: form.city.trim() || null,
+          delivery_address: form.delivery_address.trim() || null,
           contact_name: form.contact_name || null,
           email: form.email || null,
           phone: form.phone || null,
@@ -173,6 +191,8 @@ function ContactosPage() {
               <th>{tab === "suppliers" ? "Nombre" : "Nombre maestro"}</th>
               {tab === "suppliers" ? (
                 <>
+                  <th>RUT</th>
+                  <th>Ciudad</th>
                   <th>Contacto</th>
                   <th>Correo</th>
                   <th>Teléfono</th>
@@ -187,7 +207,7 @@ function ContactosPage() {
             {isLoading ? (
               <tr>
                 <td
-                  colSpan={tab === "suppliers" ? 5 : 3}
+                  colSpan={tab === "suppliers" ? 7 : 3}
                   className="py-8 text-center text-muted-foreground"
                 >
                   Cargando…
@@ -196,7 +216,7 @@ function ContactosPage() {
             ) : rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={tab === "suppliers" ? 5 : 3}
+                  colSpan={tab === "suppliers" ? 7 : 3}
                   className="py-8 text-center text-muted-foreground"
                 >
                   No hay {tab === "suppliers" ? "proveedores" : "nombres maestros"} registrados.
@@ -208,6 +228,8 @@ function ContactosPage() {
                   <td className="font-medium">{r.name}</td>
                   {tab === "suppliers" ? (
                     <>
+                      <td className="text-muted-foreground">{("rut" in r && r.rut) || "—"}</td>
+                      <td className="text-muted-foreground">{("city" in r && r.city) || "—"}</td>
                       <td className="text-muted-foreground">{r.contact_name ?? "—"}</td>
                       <td className="text-muted-foreground">{r.email ?? "—"}</td>
                       <td className="text-muted-foreground">{r.phone ?? "—"}</td>
@@ -248,7 +270,7 @@ function ContactosPage() {
 
       {formOpen && (editingId ? canEdit : canCreate) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-foreground/40 p-4">
-          <div className="card w-full max-w-md p-6">
+          <div className="card w-full max-w-lg p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-lg font-bold">
                 {editingId ? "Editar" : "Nuevo"} {tab === "suppliers" ? "proveedor" : "maestro"}
@@ -323,12 +345,42 @@ function ContactosPage() {
                       />
                     </div>
                   </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">RUT</label>
+                      <input
+                        className="input"
+                        placeholder="12.345.678-5"
+                        value={form.rut}
+                        onChange={(e) => setForm({ ...form, rut: e.target.value })}
+                        onBlur={() =>
+                          form.rut.trim() && setForm({ ...form, rut: formatRut(form.rut) })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <label className="label">Ciudad</label>
+                      <input
+                        className="input"
+                        value={form.city}
+                        onChange={(e) => setForm({ ...form, city: e.target.value })}
+                      />
+                    </div>
+                  </div>
                   <div>
                     <label className="label">Dirección</label>
                     <input
                       className="input"
                       value={form.address}
                       onChange={(e) => setForm({ ...form, address: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Dirección de despacho</label>
+                    <input
+                      className="input"
+                      value={form.delivery_address}
+                      onChange={(e) => setForm({ ...form, delivery_address: e.target.value })}
                     />
                   </div>
                   <div>

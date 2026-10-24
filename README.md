@@ -1,62 +1,56 @@
 # BodegaPro
 
-Necesito crear una aplicación para manejo de bodega, está debe incluir base de datos y que los datos sean dinámicos al ingreso de información.
+Aplicación web para la gestión de bodega: inventario, compras, movimientos, contactos e informes, con base de datos y datos dinámicos.
 
-This project was built with [Lovable](https://lovable.dev).
+**Tecnologías:** TanStack Start · React 19 · Supabase (base de datos, autenticación y RLS) · Tailwind CSS v4 · Cloudflare Workers. Proyecto conectado a [Lovable](https://lovable.dev).
 
-## Build with Lovable
+## Módulos
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/861c68d2-1ef1-4729-bc79-76a0b4bc7ebc).
+- **Panel:** resumen del inventario y alertas de stock crítico.
+- **Inventario:** productos, stock, costo unitario con tendencia de precio, importación y planilla Excel.
+- **Órdenes de compra:** creación con servicios, condiciones de pago e IVA; filtros por recepción y estado; aprobación solo para ADMIN y GERENTE.
+- **Movimientos:** entradas y salidas, y compras y ventas registradas con edición y anulación.
+- **Contactos:** proveedores y maestros.
+- **Informes:** precios, inventario, stock crítico, movimientos y pendientes, con paginación y exportación a Excel.
+- **Configuración:** usuarios, roles y permisos.
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+Se accede con **usuario y contraseña**; el correo se usa solo para recuperación y autenticación. El rol ADMIN requiere segundo factor (TOTP).
 
-## Development
+## Puesta en marcha
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+Requiere Node.js y npm.
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
 npm i
+cp .env.example .env.local   # en PowerShell: Copy-Item .env.example .env.local
 npm run dev
 ```
 
-## Seguridad antes de publicar
+| Comando | Uso |
+| --- | --- |
+| `npm run dev` | Servidor de desarrollo |
+| `npm run build` | Compilación de producción |
+| `npm test` | Pruebas (Vitest) |
+| `npm run lint` | ESLint |
+| `npm run format` | Prettier |
 
-### Variables y claves
+## Base de datos
 
-- Copia `.env.example` a `.env.local` para desarrollo y completa los valores localmente.
-- `VITE_SUPABASE_PUBLISHABLE_KEY` y `VITE_TURNSTILE_SITE_KEY` son valores públicos. La clave publicable de Supabase no reemplaza las políticas RLS.
-- `SUPABASE_SERVICE_ROLE_KEY` y `BODEGAPRO_RESET_CODE` son secretos del servidor: guárdalos como secretos privados del Cloudflare Worker, nunca como variables `VITE_*`.
-- El secreto de Turnstile se configura directamente en Supabase Auth; no se coloca en el navegador ni en este repositorio.
-- Si una clave privilegiada se compartió o quedó expuesta, rótala en Supabase y actualiza el secreto del Worker. No la pegues en el chat ni en Git.
+Las migraciones están en `drizzle/migrations` y se ejecutan **en orden** en el SQL Editor de Supabase. Aplica todas las pendientes después de actualizar el código.
 
-### Supabase Auth
+## Seguridad
 
-En el panel de Supabase:
+- `VITE_SUPABASE_PUBLISHABLE_KEY` y `VITE_TURNSTILE_SITE_KEY` son públicas; la protección real son las políticas RLS.
+- `SUPABASE_SERVICE_ROLE_KEY` y `BODEGAPRO_RESET_CODE` son secretos del servidor: guárdalos como secretos del Worker, nunca como variables `VITE_*` ni en Git. Si se expusieron, rótalas en Supabase.
+- En Supabase Auth: contraseña de mínimo 12 caracteres, CAPTCHA con Cloudflare Turnstile, límites de solicitudes activos y URLs de redirección restringidas a tus dominios.
+- En Cloudflare: activa **Always Use HTTPS** y **Full (strict)**.
 
-1. Configura la política de contraseñas con mínimo 12 caracteres y activa la protección contra contraseñas filtradas si tu plan lo permite. La aplicación también exige 12 caracteres al crear o cambiar la contraseña desde Configuración.
-2. En **Authentication → Bot and Abuse Protection**, habilita CAPTCHA con **Cloudflare Turnstile** e ingresa el secret key del widget.
-3. Ajusta los límites de solicitudes de Auth para el uso esperado de tu equipo; no los desactives.
-4. Restringe **Site URL** y las URLs de redirección al dominio real de producción y a los orígenes locales necesarios.
-5. Ejecuta las migraciones pendientes en orden. La migración `0014_require_admin_mfa.sql` aplica MFA a permisos ADMIN en RLS y operaciones administrativas del servidor.
+### Recuperar el segundo factor del ADMIN
 
-En Cloudflare, define `VITE_TURNSTILE_SITE_KEY` en el entorno de compilación y almacena `SUPABASE_SERVICE_ROLE_KEY` y `BODEGAPRO_RESET_CODE` como secretos del Worker. La aplicación bloquea el inicio de sesión si no está configurada la clave pública de Turnstile.
-
-### HTTPS en Cloudflare
-
-Si publicas con un dominio propio, habilita **Always Use HTTPS** y usa **Full (strict)** entre Cloudflare y el origen. Activa HSTS solo después de comprobar que todo el dominio funciona exclusivamente con HTTPS. En Workers con dominio personalizado, verifica que el dominio esté asociado al Worker y que el certificado TLS esté activo.
-
-### Segundo factor ADMIN
-
-El primer inicio de sesión ADMIN debe completar la configuración TOTP con una aplicación autenticadora. Si se pierde el dispositivo, la recuperación debe hacerla un responsable desde el panel de Supabase; conserva acceso seguro a ese panel y no elimines el único factor activo sin un reemplazo.
-
-Si en desarrollo local el usuario ADMIN queda bloqueado en el desafío MFA y no tiene el dispositivo autenticador, hay una recuperación manual que requiere la clave privada `SUPABASE_SERVICE_ROLE_KEY` en `.env.local`:
+Si el ADMIN pierde su autenticador en desarrollo local, con `SUPABASE_SERVICE_ROLE_KEY` en `.env.local`:
 
 ```powershell
 node --env-file=.env.local .\scripts\reset-admin-totp.mjs
 ```
 
-El script solicita el correo ADMIN y una confirmación explícita; elimina únicamente sus factores TOTP y Supabase cierra las sesiones de esa cuenta. Luego se puede iniciar sesión de nuevo y registrar un autenticador. No ejecutes el script contra producción salvo que realmente quieras invalidar el MFA y las sesiones del ADMIN.
+El script elimina solo los factores TOTP de esa cuenta y cierra sus sesiones. No lo uses en producción salvo que realmente quieras invalidar el MFA.

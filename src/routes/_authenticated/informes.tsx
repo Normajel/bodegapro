@@ -1,7 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Download, Search } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Search,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { dateKey, money, santiagoDateTimeIso } from "@/lib/warehouse";
@@ -23,6 +31,18 @@ type ReportType =
   "prices" | "general-inventory" | "inventory" | "critical" | "movements" | "pending";
 type PeriodPreset = "7days" | "30days" | "month" | "custom";
 type ReportRow = { id: string; cells: (string | number)[]; searchText: string };
+
+// Compara el último precio con el promedio de las compras anteriores (celdas 5, 8 y 11).
+function priceTrend(cells: (string | number)[]): "up" | "same" | "down" | null {
+  if (cells[5] === "" || cells[5] === undefined) return null;
+  const [latest, ...previous] = [5, 8, 11]
+    .map((index) => cells[index])
+    .filter((value): value is number => value !== "" && value !== undefined)
+    .map(Number);
+  if (latest === undefined || previous.length === 0) return null;
+  const average = previous.reduce((sum, price) => sum + price, 0) / previous.length;
+  return latest > average + 0.5 ? "up" : latest < average - 0.5 ? "down" : "same";
+}
 type MovementFilters = {
   type: string;
   documentType: string;
@@ -962,6 +982,8 @@ function InformesPage() {
                       (reportType === "general-inventory" && index === 9) ||
                       (reportType === "movements" && (index === 6 || index === 7)) ||
                       (reportType === "pending" && (index === 10 || index === 11));
+                    const trend =
+                      reportType === "prices" && index === 5 ? priceTrend(row.cells) : null;
                     return (
                       <td
                         key={`${row.id}-${index}`}
@@ -974,6 +996,25 @@ function InformesPage() {
                           : cell === ""
                             ? "—"
                             : cell}
+                        {trend &&
+                          (() => {
+                            const label =
+                              trend === "up"
+                                ? "El precio subió respecto de las compras anteriores"
+                                : trend === "down"
+                                  ? "El precio bajó respecto de las compras anteriores"
+                                  : "El precio se mantiene";
+                            const Icon =
+                              trend === "up" ? ArrowUp : trend === "down" ? ArrowDown : ArrowRight;
+                            return (
+                              <Icon
+                                className={`ml-1 inline h-3.5 w-3.5 ${trend === "up" ? "text-destructive" : "text-success"}`}
+                                aria-label={label}
+                              >
+                                <title>{label}</title>
+                              </Icon>
+                            );
+                          })()}
                       </td>
                     );
                   })}
