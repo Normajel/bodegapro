@@ -5,6 +5,8 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUp,
+  ChevronLeft,
+  ChevronRight,
   Download,
   FileUp,
   Plus,
@@ -46,6 +48,7 @@ type ProductForm = {
   location: string;
   unit_cost: number;
   barcode: string;
+  stock: number;
 };
 
 function getProductStock(product: Product) {
@@ -96,6 +99,7 @@ const EMPTY_FORM: ProductForm = {
   location: "",
   unit_cost: 0,
   barcode: "",
+  stock: 0,
 };
 
 function ProductosPage() {
@@ -103,6 +107,11 @@ function ProductosPage() {
   const canCreate = hasPermission(access?.name, access?.permissions, "inventory", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "inventory", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "inventory", "delete");
+  const isAdmin = (access?.name ?? "").trim().toUpperCase() === "ADMIN";
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [managementFilter, setManagementFilter] = useState<"" | "comprar" | "ok">("");
+  const [pageSize, setPageSize] = useState<10 | 20>(10);
+  const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Product | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -233,9 +242,25 @@ function ProductosPage() {
 
   const filtered = products.filter((p) => {
     if (p.active === showArchived) return false;
+    if (categoryFilter && p.category !== categoryFilter) return false;
+    if (managementFilter) {
+      const needsPurchase = getProductStock(p) <= (Number(p.min_stock) || 0);
+      if ((managementFilter === "comprar") !== needsPurchase) return false;
+    }
     const term = search.trim().toLowerCase();
     return [p.name, p.sku, p.category].some((value) => (value ?? "").toLowerCase().includes(term));
   });
+
+  const categoryOptions = Array.from(
+    new Set([...CATEGORIES, ...products.map((p) => p.category).filter(Boolean)]),
+  ).sort((a, b) => a.localeCompare(b, "es"));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pagedProducts = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, categoryFilter, managementFilter, showArchived, pageSize]);
 
   function openNew() {
     setEditing(null);
@@ -263,6 +288,7 @@ function ProductosPage() {
       location: p.location ?? "",
       unit_cost: Number(p.unit_cost) || 0,
       barcode: p.barcode ?? "",
+      stock: getProductStock(p),
     });
     setCustomUnit("");
     setAddingUnit(false);
@@ -300,6 +326,10 @@ function ProductosPage() {
     }
     if (!Number.isFinite(form.min_stock) || form.min_stock < 0) {
       toast.error("El stock crítico debe ser un número igual o mayor a cero");
+      return;
+    }
+    if (isAdmin && editing && (!Number.isFinite(form.stock) || form.stock < 0)) {
+      toast.error("El stock debe ser un número igual o mayor a cero");
       return;
     }
     if (!Number.isFinite(form.unit_cost) || form.unit_cost < 0) {
@@ -350,6 +380,9 @@ function ProductosPage() {
         location: form.location.trim() || null,
         unit_cost: Number(form.unit_cost),
         barcode: form.barcode.trim() || null,
+        ...(isAdmin && editing && form.stock !== getProductStock(editing)
+          ? { stock_quantity: Number(form.stock) }
+          : {}),
       };
 
       if (editing) {
@@ -421,6 +454,7 @@ function ProductosPage() {
                 location: matchedProduct.location ?? "",
                 unit_cost: Number(matchedProduct.unit_cost) || 0,
                 barcode: matchedProduct.barcode ?? scannedValue,
+                stock: getProductStock(matchedProduct),
               });
               toast.success("El producto ya existe; se cargaron sus datos para editarlo");
             } else {
@@ -588,7 +622,7 @@ function ProductosPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl space-y-4 px-4 py-5">
+    <main className="mx-auto w-full max-w-7xl space-y-4 px-2 py-4 sm:px-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Inventario</h1>
@@ -645,6 +679,29 @@ function ProductosPage() {
           onChange={(e) => setSearch(e.target.value)}
           aria-label="Buscar productos"
         />
+        <select
+          className="input w-auto"
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          aria-label="Filtrar por categoría"
+        >
+          <option value="">Todas las categorías</option>
+          {categoryOptions.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+        <select
+          className="input w-auto"
+          value={managementFilter}
+          onChange={(e) => setManagementFilter(e.target.value as "" | "comprar" | "ok")}
+          aria-label="Filtrar por gestión"
+        >
+          <option value="">Toda la gestión</option>
+          <option value="comprar">Comprar</option>
+          <option value="ok">OK</option>
+        </select>
         <button
           type="button"
           className="btn btn-secondary"
@@ -663,18 +720,18 @@ function ProductosPage() {
       </p>
 
       <div className="card overflow-x-auto">
-        <table className="table-base w-full min-w-[1000px]">
+        <table className="table-base w-full text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap [&_td:nth-child(2)]:whitespace-normal">
           <thead>
             <tr>
-              <th>SKU</th>
-              <th>Descripción</th>
-              <th>Categoría</th>
-              <th>Stock</th>
-              <th>Stock crítico</th>
-              <th>Costo unitario</th>
-              <th>Costo total</th>
-              <th>Gestión</th>
-              <th className="w-24"></th>
+              <th className="w-[10%]">SKU</th>
+              <th className="w-[26%]">Descripción</th>
+              <th className="w-[14%]">Categoría</th>
+              <th className="w-[10%]">Stock</th>
+              <th className="hidden w-[9%] lg:table-cell">Stock crítico</th>
+              <th className="w-[10%]">Costo unitario</th>
+              <th className="hidden w-[10%] lg:table-cell">Costo total</th>
+              <th className="w-[9%]">Gestión</th>
+              <th className="w-[84px]"></th>
             </tr>
           </thead>
           <tbody>
@@ -697,7 +754,7 @@ function ProductosPage() {
                 </td>
               </tr>
             ) : (
-              filtered.map((p) => {
+              pagedProducts.map((p) => {
                 const stock = getProductStock(p);
                 const minStock = Number(p.min_stock) || 0;
                 const unitCost = Number(p.unit_cost) || 0;
@@ -709,17 +766,19 @@ function ProductosPage() {
                       : "badge-success";
                 return (
                   <tr key={p.id}>
-                    <td className="text-muted-foreground">{p.sku}</td>
+                    <td className="break-all text-xs text-muted-foreground">{p.sku}</td>
                     <td className="font-medium">{p.name}</td>
                     <td>
-                      <span className="badge badge-muted">{p.category}</span>
-                    </td>
-                    <td>
-                      <span className={`badge ${stockStatus}`}>
-                        {formatQuantity(stock)} {p.unit}
+                      <span className="badge badge-muted whitespace-normal text-[11px] leading-tight">
+                        {p.category}
                       </span>
                     </td>
                     <td>
+                      <span className={`badge whitespace-nowrap ${stockStatus}`}>
+                        {formatQuantity(stock)} {p.unit}
+                      </span>
+                    </td>
+                    <td className="hidden lg:table-cell">
                       {formatQuantity(minStock)} {p.unit}
                     </td>
                     <td>
@@ -751,7 +810,7 @@ function ProductosPage() {
                         })()}
                       </span>
                     </td>
-                    <td>
+                    <td className="hidden lg:table-cell">
                       {(stock * unitCost).toLocaleString("es-CL", {
                         style: "currency",
                         currency: "CLP",
@@ -807,6 +866,49 @@ function ProductosPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <label className="flex items-center gap-2">
+          <span className="text-muted-foreground">Filas por página</span>
+          <select
+            className="input w-20"
+            value={pageSize}
+            onChange={(event) => setPageSize(Number(event.target.value) === 20 ? 20 : 10)}
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+          </select>
+        </label>
+        <span className="text-muted-foreground">
+          {filtered.length.toLocaleString("es-CL")}{" "}
+          {filtered.length === 1 ? "producto" : "productos"}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="btn btn-secondary p-1.5"
+            onClick={() => setPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage <= 1}
+            aria-label="Página anterior"
+            title="Anterior"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-muted-foreground">
+            Página {currentPage} de {totalPages}
+          </span>
+          <button
+            type="button"
+            className="btn btn-secondary p-1.5"
+            onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage >= totalPages}
+            aria-label="Página siguiente"
+            title="Siguiente"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {formOpen && (editing ? canEdit : canCreate) && (
@@ -1038,6 +1140,27 @@ function ProductosPage() {
                 </div>
               </div>
 
+              {isAdmin && editing && (
+                <div className="rounded-md border border-warning/50 bg-warning/10 p-3">
+                  <label className="label" htmlFor="product-stock">
+                    Stock actual (ajuste de inventario)
+                  </label>
+                  <input
+                    id="product-stock"
+                    type="number"
+                    min={0}
+                    step="any"
+                    className="input w-full"
+                    value={form.stock}
+                    onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Solo administradores. Úsalo para cuadrar el inventario general; no genera un
+                    movimiento.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <label className="label" htmlFor="product-min-stock">
                   Stock mínimo
@@ -1160,6 +1283,17 @@ function ProductosPage() {
                   })}
                 </dd>
               </div>
+              {isAdmin && editing && (
+                <div>
+                  <dt className="text-muted-foreground">Stock actual</dt>
+                  <dd className="font-medium">
+                    {form.stock !== getProductStock(editing)
+                      ? `${formatQuantity(getProductStock(editing))} → ${formatQuantity(form.stock)}`
+                      : formatQuantity(form.stock)}{" "}
+                    {form.unit}
+                  </dd>
+                </div>
+              )}
               <div>
                 <dt className="text-muted-foreground">Código de barras o QR</dt>
                 <dd className="break-all font-medium">{form.barcode.trim() || "Sin código"}</dd>
