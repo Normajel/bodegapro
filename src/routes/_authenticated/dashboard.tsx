@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { dateKey, santiagoDateTimeIso } from "@/lib/warehouse";
@@ -39,6 +40,7 @@ function DashboardPage() {
   const queryClient = useQueryClient();
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("7days");
   const [chartMetric, setChartMetric] = useState<ChartMetric>("value");
+  const [criticalOpen, setCriticalOpen] = useState(false);
   const todayKey = dateKey(new Date());
   const chartStartDay = useMemo(() => {
     const start = new Date(`${todayKey}T12:00:00Z`);
@@ -116,6 +118,12 @@ function DashboardPage() {
     (product) =>
       finiteNumber(product.stock_quantity ?? product.stock) <= finiteNumber(product.min_stock),
   );
+  const sortedCritical = [...criticalProducts].sort(
+    (a, b) => finiteNumber(a.stock_quantity ?? a.stock) - finiteNumber(b.stock_quantity ?? b.stock),
+  );
+  const outOfStockCount = criticalProducts.filter(
+    (product) => finiteNumber(product.stock_quantity ?? product.stock) <= 0,
+  ).length;
   const stockValue = activeProducts.reduce(
     (sum, product) =>
       sum + finiteNumber(product.stock_quantity ?? product.stock) * finiteNumber(product.unit_cost),
@@ -283,14 +291,99 @@ function DashboardPage() {
           <p className="mt-1 font-display text-xl font-bold text-destructive">
             {productsLoading ? "…" : productsError ? "No disponible" : criticalProducts.length}
           </p>
-          <Link
-            to="/productos"
+          <button
+            type="button"
             className="text-xs font-medium text-foreground underline underline-offset-2"
+            onClick={() => setCriticalOpen(true)}
+            disabled={productsLoading || productsError}
           >
-            Ver inventario
-          </Link>
+            Revisar
+          </button>
         </div>
       </section>
+
+      {criticalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setCriticalOpen(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="critical-title"
+            className="card flex max-h-[85vh] w-full max-w-3xl flex-col p-5 sm:p-6"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <h2 id="critical-title" className="font-display text-lg font-bold">
+                  Stock crítico o sin stock
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {criticalProducts.length} productos · {outOfStockCount} sin stock
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost p-1.5"
+                aria-label="Cerrar"
+                onClick={() => setCriticalOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="overflow-auto">
+              <table className="table-base">
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Descripción</th>
+                    <th>Stock</th>
+                    <th>Crítico</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedCritical.map((product) => {
+                    const stock = finiteNumber(product.stock_quantity ?? product.stock);
+                    return (
+                      <tr key={product.id}>
+                        <td className="text-muted-foreground">{product.sku}</td>
+                        <td className="font-medium">{product.name}</td>
+                        <td>
+                          {stock.toLocaleString("es-CL")} {product.unit}
+                        </td>
+                        <td>
+                          {finiteNumber(product.min_stock).toLocaleString("es-CL")} {product.unit}
+                        </td>
+                        <td>
+                          <span
+                            className={`badge ${stock <= 0 ? "badge-destructive" : "badge-warning"}`}
+                          >
+                            {stock <= 0 ? "Sin stock" : "Crítico"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setCriticalOpen(false)}
+              >
+                Cerrar
+              </button>
+              <Link to="/productos" className="btn btn-primary">
+                Ir al inventario
+              </Link>
+            </div>
+          </section>
+        </div>
+      )}
 
       <section aria-labelledby="movement-chart-title" className="border-y border-border py-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
