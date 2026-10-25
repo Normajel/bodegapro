@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, Printer, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { CubicationWindow } from "@/components/cubication-window";
 import { supabase } from "@/integrations/supabase/client";
 import {
   UNIT_TYPE_LABELS,
@@ -11,7 +12,7 @@ import {
   generarComprobanteCompra,
   generarComprobanteSalida,
 } from "@/lib/comprobante-pdf";
-import { UNITS } from "@/lib/warehouse";
+import { UNIDADES, UNITS } from "@/lib/warehouse";
 import { hasPermission, useAppAccess } from "@/lib/permissions";
 
 export const Route = createFileRoute("/_authenticated/movimientos")({
@@ -122,32 +123,6 @@ const emptyForm: FormState = {
   notes: "",
 };
 
-const UNIDADES = [
-  "2102C2OFPL",
-  "2111-C2OFBA",
-  "2103C2B333",
-  "2104 C2VEST",
-  "2105 C2COMEDOR",
-  "2103-C2BLL",
-  "2103C2WCBB",
-  "1102-M2OFPL",
-  "1111-M2OFBA",
-  "M2 BAÑO 3X3X3",
-  "1111-20-M2OFBACOMPLETO",
-  "1102-10-M2OFDUPLEX",
-  "1111-30 M2 MINICABAÑA",
-  "1102-30 M2OFBOD",
-  "1102-M2SALA MULTIUSO",
-  "1202M6X3OFPL",
-  "1101M2BOD",
-  "1002M1OFPL",
-  "1003M1BABA",
-  "1002-1M1CGCV",
-  "1001M1BOD",
-  "3002BCG",
-  "BOX40",
-] as const;
-
 function newPurchaseItem(): PurchaseItem {
   return {
     key: `${Date.now()}-${Math.random()}`,
@@ -195,6 +170,7 @@ function MovimientosPage() {
   const db = supabase as any;
 
   const [formOpen, setFormOpen] = useState(false);
+  const [cubicationUnit, setCubicationUnit] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
   const [editingPurchaseEntryId, setEditingPurchaseEntryId] = useState<string | null>(null);
@@ -2172,7 +2148,10 @@ function MovimientosPage() {
                         <select
                           className="input"
                           value={form.unit_type_value}
-                          onChange={(e) => setForm({ ...form, unit_type_value: e.target.value })}
+                          onChange={(e) => {
+                            setForm({ ...form, unit_type_value: e.target.value });
+                            if (e.target.value) setCubicationUnit(e.target.value);
+                          }}
                         >
                           <option value="">Selecciona una unidad…</option>
                           {UNIDADES.map((unit) => (
@@ -2181,6 +2160,22 @@ function MovimientosPage() {
                             </option>
                           ))}
                         </select>
+                        {form.unit_type_value && (
+                          <button
+                            type="button"
+                            className="mt-1 text-xs font-medium underline underline-offset-2"
+                            onClick={() => setCubicationUnit(form.unit_type_value)}
+                          >
+                            Ver cubicación
+                          </button>
+                        )}
+                        {cubicationUnit && (
+                          <CubicationWindow
+                            unitType={form.unit_type}
+                            unitCode={cubicationUnit}
+                            onClose={() => setCubicationUnit(null)}
+                          />
+                        )}
                       </div>
 
                       <div>

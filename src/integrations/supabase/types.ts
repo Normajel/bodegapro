@@ -74,6 +74,81 @@ export type Database = {
         };
         Relationships: [];
       };
+      cubication_template_items: {
+        Row: {
+          id: string;
+          product_id: string;
+          quantity: number;
+          template_id: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          quantity: number;
+          template_id: string;
+        };
+        Update: {
+          id?: string;
+          product_id?: string;
+          quantity?: number;
+          template_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cubication_template_items_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cubication_template_items_template_id_fkey";
+            columns: ["template_id"];
+            isOneToOne: false;
+            referencedRelation: "cubication_templates";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      cubication_templates: {
+        Row: {
+          admin_pct: number;
+          created_at: string;
+          created_by: string | null;
+          distributor_margin_pct: number;
+          id: string;
+          other_costs: number;
+          retail_margin_pct: number;
+          unit_code: string;
+          unit_type: string;
+          updated_at: string;
+        };
+        Insert: {
+          admin_pct?: number;
+          created_at?: string;
+          created_by?: string | null;
+          distributor_margin_pct?: number;
+          id?: string;
+          other_costs?: number;
+          retail_margin_pct?: number;
+          unit_code: string;
+          unit_type: string;
+          updated_at?: string;
+        };
+        Update: {
+          admin_pct?: number;
+          created_at?: string;
+          created_by?: string | null;
+          distributor_margin_pct?: number;
+          id?: string;
+          other_costs?: number;
+          retail_margin_pct?: number;
+          unit_code?: string;
+          unit_type?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       customers: {
         Row: {
           address: string | null;
@@ -625,6 +700,18 @@ export type Database = {
       cancel_purchase_order: {
         Args: { p_order_id: string };
         Returns: undefined;
+      };
+      save_cubication_template: {
+        Args: {
+          p_admin_pct: number;
+          p_distributor_margin_pct: number;
+          p_items: Json;
+          p_other_costs: number;
+          p_retail_margin_pct: number;
+          p_unit_code: string;
+          p_unit_type: string;
+        };
+        Returns: string;
       };
     };
     Enums: {

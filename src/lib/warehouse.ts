@@ -24,6 +24,32 @@ export const CATEGORY_PREFIX: Record<string, string> = {
   DETALLES: "DET",
 };
 
+export const UNIDADES = [
+  "2102C2OFPL",
+  "2111-C2OFBA",
+  "2103C2B333",
+  "2104 C2VEST",
+  "2105 C2COMEDOR",
+  "2103-C2BLL",
+  "2103C2WCBB",
+  "1102-M2OFPL",
+  "1111-M2OFBA",
+  "M2 BAÑO 3X3X3",
+  "1111-20-M2OFBACOMPLETO",
+  "1102-10-M2OFDUPLEX",
+  "1111-30 M2 MINICABAÑA",
+  "1102-30 M2OFBOD",
+  "1102-M2SALA MULTIUSO",
+  "1202M6X3OFPL",
+  "1101M2BOD",
+  "1002M1OFPL",
+  "1003M1BABA",
+  "1002-1M1CGCV",
+  "1001M1BOD",
+  "3002BCG",
+  "BOX40",
+] as const;
+
 export const money = (value: number) =>
   new Intl.NumberFormat("es-CL", {
     style: "currency",
