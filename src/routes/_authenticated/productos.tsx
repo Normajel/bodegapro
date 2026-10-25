@@ -725,12 +725,12 @@ function ProductosPage() {
             <tr>
               <th className="w-[10%]">SKU</th>
               <th className="w-[26%]">Descripción</th>
-              <th className="w-[14%]">Categoría</th>
+              <th className="hidden w-[14%] md:table-cell">Categoría</th>
               <th className="w-[10%]">Stock</th>
               <th className="hidden w-[9%] lg:table-cell">Stock crítico</th>
               <th className="w-[10%]">Costo unitario</th>
               <th className="hidden w-[10%] lg:table-cell">Costo total</th>
-              <th className="w-[9%]">Gestión</th>
+              <th className="hidden w-[9%] md:table-cell">Gestión</th>
               <th className="sticky right-0 w-[84px] bg-card"></th>
             </tr>
           </thead>
@@ -768,7 +768,7 @@ function ProductosPage() {
                   <tr key={p.id}>
                     <td className="break-all text-xs text-muted-foreground">{p.sku}</td>
                     <td className="font-medium">{p.name}</td>
-                    <td>
+                    <td className="hidden md:table-cell">
                       <span className="badge badge-muted whitespace-normal text-[11px] leading-tight">
                         {p.category}
                       </span>
@@ -817,7 +817,7 @@ function ProductosPage() {
                         maximumFractionDigits: 0,
                       })}
                     </td>
-                    <td>
+                    <td className="hidden md:table-cell">
                       <span
                         className={`badge ${stock <= minStock ? "badge-warning" : "badge-success"}`}
                       >
