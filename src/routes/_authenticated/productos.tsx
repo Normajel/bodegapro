@@ -720,7 +720,7 @@ function ProductosPage() {
       </p>
 
       <div className="card overflow-x-auto">
-        <table className="table-base w-full text-sm [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap [&_td:nth-child(2)]:whitespace-normal">
+        <table className="table-base w-full text-sm [&_td]:px-2 [&_th]:px-2 [&_td]:whitespace-nowrap [&_th]:whitespace-nowrap [&_td:nth-child(2)]:whitespace-normal">
           <thead>
             <tr>
               <th className="w-[10%]">SKU</th>
@@ -731,7 +731,7 @@ function ProductosPage() {
               <th className="w-[10%]">Costo unitario</th>
               <th className="hidden w-[10%] lg:table-cell">Costo total</th>
               <th className="w-[9%]">Gestión</th>
-              <th className="w-[84px]"></th>
+              <th className="sticky right-0 w-[84px] bg-card"></th>
             </tr>
           </thead>
           <tbody>
@@ -824,7 +824,7 @@ function ProductosPage() {
                         {stock <= minStock ? "Comprar" : "OK"}
                       </span>
                     </td>
-                    <td>
+                    <td className="sticky right-0 bg-card">
                       <div className="flex gap-1">
                         {canEdit && (
                           <button
