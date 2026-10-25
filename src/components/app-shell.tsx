@@ -8,7 +8,7 @@ import {
   ShoppingCart,
   Users,
   FileBarChart,
-  Settings,
+  Calculator,
   LogOut,
   Menu,
   X,
@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { to: "/movimientos", label: "Movimientos", icon: ArrowLeftRight, module: "movements" },
   { to: "/contactos", label: "Contactos", icon: Users, module: "contacts" },
   { to: "/informes", label: "Informes", icon: FileBarChart, module: "reports" },
+  { to: "/cubicacion", label: "Cubicación", icon: Calculator, module: "reports" },
   { to: "/configuracion", label: "Configuración", icon: Settings, module: "settings" },
 ] as const;
 

@@ -16,6 +16,7 @@ import { Route as MfaRouteImport } from './routes/mfa'
 import { Route as AuthenticatedComprasRouteImport } from './routes/_authenticated/compras'
 import { Route as AuthenticatedConfiguracionRouteImport } from './routes/_authenticated/configuracion'
 import { Route as AuthenticatedContactosRouteImport } from './routes/_authenticated/contactos'
+import { Route as AuthenticatedCubicacionRouteImport } from './routes/_authenticated/cubicacion'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedInformesRouteImport } from './routes/_authenticated/informes'
 import { Route as AuthenticatedMovimientosRouteImport } from './routes/_authenticated/movimientos'
@@ -56,6 +57,11 @@ const AuthenticatedContactosRoute = AuthenticatedContactosRouteImport.update({
   path: '/contactos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCubicacionRoute = AuthenticatedCubicacionRouteImport.update({
+  id: '/cubicacion',
+  path: '/cubicacion',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/compras': typeof AuthenticatedComprasRoute
   '/configuracion': typeof AuthenticatedConfiguracionRoute
   '/contactos': typeof AuthenticatedContactosRoute
+  '/cubicacion': typeof AuthenticatedCubicacionRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/informes': typeof AuthenticatedInformesRoute
   '/movimientos': typeof AuthenticatedMovimientosRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/compras': typeof AuthenticatedComprasRoute
   '/configuracion': typeof AuthenticatedConfiguracionRoute
   '/contactos': typeof AuthenticatedContactosRoute
+  '/cubicacion': typeof AuthenticatedCubicacionRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/informes': typeof AuthenticatedInformesRoute
   '/movimientos': typeof AuthenticatedMovimientosRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/_authenticated/compras': typeof AuthenticatedComprasRoute
   '/_authenticated/configuracion': typeof AuthenticatedConfiguracionRoute
   '/_authenticated/contactos': typeof AuthenticatedContactosRoute
+  '/_authenticated/cubicacion': typeof AuthenticatedCubicacionRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/informes': typeof AuthenticatedInformesRoute
   '/_authenticated/movimientos': typeof AuthenticatedMovimientosRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/compras'
     | '/configuracion'
     | '/contactos'
+    | '/cubicacion'
     | '/dashboard'
     | '/informes'
     | '/movimientos'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/compras'
     | '/configuracion'
     | '/contactos'
+    | '/cubicacion'
     | '/dashboard'
     | '/informes'
     | '/movimientos'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/_authenticated/compras'
     | '/_authenticated/configuracion'
     | '/_authenticated/contactos'
+    | '/_authenticated/cubicacion'
     | '/_authenticated/dashboard'
     | '/_authenticated/informes'
     | '/_authenticated/movimientos'
@@ -214,6 +226,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContactosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/cubicacion': {
+      id: '/_authenticated/cubicacion'
+      path: '/cubicacion'
+      fullPath: '/cubicacion'
+      preLoaderRoute: typeof AuthenticatedCubicacionRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -249,6 +268,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedComprasRoute: typeof AuthenticatedComprasRoute
   AuthenticatedConfiguracionRoute: typeof AuthenticatedConfiguracionRoute
   AuthenticatedContactosRoute: typeof AuthenticatedContactosRoute
+  AuthenticatedCubicacionRoute: typeof AuthenticatedCubicacionRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedInformesRoute: typeof AuthenticatedInformesRoute
   AuthenticatedMovimientosRoute: typeof AuthenticatedMovimientosRoute
@@ -259,6 +279,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedComprasRoute: AuthenticatedComprasRoute,
   AuthenticatedConfiguracionRoute: AuthenticatedConfiguracionRoute,
   AuthenticatedContactosRoute: AuthenticatedContactosRoute,
+  AuthenticatedCubicacionRoute: AuthenticatedCubicacionRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedInformesRoute: AuthenticatedInformesRoute,
   AuthenticatedMovimientosRoute: AuthenticatedMovimientosRoute,
