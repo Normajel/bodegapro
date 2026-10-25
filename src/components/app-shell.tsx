@@ -9,6 +9,7 @@ import {
   Users,
   FileBarChart,
   Calculator,
+  Settings,
   LogOut,
   Menu,
   X,
