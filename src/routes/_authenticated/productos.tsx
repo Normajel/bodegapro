@@ -731,7 +731,7 @@ function ProductosPage() {
               <th className="w-[10%]">Costo unitario</th>
               <th className="hidden w-[10%] lg:table-cell">Costo total</th>
               <th className="hidden w-[9%] md:table-cell">Gestión</th>
-              <th className="sticky right-0 w-[84px] bg-card"></th>
+              <th className="sticky right-0 w-[96px] bg-card">Acciones</th>
             </tr>
           </thead>
           <tbody>
