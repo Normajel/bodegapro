@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Save, Search, X } from "lucide-react";
+import { FileDown, Pencil, Plus, Printer, Save, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -12,6 +12,7 @@ import {
 import { hasPermission, useAppAccess } from "@/lib/permissions";
 import { money } from "@/lib/warehouse";
 import { UNIT_TYPE_LABELS } from "@/lib/comprobante-pdf";
+import { downloadCubicationPdf, printCubicationPdf } from "@/lib/cubication-pdf";
 
 const DEFAULT_PARAMS = { otherCosts: "0", adminPct: "10", retailPct: "30", distributorPct: "15" };
 
@@ -151,9 +152,30 @@ export function CubicationWindow({
         queryKey: ["cubication-template", unitType, unitCode],
       });
     },
-    onError: (error) =>
-      toast.error(error instanceof Error ? error.message : "No se pudo guardar la cubicación"),
+    onError: (error) => {
+      const message =
+        typeof error === "object" && error !== null && "message" in error
+          ? String(error.message)
+          : "";
+      toast.error(
+        /schema cache|could not find the function|does not exist/i.test(message)
+          ? "Falta aplicar la migración 0024 (cubicaciones) en Supabase."
+          : message || "No se pudo guardar la cubicación",
+      );
+    },
   });
+
+  const pdfData = {
+    unitTypeLabel: UNIT_TYPE_LABELS[unitType] ?? unitType,
+    unitCode,
+    groups,
+    params: {
+      otherCosts: toNumber(params.otherCosts),
+      adminPct: toNumber(params.adminPct),
+      retailMarginPct: toNumber(params.retailPct),
+      distributorMarginPct: toNumber(params.distributorPct),
+    },
+  };
 
   const toggle = (productId: string, checked: boolean) => {
     setDirty(true);
@@ -461,6 +483,30 @@ export function CubicationWindow({
             </button>
           ) : (
             <>
+              {hasLines && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => downloadCubicationPdf(pdfData)}
+                >
+                  <FileDown className="h-4 w-4" /> PDF
+                </button>
+              )}
+              {hasLines && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    try {
+                      printCubicationPdf(pdfData);
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : "No se pudo imprimir");
+                    }
+                  }}
+                >
+                  <Printer className="h-4 w-4" /> Imprimir
+                </button>
+              )}
               {hasLines && canEdit && (
                 <button
                   type="button"
