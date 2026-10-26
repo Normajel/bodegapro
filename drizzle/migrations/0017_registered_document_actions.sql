@@ -257,8 +257,8 @@ BEGIN
     RAISE EXCEPTION 'El documento seleccionado no es válido';
   END IF;
   IF cardinality(p_movement_ids) <> (
-    SELECT count(DISTINCT movement_id)
-    FROM unnest(p_movement_ids) AS ids(movement_id)
+    SELECT count(DISTINCT provided_id)
+    FROM unnest(p_movement_ids) AS ids(provided_id)
   ) THEN
     RAISE EXCEPTION 'El documento seleccionado contiene líneas duplicadas';
   END IF;
