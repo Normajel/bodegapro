@@ -9,6 +9,7 @@ import {
   Users,
   FileBarChart,
   Calculator,
+  FileText,
   Settings,
   LogOut,
   Menu,
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { to: "/contactos", label: "Contactos", icon: Users, module: "contacts" },
   { to: "/informes", label: "Informes", icon: FileBarChart, module: "reports" },
   { to: "/cubicacion", label: "Cubicación", icon: Calculator, module: "reports" },
+  { to: "/documento-cubicacion", label: "Doc. cubicación", icon: FileText, module: "reports" },
   { to: "/configuracion", label: "Configuración", icon: Settings, module: "settings" },
 ] as const;
 

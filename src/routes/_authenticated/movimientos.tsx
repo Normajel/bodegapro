@@ -2171,7 +2171,6 @@ function MovimientosPage() {
                         )}
                         {cubicationUnit && (
                           <CubicationWindow
-                            unitType={form.unit_type}
                             unitCode={cubicationUnit}
                             onClose={() => setCubicationUnit(null)}
                           />

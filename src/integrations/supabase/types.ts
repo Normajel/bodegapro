@@ -120,7 +120,6 @@ export type Database = {
           other_costs: number;
           retail_margin_pct: number;
           unit_code: string;
-          unit_type: string;
           updated_at: string;
         };
         Insert: {
@@ -132,7 +131,6 @@ export type Database = {
           other_costs?: number;
           retail_margin_pct?: number;
           unit_code: string;
-          unit_type: string;
           updated_at?: string;
         };
         Update: {
@@ -144,7 +142,6 @@ export type Database = {
           other_costs?: number;
           retail_margin_pct?: number;
           unit_code?: string;
-          unit_type?: string;
           updated_at?: string;
         };
         Relationships: [];
@@ -709,7 +706,6 @@ export type Database = {
           p_other_costs: number;
           p_retail_margin_pct: number;
           p_unit_code: string;
-          p_unit_type: string;
         };
         Returns: string;
       };

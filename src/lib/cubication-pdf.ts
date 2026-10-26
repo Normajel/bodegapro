@@ -4,7 +4,7 @@ import type { CubicationGroup, CubicationParams } from "@/lib/cubication";
 import { computeCosts } from "@/lib/cubication";
 
 type CubicationPdfData = {
-  unitTypeLabel: string;
+  unitTypeLabel?: string;
   unitCode: string;
   groups: CubicationGroup[];
   params: CubicationParams;
@@ -28,8 +28,8 @@ function buildCubicationPdf({ unitTypeLabel, unitCode, groups, params }: Cubicat
   doc.setFontSize(16);
   doc.text("Cubicación", 14, 18);
   doc.setFontSize(10);
-  doc.text(`Tipo de unidad: ${unitTypeLabel}`, 14, 26);
-  doc.text(`Unidad: ${unitCode}`, 14, 32);
+  if (unitTypeLabel) doc.text(`Tipo de unidad: ${unitTypeLabel}`, 14, 26);
+  doc.text(`Unidad de cubicaje: ${unitCode}`, 14, 32);
   doc.text(`Fecha: ${today}`, 196, 18, { align: "right" });
 
   const body: (string | { content: string; colSpan?: number; styles?: object })[][] = [];
@@ -116,7 +116,7 @@ function buildCubicationPdf({ unitTypeLabel, unitCode, groups, params }: Cubicat
 }
 
 const fileName = (data: CubicationPdfData) =>
-  `cubicacion-${data.unitTypeLabel}-${data.unitCode}`.replace(/[^\w-]+/g, "_") + ".pdf";
+  `cubicacion-${data.unitTypeLabel ?? "unidad"}-${data.unitCode}`.replace(/[^\w-]+/g, "_") + ".pdf";
 
 export function downloadCubicationPdf(data: CubicationPdfData) {
   buildCubicationPdf(data).save(fileName(data));

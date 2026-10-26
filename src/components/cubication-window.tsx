@@ -11,7 +11,6 @@ import {
 } from "@/lib/cubication";
 import { hasPermission, useAppAccess } from "@/lib/permissions";
 import { money } from "@/lib/warehouse";
-import { UNIT_TYPE_LABELS } from "@/lib/comprobante-pdf";
 import { downloadCubicationPdf, printCubicationPdf } from "@/lib/cubication-pdf";
 
 const DEFAULT_PARAMS = { otherCosts: "0", adminPct: "10", retailPct: "30", distributorPct: "15" };
@@ -21,15 +20,7 @@ function toNumber(value: string) {
   return Number.isFinite(number) ? number : 0;
 }
 
-export function CubicationWindow({
-  unitType,
-  unitCode,
-  onClose,
-}: {
-  unitType: string;
-  unitCode: string;
-  onClose: () => void;
-}) {
+export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onClose: () => void }) {
   const queryClient = useQueryClient();
   const access = useAppAccess();
   const canEdit = hasPermission(access?.name, access?.permissions, "movements", "edit");
@@ -63,12 +54,11 @@ export function CubicationWindow({
   });
 
   const { data: template, isLoading: templateLoading } = useQuery({
-    queryKey: ["cubication-template", unitType, unitCode],
+    queryKey: ["cubication-template", unitCode],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("cubication_templates")
         .select("*, cubication_template_items(product_id, quantity)")
-        .eq("unit_type", unitType)
         .eq("unit_code", unitCode)
         .maybeSingle();
       if (error) throw error;
@@ -95,7 +85,7 @@ export function CubicationWindow({
       retailPct: String(template.retail_margin_pct),
       distributorPct: String(template.distributor_margin_pct),
     });
-  }, [template, unitType, unitCode]);
+  }, [template, unitCode]);
 
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const categories = useMemo(
@@ -135,7 +125,6 @@ export function CubicationWindow({
         .map((line) => ({ product_id: line.product.id, quantity: line.quantity }));
       if (items.length === 0) throw new Error("Selecciona al menos un ítem con cantidad mayor a 0");
       const { error } = await supabase.rpc("save_cubication_template", {
-        p_unit_type: unitType,
         p_unit_code: unitCode,
         p_other_costs: toNumber(params.otherCosts),
         p_admin_pct: toNumber(params.adminPct),
@@ -149,7 +138,7 @@ export function CubicationWindow({
       toast.success("Cubicación guardada");
       setDirty(false);
       await queryClient.invalidateQueries({
-        queryKey: ["cubication-template", unitType, unitCode],
+        queryKey: ["cubication-template", unitCode],
       });
     },
     onError: (error) => {
@@ -166,7 +155,6 @@ export function CubicationWindow({
   });
 
   const pdfData = {
-    unitTypeLabel: UNIT_TYPE_LABELS[unitType] ?? unitType,
     unitCode,
     groups,
     params: {
@@ -215,7 +203,7 @@ export function CubicationWindow({
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <h2 id="cubication-title" className="font-display text-lg font-bold">
-              Cubicación · {UNIT_TYPE_LABELS[unitType] ?? unitType} · {unitCode}
+              Cubicación · {unitCode}
             </h2>
             <p className="text-sm text-muted-foreground">
               {template
