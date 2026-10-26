@@ -113,6 +113,7 @@ export type Database = {
       cubication_templates: {
         Row: {
           admin_pct: number;
+          cost_breakdown: Json;
           created_at: string;
           created_by: string | null;
           distributor_margin_pct: number;
@@ -124,6 +125,7 @@ export type Database = {
         };
         Insert: {
           admin_pct?: number;
+          cost_breakdown?: Json;
           created_at?: string;
           created_by?: string | null;
           distributor_margin_pct?: number;
@@ -135,6 +137,7 @@ export type Database = {
         };
         Update: {
           admin_pct?: number;
+          cost_breakdown?: Json;
           created_at?: string;
           created_by?: string | null;
           distributor_margin_pct?: number;
@@ -701,6 +704,7 @@ export type Database = {
       save_cubication_template: {
         Args: {
           p_admin_pct: number;
+          p_cost_breakdown?: Json;
           p_distributor_margin_pct: number;
           p_items: Json;
           p_other_costs: number;

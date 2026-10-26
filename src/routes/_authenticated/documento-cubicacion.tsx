@@ -1,12 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { FileDown, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { UNIT_TYPE_LABELS } from "@/lib/comprobante-pdf";
-import { computeCosts, groupByCategory, type CubicationLine } from "@/lib/cubication";
-import { downloadCubicationPdf, printCubicationPdf } from "@/lib/cubication-pdf";
+import {
+  calculateCubicationTotal,
+  CUBICATION_COST_FIELDS,
+  groupByCategory,
+  normalizeCubicationCostBreakdown,
+  type CubicationLine,
+} from "@/lib/cubication";
+import { printCubicationPdf } from "@/lib/cubication-pdf";
 import { money } from "@/lib/warehouse";
 
 export const Route = createFileRoute("/_authenticated/documento-cubicacion")({
@@ -77,18 +83,14 @@ function CubicationDocumentPage() {
     [template],
   );
   const groups = useMemo(() => groupByCategory(lines), [lines]);
-  const params = {
-    otherCosts: Number(template?.other_costs) || 0,
-    adminPct: Number(template?.admin_pct) || 0,
-    retailMarginPct: Number(template?.retail_margin_pct) || 0,
-    distributorMarginPct: Number(template?.distributor_margin_pct) || 0,
-  };
-  const costs = computeCosts(groups, params);
-  const pdfData = {
+  const costBreakdown = normalizeCubicationCostBreakdown(template?.cost_breakdown);
+  const materialsTotal = groups.reduce((sum, group) => sum + group.subtotal, 0);
+  const totalCost = calculateCubicationTotal(materialsTotal, costBreakdown);
+  const printData = {
     unitTypeLabel: UNIT_TYPE_LABELS[unitType] ?? unitType,
     unitCode,
     groups,
-    params,
+    costBreakdown,
   };
 
   return (
@@ -96,7 +98,8 @@ function CubicationDocumentPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Documento de cubicación</h1>
         <p className="text-sm text-muted-foreground">
-          Asocia una planilla de cubicación a un tipo de unidad y genera el PDF para los vendedores.
+          Asocia una planilla de cubicación a un tipo de unidad e imprime el documento para los
+          vendedores.
         </p>
       </div>
 
@@ -156,7 +159,7 @@ function CubicationDocumentPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-sm text-muted-foreground">Tipo de unidad</p>
-                  <p className="font-display text-lg font-bold">{pdfData.unitTypeLabel}</p>
+                  <p className="font-display text-lg font-bold">{printData.unitTypeLabel}</p>
                   <p className="text-sm text-muted-foreground">Unidad de cubicaje</p>
                   <p className="font-display text-lg font-bold">{unitCode}</p>
                 </div>
@@ -164,16 +167,9 @@ function CubicationDocumentPage() {
                   <button
                     type="button"
                     className="btn btn-primary"
-                    onClick={() => downloadCubicationPdf(pdfData)}
-                  >
-                    <FileDown className="h-4 w-4" /> Descargar PDF
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
                     onClick={() => {
                       try {
-                        printCubicationPdf(pdfData);
+                        printCubicationPdf(printData);
                       } catch (error) {
                         toast.error(error instanceof Error ? error.message : "No se pudo imprimir");
                       }
@@ -184,50 +180,107 @@ function CubicationDocumentPage() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded-lg border">
-                <table className="table-base [&_td]:whitespace-nowrap">
-                  <tbody>
-                    {groups.map((group) => (
-                      <tr key={group.category}>
-                        <td className="font-semibold">{group.category}</td>
-                        <td className="text-right text-muted-foreground">
-                          {group.lines.length} ítems
-                        </td>
-                        <td className="text-right font-semibold">{money(group.subtotal)}</td>
+              <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-semibold">TOTAL MATERIALES</span>
+                  <span className="font-display text-xl font-bold">{money(materialsTotal)}</span>
+                </div>
+              </div>
+
+              {groups.map((group) => (
+                <div key={group.category} className="overflow-x-auto rounded-lg border">
+                  <table className="table-base [&_td]:whitespace-nowrap">
+                    <thead>
+                      <tr>
+                        <th colSpan={5}>{group.category}</th>
                       </tr>
-                    ))}
-                    <tr>
-                      <td colSpan={2} className="font-semibold">
-                        TOTAL MATERIALES
-                      </td>
-                      <td className="text-right">{money(costs.materials)}</td>
-                    </tr>
-                    <tr>
-                      <td colSpan={2}>COSTO DE FABRICACIÓN</td>
-                      <td className="text-right">{money(costs.fabrication)}</td>
-                    </tr>
-                    <tr>
-                      <td colSpan={2}>COSTO ADMINISTRATIVO ({params.adminPct}%)</td>
-                      <td className="text-right">{money(costs.administrative)}</td>
-                    </tr>
-                    <tr className="bg-muted font-bold">
-                      <td colSpan={2}>COSTO TOTAL</td>
-                      <td className="text-right">{money(costs.total)}</td>
-                    </tr>
-                    <tr className="bg-primary/20 font-bold">
-                      <td colSpan={2}>VENTA PÚBLICO</td>
-                      <td className="text-right">{money(costs.retailPrice)}</td>
-                    </tr>
-                    <tr className="bg-primary/20 font-bold">
-                      <td colSpan={2}>VENTA DISTRIBUIDOR</td>
-                      <td className="text-right">{money(costs.distributorPrice)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                      <tr>
+                        <th>Descripción</th>
+                        <th className="text-right">Stock</th>
+                        <th className="text-right">Cantidad</th>
+                        <th className="text-right">Costo unitario</th>
+                        <th className="text-right">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.lines.map((line) => (
+                        <tr key={line.product.id}>
+                          <td className="whitespace-normal">{line.product.name}</td>
+                          <td className="text-right">
+                            {line.product.stock.toLocaleString("es-CL")} {line.product.unit}
+                          </td>
+                          <td className="text-right">
+                            {line.quantity.toLocaleString("es-CL")} {line.product.unit}
+                          </td>
+                          <td className="text-right">{money(line.product.unit_cost)}</td>
+                          <td className="text-right">{money(line.subtotal)}</td>
+                        </tr>
+                      ))}
+                      <tr className="bg-muted font-semibold">
+                        <td colSpan={4} className="text-right">
+                          Subtotal {group.category}
+                        </td>
+                        <td className="text-right">{money(group.subtotal)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-lg border p-4">
+                  <table className="table-base">
+                    <tbody>
+                      <tr>
+                        <td className="font-semibold">TOTAL MATERIALES</td>
+                        <td className="text-right">{money(materialsTotal)}</td>
+                      </tr>
+                      {CUBICATION_COST_FIELDS.map((field) => {
+                        const value = costBreakdown[field.key].trim();
+                        const amount = Number(value.replace(",", "."));
+                        return (
+                          <tr key={field.key}>
+                            <td>{field.label}</td>
+                            <td className="text-right">
+                              {value && Number.isFinite(amount) ? money(amount) : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="bg-muted font-bold">
+                        <td>COSTO TOTAL</td>
+                        <td className="text-right">{money(totalCost)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="rounded-lg border-2 border-primary p-4">
+                  <h2 className="mb-3 font-display text-lg font-bold">Valores de venta</h2>
+                  <table className="table-base">
+                    <tbody>
+                      <tr className="bg-primary/10 font-bold">
+                        <td>VENTA PÚBLICO</td>
+                        <td className="text-right">
+                          {costBreakdown.publicPrice.trim()
+                            ? money(Number(costBreakdown.publicPrice.replace(",", ".")) || 0)
+                            : "—"}
+                        </td>
+                      </tr>
+                      <tr className="bg-primary/10 font-bold">
+                        <td>VENTA DISTRIBUIDOR</td>
+                        <td className="text-right">
+                          {costBreakdown.distributorPrice.trim()
+                            ? money(Number(costBreakdown.distributorPrice.replace(",", ".")) || 0)
+                            : "—"}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                El PDF incluye el detalle de cada ítem, agrupado por categoría, y la fecha de
-                emisión. Los valores usan los costos actuales del inventario.
+                Los datos de stock y costo unitario se muestran como referencia de inventario; esta
+                planilla y su impresión no modifican existencias.
               </p>
             </>
           )}

@@ -1,13 +1,17 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { CubicationGroup, CubicationParams } from "@/lib/cubication";
-import { computeCosts } from "@/lib/cubication";
+import {
+  calculateCubicationTotal,
+  CUBICATION_COST_FIELDS,
+  type CubicationCostBreakdown,
+  type CubicationGroup,
+} from "@/lib/cubication";
 
-type CubicationPdfData = {
+type CubicationPrintData = {
   unitTypeLabel?: string;
   unitCode: string;
   groups: CubicationGroup[];
-  params: CubicationParams;
+  costBreakdown: CubicationCostBreakdown;
 };
 
 const clp = (value: number) =>
@@ -15,9 +19,20 @@ const clp = (value: number) =>
 
 const qty = (value: number) => value.toLocaleString("es-CL", { maximumFractionDigits: 3 });
 
-function buildCubicationPdf({ unitTypeLabel, unitCode, groups, params }: CubicationPdfData) {
+function amountOrBlank(value: string) {
+  const parsed = Number(value.replace(",", "."));
+  return value.trim() && Number.isFinite(parsed) ? clp(parsed) : "";
+}
+
+function buildCubicationPdf({
+  unitTypeLabel,
+  unitCode,
+  groups,
+  costBreakdown,
+}: CubicationPrintData) {
   const doc = new jsPDF();
-  const costs = computeCosts(groups, params);
+  const materials = groups.reduce((sum, group) => sum + group.subtotal, 0);
+  const total = calculateCubicationTotal(materials, costBreakdown);
   const today = new Date().toLocaleDateString("es-CL", {
     day: "2-digit",
     month: "2-digit",
@@ -42,12 +57,33 @@ function buildCubicationPdf({ unitTypeLabel, unitCode, groups, params }: Cubicat
       },
     ]);
     for (const line of group.lines) {
-      body.push([
-        line.product.name,
-        `${qty(line.quantity)} ${line.product.unit}`,
-        clp(line.product.unit_cost),
-        clp(line.subtotal),
-      ]);
+      body.push(
+        line.isSpecial
+          ? [
+              {
+                content: line.product.name || "Ítem especial",
+                styles: { fillColor: [255, 242, 178] },
+              },
+              {
+                content: `${qty(line.quantity)} ${line.product.unit}`.trim(),
+                styles: { fillColor: [255, 242, 178] },
+              },
+              {
+                content: clp(line.product.unit_cost),
+                styles: { fillColor: [255, 242, 178] },
+              },
+              {
+                content: clp(line.subtotal),
+                styles: { fillColor: [255, 242, 178] },
+              },
+            ]
+          : [
+              line.product.name,
+              `${qty(line.quantity)} ${line.product.unit}`.trim(),
+              clp(line.product.unit_cost),
+              clp(line.subtotal),
+            ],
+      );
     }
     body.push([
       {
@@ -78,31 +114,32 @@ function buildCubicationPdf({ unitTypeLabel, unitCode, groups, params }: Cubicat
     theme: "grid",
     styles: { fontSize: 10 },
     body: [
-      ["TOTAL MATERIALES", clp(costs.materials)],
-      [`Otros costos`, clp(params.otherCosts)],
-      ["COSTO DE FABRICACIÓN", clp(costs.fabrication)],
-      [`COSTO ADMINISTRATIVO (${qty(params.adminPct)}%)`, clp(costs.administrative)],
+      [{ content: "TOTAL MATERIALES", styles: { fontStyle: "bold" } }, clp(materials)],
+      ...CUBICATION_COST_FIELDS.map((field) => [
+        field.label,
+        amountOrBlank(costBreakdown[field.key]),
+      ]),
       [
         { content: "COSTO TOTAL", styles: { fontStyle: "bold" } },
-        { content: clp(costs.total), styles: { fontStyle: "bold" } },
+        { content: clp(total), styles: { fontStyle: "bold" } },
       ],
       [
         {
-          content: `VENTA PÚBLICO (${qty(params.retailMarginPct)}% margen)`,
+          content: "VENTA PÚBLICO",
           styles: { fontStyle: "bold", fillColor: [253, 230, 190] },
         },
         {
-          content: clp(costs.retailPrice),
+          content: amountOrBlank(costBreakdown.publicPrice),
           styles: { fontStyle: "bold", fillColor: [253, 230, 190] },
         },
       ],
       [
         {
-          content: `VENTA DISTRIBUIDOR (${qty(params.distributorMarginPct)}% margen)`,
+          content: "VENTA DISTRIBUIDOR",
           styles: { fontStyle: "bold", fillColor: [253, 230, 190] },
         },
         {
-          content: clp(costs.distributorPrice),
+          content: amountOrBlank(costBreakdown.distributorPrice),
           styles: { fontStyle: "bold", fillColor: [253, 230, 190] },
         },
       ],
@@ -115,14 +152,7 @@ function buildCubicationPdf({ unitTypeLabel, unitCode, groups, params }: Cubicat
   return doc;
 }
 
-const fileName = (data: CubicationPdfData) =>
-  `cubicacion-${data.unitTypeLabel ?? "unidad"}-${data.unitCode}`.replace(/[^\w-]+/g, "_") + ".pdf";
-
-export function downloadCubicationPdf(data: CubicationPdfData) {
-  buildCubicationPdf(data).save(fileName(data));
-}
-
-export function printCubicationPdf(data: CubicationPdfData) {
+export function printCubicationPdf(data: CubicationPrintData) {
   const doc = buildCubicationPdf(data);
   doc.autoPrint();
   const url = URL.createObjectURL(doc.output("blob"));

@@ -8,7 +8,12 @@ export type CubicationProduct = {
   unit_cost: number;
 };
 
-export type CubicationLine = { product: CubicationProduct; quantity: number };
+export type CubicationLine = {
+  product: CubicationProduct;
+  quantity: number;
+  isSpecial?: boolean;
+  specialId?: string;
+};
 
 export type CubicationGroup = {
   category: string;
@@ -16,12 +21,65 @@ export type CubicationGroup = {
   subtotal: number;
 };
 
-export type CubicationParams = {
-  otherCosts: number;
-  adminPct: number;
-  retailMarginPct: number;
-  distributorMarginPct: number;
+export const CUBICATION_COST_FIELDS = [
+  { key: "structure", label: "Estructura*" },
+  { key: "error", label: "M. Error" },
+  { key: "carpentry", label: "Carpintería*" },
+  { key: "miscellaneous", label: "Varios" },
+  { key: "linoleum", label: "Linóleo*" },
+  { key: "paint", label: "Pintura*" },
+  { key: "fabrication", label: "Costo Fabricación" },
+  { key: "administrative", label: "Costo Adm" },
+] as const;
+
+export type CubicationCostKey = (typeof CUBICATION_COST_FIELDS)[number]["key"];
+
+export type CubicationCostBreakdown = Record<
+  CubicationCostKey | "publicPrice" | "distributorPrice",
+  string
+>;
+
+export const EMPTY_CUBICATION_COSTS: CubicationCostBreakdown = {
+  structure: "",
+  error: "",
+  carpentry: "",
+  miscellaneous: "",
+  linoleum: "",
+  paint: "",
+  fabrication: "",
+  administrative: "",
+  publicPrice: "",
+  distributorPrice: "",
 };
+
+function toCostNumber(value: string) {
+  const parsed = Number(value.replace(",", "."));
+  return value.trim() && Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+export function calculateCubicationTotal(materials: number, breakdown: CubicationCostBreakdown) {
+  return (
+    materials +
+    CUBICATION_COST_FIELDS.reduce((sum, field) => sum + toCostNumber(breakdown[field.key]), 0)
+  );
+}
+
+export function normalizeCubicationCostBreakdown(value: unknown): CubicationCostBreakdown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { ...EMPTY_CUBICATION_COSTS };
+  }
+
+  const values = value as Partial<Record<keyof CubicationCostBreakdown, unknown>>;
+  return Object.fromEntries(
+    Object.keys(EMPTY_CUBICATION_COSTS).map((key) => [
+      key,
+      typeof values[key as keyof CubicationCostBreakdown] === "string" ||
+      typeof values[key as keyof CubicationCostBreakdown] === "number"
+        ? String(values[key as keyof CubicationCostBreakdown])
+        : "",
+    ]),
+  ) as CubicationCostBreakdown;
+}
 
 export function groupByCategory(lines: CubicationLine[]): CubicationGroup[] {
   const groups = new Map<string, CubicationGroup>();
@@ -39,19 +97,4 @@ export function groupByCategory(lines: CubicationLine[]): CubicationGroup[] {
       lines: group.lines.sort((a, b) => a.product.name.localeCompare(b.product.name, "es")),
     }))
     .sort((a, b) => a.category.localeCompare(b.category, "es"));
-}
-
-export function computeCosts(groups: CubicationGroup[], params: CubicationParams) {
-  const materials = groups.reduce((sum, group) => sum + group.subtotal, 0);
-  const fabrication = materials + params.otherCosts;
-  const administrative = (fabrication * params.adminPct) / 100;
-  const total = fabrication + administrative;
-  return {
-    materials,
-    fabrication,
-    administrative,
-    total,
-    retailPrice: total * (1 + params.retailMarginPct / 100),
-    distributorPrice: total * (1 + params.distributorMarginPct / 100),
-  };
 }
