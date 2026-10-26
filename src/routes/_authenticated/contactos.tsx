@@ -1,12 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { Download, FileUp, Plus, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CATEGORIES } from "@/lib/warehouse";
 import { hasPermission, useAppAccess } from "@/lib/permissions";
 import { formatRut, isValidRut } from "@/lib/rut";
+import {
+  downloadSuppliersWorkbook,
+  readSuppliersWorkbook,
+  validateSupplierImport,
+  type SupplierImportValidation,
+} from "@/lib/suppliers-excel";
 
 export const Route = createFileRoute("/_authenticated/contactos")({
   head: () => ({
@@ -35,6 +41,7 @@ const EMPTY_FORM = {
 };
 
 type Kind = "suppliers" | "customers";
+type SupplierImportPreview = SupplierImportValidation & { fileName: string };
 
 function ContactosPage() {
   const access = useAppAccess();
@@ -47,6 +54,12 @@ function ContactosPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [importingSuppliers, setImportingSuppliers] = useState(false);
+  const [supplierImportPreview, setSupplierImportPreview] = useState<SupplierImportPreview | null>(
+    null,
+  );
+  const supplierUploadRef = useRef<HTMLInputElement>(null);
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: [tab],
@@ -153,6 +166,98 @@ function ContactosPage() {
     }
   }
 
+  async function handleDownloadSupplierTemplate() {
+    setDownloadingTemplate(true);
+    try {
+      await downloadSuppliersWorkbook();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "No se pudo crear la plantilla de proveedores",
+      );
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  }
+
+  async function handleSupplierImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    setImportingSuppliers(true);
+    try {
+      const rows = await readSuppliersWorkbook(file);
+      const { data: existingSuppliers, error } = await supabase
+        .from("suppliers")
+        .select("name, rut");
+      if (error) throw error;
+
+      const validation = validateSupplierImport(rows, existingSuppliers ?? []);
+      setSupplierImportPreview({ ...validation, fileName: file.name });
+      if (validation.errors.length > 0) {
+        toast.error(`Se encontraron ${validation.errors.length} problemas en la planilla`);
+      } else {
+        toast.success("Revisa el resumen antes de importar los proveedores.");
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "No se pudo leer la planilla de proveedores",
+      );
+    } finally {
+      input.value = "";
+      setImportingSuppliers(false);
+    }
+  }
+
+  async function confirmSupplierImport() {
+    if (!supplierImportPreview || supplierImportPreview.errors.length > 0) return;
+
+    setImportingSuppliers(true);
+    try {
+      const { data: existingSuppliers, error: fetchError } = await supabase
+        .from("suppliers")
+        .select("name, rut");
+      if (fetchError) throw fetchError;
+
+      const validation = validateSupplierImport(
+        supplierImportPreview.rows,
+        existingSuppliers ?? [],
+      );
+      if (validation.errors.length > 0) {
+        setSupplierImportPreview({
+          ...validation,
+          fileName: supplierImportPreview.fileName,
+        });
+        toast.error(
+          "Hay proveedores duplicados o datos inválidos. Corrige la planilla y vuelve a cargarla.",
+        );
+        return;
+      }
+
+      const payload = validation.rows.map(({ rowNumber: _rowNumber, ...supplier }) => ({
+        name: supplier.name,
+        rut: supplier.rut || null,
+        contact_name: supplier.contact_name || null,
+        email: supplier.email || null,
+        phone: supplier.phone || null,
+        address: supplier.address || null,
+        city: supplier.city || null,
+        delivery_address: supplier.delivery_address || null,
+        notes: supplier.notes || null,
+      }));
+      const { error } = await supabase.from("suppliers").insert(payload);
+      if (error) throw error;
+
+      await queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      toast.success(`${payload.length} proveedores importados correctamente.`);
+      setSupplierImportPreview(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudieron importar los proveedores");
+    } finally {
+      setImportingSuppliers(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -162,27 +267,127 @@ function ContactosPage() {
             Proveedores y nombres maestros de la bodega
           </p>
         </div>
-        {canCreate && (
-          <button className="btn btn-primary" onClick={openNew}>
-            <Plus className="h-4 w-4" /> Nuevo {tab === "suppliers" ? "proveedor" : "maestro"}
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {tab === "suppliers" && (
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => void handleDownloadSupplierTemplate()}
+                disabled={downloadingTemplate || importingSuppliers}
+              >
+                <Download className="h-4 w-4" />
+                {downloadingTemplate ? "Preparando…" : "Plantilla Excel"}
+              </button>
+              {canCreate && (
+                <>
+                  <input
+                    ref={supplierUploadRef}
+                    type="file"
+                    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    className="sr-only"
+                    onChange={(e) => void handleSupplierImport(e)}
+                    aria-label="Seleccionar planilla Excel de proveedores"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => supplierUploadRef.current?.click()}
+                    disabled={
+                      importingSuppliers || downloadingTemplate || Boolean(supplierImportPreview)
+                    }
+                  >
+                    <FileUp className="h-4 w-4" />
+                    {importingSuppliers ? "Validando…" : "Subir Excel"}
+                  </button>
+                </>
+              )}
+            </>
+          )}
+          {canCreate && (
+            <button className="btn btn-primary" onClick={openNew}>
+              <Plus className="h-4 w-4" /> Nuevo {tab === "suppliers" ? "proveedor" : "maestro"}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2">
         <button
           className={`btn ${tab === "suppliers" ? "btn-primary" : "btn-secondary"}`}
-          onClick={() => setTab("suppliers")}
+          onClick={() => {
+            setTab("suppliers");
+            setSupplierImportPreview(null);
+          }}
         >
           Proveedores
         </button>
         <button
           className={`btn ${tab === "customers" ? "btn-primary" : "btn-secondary"}`}
-          onClick={() => setTab("customers")}
+          onClick={() => {
+            setTab("customers");
+            setSupplierImportPreview(null);
+          }}
         >
           Nombre maestro
         </button>
       </div>
+
+      {tab === "suppliers" && supplierImportPreview && (
+        <section className="card space-y-3 p-4" aria-labelledby="supplier-import-title">
+          <div>
+            <h2 id="supplier-import-title" className="font-semibold">
+              Revisión de planilla
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {supplierImportPreview.fileName} · {supplierImportPreview.rows.length} filas de datos
+            </p>
+          </div>
+          {supplierImportPreview.errors.length > 0 ? (
+            <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+              <p>
+                Se encontraron {supplierImportPreview.errors.length} problemas. Corrige la planilla
+                y vuelve a subirla; no se guardará parcialmente.
+              </p>
+              <ul className="list-inside list-disc space-y-1">
+                {supplierImportPreview.errors.slice(0, 10).map((error, index) => (
+                  <li key={`${index}-${error}`}>{error}</li>
+                ))}
+              </ul>
+              {supplierImportPreview.errors.length > 10 && (
+                <p>Hay {supplierImportPreview.errors.length - 10} errores adicionales.</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm">
+              Se agregarán {supplierImportPreview.rows.length} proveedores nuevos. Los registros
+              existentes no se modificarán.
+            </p>
+          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setSupplierImportPreview(null)}
+              disabled={importingSuppliers}
+            >
+              Descartar
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => void confirmSupplierImport()}
+              disabled={
+                importingSuppliers ||
+                supplierImportPreview.errors.length > 0 ||
+                supplierImportPreview.rows.length === 0
+              }
+            >
+              {importingSuppliers ? "Importando…" : "Importar proveedores"}
+            </button>
+          </div>
+        </section>
+      )}
 
       <div className="card overflow-x-auto">
         <table className="table-base">
