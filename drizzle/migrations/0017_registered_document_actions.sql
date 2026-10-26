@@ -102,7 +102,7 @@ DECLARE
   expected_count integer;
   provided_count integer;
   cancellation_ref uuid := gen_random_uuid();
-  movement public.stock_movements%ROWTYPE;
+  movement_row public.stock_movements%ROWTYPE;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Debes iniciar sesión';
@@ -192,7 +192,7 @@ BEGIN
   FROM public.stock_movements movement
   WHERE movement.id = ANY(p_movement_ids);
 
-  FOR movement IN
+  FOR movement_row IN
     SELECT source.*
     FROM public.stock_movements source
     WHERE source.id = ANY(p_movement_ids)
@@ -203,13 +203,13 @@ BEGIN
       reference, notes, created_by
     )
     VALUES (
-      movement.product_id,
+      movement_row.product_id,
       'entrada',
-      movement.quantity,
-      coalesce(movement.quantity_value, movement.quantity),
-      movement.measure_unit,
-      movement.unit_cost,
-      'Anulación de venta: ' || coalesce(movement.document_number, movement.folio::text, movement.id::text),
+      movement_row.quantity,
+      coalesce(movement_row.quantity_value, movement_row.quantity),
+      movement_row.measure_unit,
+      movement_row.unit_cost,
+      'Anulación de venta: ' || coalesce(movement_row.document_number, movement_row.folio::text, movement_row.id::text),
       nullif(btrim(p_reason), ''),
       auth.uid()
     );

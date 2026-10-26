@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, Printer, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { CubicationWindow } from "@/components/cubication-window";
 import { supabase } from "@/integrations/supabase/client";
 import {
   UNIT_TYPE_LABELS,
@@ -170,7 +169,6 @@ function MovimientosPage() {
   const db = supabase as any;
 
   const [formOpen, setFormOpen] = useState(false);
-  const [cubicationUnit, setCubicationUnit] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
   const [editingPurchaseEntryId, setEditingPurchaseEntryId] = useState<string | null>(null);
@@ -1842,9 +1840,7 @@ function MovimientosPage() {
                       onClick={() => {
                         setForm({ ...form, type: t });
 
-                        if (t === "entrada") {
-                          setPurchaseItems([newPurchaseItem()]);
-                        }
+                        setPurchaseItems([newPurchaseItem()]);
                       }}
                     >
                       {t === "entrada" ? "Entrada" : "Salida"}
@@ -2148,10 +2144,7 @@ function MovimientosPage() {
                         <select
                           className="input"
                           value={form.unit_type_value}
-                          onChange={(e) => {
-                            setForm({ ...form, unit_type_value: e.target.value });
-                            if (e.target.value) setCubicationUnit(e.target.value);
-                          }}
+                          onChange={(e) => setForm({ ...form, unit_type_value: e.target.value })}
                         >
                           <option value="">Selecciona una unidad…</option>
                           {UNIDADES.map((unit) => (
@@ -2160,21 +2153,6 @@ function MovimientosPage() {
                             </option>
                           ))}
                         </select>
-                        {form.unit_type_value && (
-                          <button
-                            type="button"
-                            className="mt-1 text-xs font-medium underline underline-offset-2"
-                            onClick={() => setCubicationUnit(form.unit_type_value)}
-                          >
-                            Ver cubicación
-                          </button>
-                        )}
-                        {cubicationUnit && (
-                          <CubicationWindow
-                            unitCode={cubicationUnit}
-                            onClose={() => setCubicationUnit(null)}
-                          />
-                        )}
                       </div>
 
                       <div>
