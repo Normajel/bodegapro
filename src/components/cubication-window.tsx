@@ -159,7 +159,7 @@ export function CubicationWindow({
           : "";
       toast.error(
         /schema cache|could not find the function|does not exist/i.test(message)
-          ? "Falta aplicar la migración 0024 (cubicaciones) en Supabase."
+          ? `Falta aplicar la migración 0024 y 0025 (cubicaciones) en Supabase. Detalle: ${message}`
           : message || "No se pudo guardar la cubicación",
       );
     },
