@@ -638,6 +638,10 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
       };
+      transfer_platform_owner: {
+        Args: { p_new_user_id: string };
+        Returns: undefined;
+      };
       save_movement_batch: {
         Args: { edit_batch?: string; edit_id?: string; payload: Json };
         Returns: {

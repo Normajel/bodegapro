@@ -25,6 +25,89 @@ const updateUserSchema = z.object({
   roleId: z.string().uuid().optional(),
 });
 
+const separateAdminProSchema = z.object({
+  username: usernameSchema,
+  email: z.string().trim().email().max(254),
+  fullName: z.string().trim().min(1).max(120),
+  password: z.string().min(12).max(128),
+});
+
+export const createSeparateAdminProAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((input: unknown) => separateAdminProSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: isPlatformOwner, error: ownerError } =
+      await context.supabase.rpc("is_platform_owner");
+    if (ownerError) throw new Error(`No se pudo validar al propietario: ${ownerError.message}`);
+    if (!isPlatformOwner) throw new Error("Solo el propietario actual puede separar la cuenta");
+    if (context.claims["aal"] !== "aal2") {
+      throw new Error("Se requiere verificar el segundo factor para separar la cuenta ADMINPRO");
+    }
+
+    const { data: currentProfile, error: profileError } = await context.supabase
+      .from("profiles")
+      .select("app_roles(name)")
+      .eq("id", context.userId)
+      .single();
+    if (profileError) throw new Error(`No se pudo verificar el perfil: ${profileError.message}`);
+    if (currentProfile.app_roles?.name !== "ADMINPRO") {
+      throw new Error("La cuenta actual no tiene el perfil ADMINPRO");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existingUsername, error: usernameError } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("username", data.username)
+      .maybeSingle();
+    if (usernameError) {
+      throw new Error(`No se pudo validar el usuario: ${usernameError.message}`);
+    }
+    if (existingUsername) throw new Error("Ese nombre de usuario ya está en uso");
+
+    const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email: data.email,
+      password: data.password,
+      email_confirm: true,
+      user_metadata: { full_name: data.fullName },
+    });
+    if (createError) throw new Error(`No se pudo crear la cuenta: ${createError.message}`);
+    if (!created.user) throw new Error("Supabase no devolvió la cuenta nueva");
+
+    const { error: profileUpdateError } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        username: data.username,
+        email: data.email,
+        full_name: data.fullName,
+      })
+      .eq("id", created.user.id)
+      .select("id")
+      .single();
+    if (profileUpdateError) {
+      const { error: rollbackError } = await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+      if (rollbackError) {
+        console.error("No se pudo revertir la nueva cuenta ADMINPRO:", rollbackError);
+      }
+      throw new Error(
+        `No se pudo preparar el perfil de la cuenta nueva: ${profileUpdateError.message}`,
+      );
+    }
+
+    const { error: transferError } = await context.supabase.rpc("transfer_platform_owner", {
+      p_new_user_id: created.user.id,
+    });
+    if (transferError) {
+      const { error: rollbackError } = await supabaseAdmin.auth.admin.deleteUser(created.user.id);
+      if (rollbackError) {
+        console.error("No se pudo revertir la nueva cuenta ADMINPRO:", rollbackError);
+      }
+      throw new Error(`No se pudo separar la cuenta ADMINPRO: ${transferError.message}`);
+    }
+
+    return { id: created.user.id, email: created.user.email ?? data.email };
+  });
+
 export const createManagedUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) => createUserSchema.parse(input))

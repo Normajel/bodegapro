@@ -1,9 +1,10 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Building2, Shield, SlidersHorizontal, Users } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { createSeparateAdminProAccount } from "@/lib/user-admin.functions";
 
 export const Route = createFileRoute("/_authenticated/adminpro")({
   beforeLoad: async () => {
@@ -21,8 +22,15 @@ export const Route = createFileRoute("/_authenticated/adminpro")({
 });
 
 function AdminProPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [savingModule, setSavingModule] = useState<string | null>(null);
+  const [creatingAccount, setCreatingAccount] = useState(false);
+  const [newAdminName, setNewAdminName] = useState("");
+  const [newAdminUsername, setNewAdminUsername] = useState("");
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [newAdminPasswordConfirmation, setNewAdminPasswordConfirmation] = useState("");
 
   const {
     data: menuSettings = [],
@@ -66,6 +74,44 @@ function AdminProPage() {
       toast.error(error instanceof Error ? error.message : "No se pudo actualizar el menú");
     } finally {
       setSavingModule(null);
+    }
+  }
+
+  async function createSeparateAccount(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (newAdminPassword !== newAdminPasswordConfirmation) {
+      toast.error("Las contraseñas no coinciden");
+      return;
+    }
+
+    setCreatingAccount(true);
+    try {
+      await createSeparateAdminProAccount({
+        data: {
+          fullName: newAdminName.trim(),
+          username: newAdminUsername.trim(),
+          email: newAdminEmail.trim(),
+          password: newAdminPassword,
+        },
+      });
+
+      toast.success("Cuenta ADMINPRO creada. La cuenta actual quedará como ADMIN.");
+      setNewAdminPassword("");
+      setNewAdminPasswordConfirmation("");
+      queryClient.clear();
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast.error(
+          "La cuenta fue creada, pero no se pudo cerrar esta sesión. Cierra sesión manualmente.",
+        );
+      } else {
+        toast.success("Sesión cerrada. Ingresa ahora con el usuario ADMINPRO nuevo.");
+      }
+      await navigate({ to: "/auth", replace: true });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo crear la cuenta ADMINPRO");
+    } finally {
+      setCreatingAccount(false);
     }
   }
 
@@ -129,6 +175,102 @@ function AdminProPage() {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="card space-y-4 p-4 sm:p-6">
+        <div>
+          <h2 className="font-semibold">Separar la cuenta ADMINPRO</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Crea un usuario y una contraseña exclusivos para la administración de la plataforma. Al
+            finalizar, esta cuenta volverá a ser ADMIN y se cerrará la sesión para que ingreses con
+            las nuevas credenciales.
+          </p>
+        </div>
+        <form onSubmit={createSeparateAccount} className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="label" htmlFor="adminpro-full-name">
+              Nombre
+            </label>
+            <input
+              id="adminpro-full-name"
+              className="input"
+              value={newAdminName}
+              onChange={(event) => setNewAdminName(event.target.value)}
+              maxLength={120}
+              required
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="adminpro-username">
+              Usuario ADMINPRO
+            </label>
+            <input
+              id="adminpro-username"
+              className="input"
+              value={newAdminUsername}
+              onChange={(event) => setNewAdminUsername(event.target.value.toLowerCase())}
+              pattern="[a-z0-9][a-z0-9_.-]{2,31}"
+              title="3 a 32 caracteres: letras minúsculas, números, _ . -"
+              maxLength={32}
+              autoCapitalize="none"
+              required
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="adminpro-email">
+              Correo de recuperación
+            </label>
+            <input
+              id="adminpro-email"
+              type="email"
+              className="input"
+              value={newAdminEmail}
+              onChange={(event) => setNewAdminEmail(event.target.value)}
+              maxLength={254}
+              required
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="adminpro-password">
+              Contraseña nueva
+            </label>
+            <input
+              id="adminpro-password"
+              type="password"
+              className="input"
+              value={newAdminPassword}
+              onChange={(event) => setNewAdminPassword(event.target.value)}
+              minLength={12}
+              maxLength={128}
+              autoComplete="new-password"
+              required
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="adminpro-password-confirmation">
+              Repite la contraseña
+            </label>
+            <input
+              id="adminpro-password-confirmation"
+              type="password"
+              className="input"
+              value={newAdminPasswordConfirmation}
+              onChange={(event) => setNewAdminPasswordConfirmation(event.target.value)}
+              minLength={12}
+              maxLength={128}
+              autoComplete="new-password"
+              required
+            />
+          </div>
+          <div className="flex items-end">
+            <button type="submit" className="btn btn-primary" disabled={creatingAccount}>
+              {creatingAccount ? "Creando cuenta…" : "Crear cuenta ADMINPRO separada"}
+            </button>
+          </div>
+        </form>
+        <p className="text-xs text-muted-foreground">
+          La cuenta ADMINPRO nueva deberá configurar su propio segundo factor al iniciar sesión.
+        </p>
       </section>
 
       <div className="grid gap-4 md:grid-cols-2">
