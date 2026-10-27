@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateCubicationTotal,
   EMPTY_CUBICATION_COSTS,
+  groupByCategory,
   normalizeCubicationCostBreakdown,
   type CubicationCostBreakdown,
 } from "@/lib/cubication";
@@ -50,5 +51,32 @@ describe("Costos de planillas de cubicación", () => {
       ...EMPTY_CUBICATION_COSTS,
       structure: "500",
     });
+  });
+
+  it("ordena las categorías requeridas y muestra DETALLE en singular", () => {
+    const groups = groupByCategory(
+      ["DETALLES", "FUSION", "ARTEFACTO ELECTRICO", "ESTRUCTURA", "PINTURA"].map(
+        (category, index) => ({
+          product: {
+            id: String(index),
+            name: `Producto ${index}`,
+            sku: "",
+            category,
+            unit: "UN",
+            stock: 0,
+            unit_cost: 100,
+          },
+          quantity: 1,
+        }),
+      ),
+    );
+
+    expect(groups.map((group) => group.category)).toEqual([
+      "ESTRUCTURA",
+      "PINTURA",
+      "ARTEFACTO ELECTRICO",
+      "FUSION",
+      "DETALLE",
+    ]);
   });
 });

@@ -1,18 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Printer } from "lucide-react";
+import { FileDown, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { UNIT_TYPE_LABELS } from "@/lib/comprobante-pdf";
 import {
   calculateCubicationTotal,
   CUBICATION_COST_FIELDS,
+  EMPTY_CUBICATION_COSTS,
   groupByCategory,
-  normalizeCubicationCostBreakdown,
   type CubicationLine,
+  type CubicationCostBreakdown,
 } from "@/lib/cubication";
-import { printCubicationPdf } from "@/lib/cubication-pdf";
+import { downloadCubicationPdf, printCubicationPdf } from "@/lib/cubication-pdf";
 import { money } from "@/lib/warehouse";
 
 export const Route = createFileRoute("/_authenticated/documento-cubicacion")({
@@ -30,7 +31,11 @@ export const Route = createFileRoute("/_authenticated/documento-cubicacion")({
 
 function CubicationDocumentPage() {
   const [unitCode, setUnitCode] = useState("");
-  const [unitType, setUnitType] = useState("stock");
+  const [unitType, setUnitType] = useState("");
+  const [client, setClient] = useState("");
+  const [salesOrderNumber, setSalesOrderNumber] = useState("");
+  const [costBreakdown, setCostBreakdown] =
+    useState<CubicationCostBreakdown>(EMPTY_CUBICATION_COSTS);
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery({
     queryKey: ["cubication-template-list"],
@@ -83,15 +88,49 @@ function CubicationDocumentPage() {
     [template],
   );
   const groups = useMemo(() => groupByCategory(lines), [lines]);
-  const costBreakdown = normalizeCubicationCostBreakdown(template?.cost_breakdown);
   const materialsTotal = groups.reduce((sum, group) => sum + group.subtotal, 0);
   const totalCost = calculateCubicationTotal(materialsTotal, costBreakdown);
   const printData = {
+    client,
     unitTypeLabel: UNIT_TYPE_LABELS[unitType] ?? unitType,
+    salesOrderNumber,
     unitCode,
     groups,
     costBreakdown,
   };
+
+  function resetDocumentFields() {
+    setClient("");
+    setUnitType("");
+    setSalesOrderNumber("");
+    setCostBreakdown({ ...EMPTY_CUBICATION_COSTS });
+  }
+
+  function handlePrint() {
+    if (!unitType) {
+      toast.error("Selecciona el tipo de unidad antes de imprimir");
+      return;
+    }
+    try {
+      printCubicationPdf(printData);
+      resetDocumentFields();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo imprimir");
+    }
+  }
+
+  function handleDownloadPdf() {
+    if (!unitType) {
+      toast.error("Selecciona el tipo de unidad antes de descargar el PDF");
+      return;
+    }
+    try {
+      downloadCubicationPdf(printData);
+      resetDocumentFields();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo descargar el PDF");
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-4xl space-y-4 px-2 py-4 sm:px-4">
@@ -105,6 +144,18 @@ function CubicationDocumentPage() {
 
       <div className="card grid gap-3 p-4 sm:grid-cols-2">
         <div>
+          <label className="label" htmlFor="doc-client">
+            Cliente
+          </label>
+          <input
+            id="doc-client"
+            className="input"
+            value={client}
+            onChange={(event) => setClient(event.target.value)}
+            placeholder="Nombre del cliente"
+          />
+        </div>
+        <div>
           <label className="label" htmlFor="doc-unit-type">
             Tipo de unidad
           </label>
@@ -114,12 +165,25 @@ function CubicationDocumentPage() {
             value={unitType}
             onChange={(event) => setUnitType(event.target.value)}
           >
+            <option value="">Selecciona el tipo…</option>
             {Object.entries(UNIT_TYPE_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="label" htmlFor="doc-sales-order">
+            N° de orden de venta
+          </label>
+          <input
+            id="doc-sales-order"
+            className="input"
+            value={salesOrderNumber}
+            onChange={(event) => setSalesOrderNumber(event.target.value)}
+            placeholder="Número de orden"
+          />
         </div>
         <div>
           <label className="label" htmlFor="doc-unit">
@@ -164,18 +228,11 @@ function CubicationDocumentPage() {
                   <p className="font-display text-lg font-bold">{unitCode}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => {
-                      try {
-                        printCubicationPdf(printData);
-                      } catch (error) {
-                        toast.error(error instanceof Error ? error.message : "No se pudo imprimir");
-                      }
-                    }}
-                  >
+                  <button type="button" className="btn btn-secondary" onClick={handlePrint}>
                     <Printer className="h-4 w-4" /> Imprimir
+                  </button>
+                  <button type="button" className="btn btn-primary" onClick={handleDownloadPdf}>
+                    <FileDown className="h-4 w-4" /> PDF
                   </button>
                 </div>
               </div>
@@ -236,13 +293,26 @@ function CubicationDocumentPage() {
                         <td className="text-right">{money(materialsTotal)}</td>
                       </tr>
                       {CUBICATION_COST_FIELDS.map((field) => {
-                        const value = costBreakdown[field.key].trim();
-                        const amount = Number(value.replace(",", "."));
                         return (
                           <tr key={field.key}>
                             <td>{field.label}</td>
-                            <td className="text-right">
-                              {value && Number.isFinite(amount) ? money(amount) : "—"}
+                            <td>
+                              <input
+                                className="input min-w-32 text-right"
+                                type="number"
+                                min="0"
+                                step="any"
+                                inputMode="decimal"
+                                aria-label={field.label}
+                                placeholder=" "
+                                value={costBreakdown[field.key]}
+                                onChange={(event) =>
+                                  setCostBreakdown((current) => ({
+                                    ...current,
+                                    [field.key]: event.target.value,
+                                  }))
+                                }
+                              />
                             </td>
                           </tr>
                         );
@@ -260,18 +330,44 @@ function CubicationDocumentPage() {
                     <tbody>
                       <tr className="bg-primary/10 font-bold">
                         <td>VENTA PÚBLICO</td>
-                        <td className="text-right">
-                          {costBreakdown.publicPrice.trim()
-                            ? money(Number(costBreakdown.publicPrice.replace(",", ".")) || 0)
-                            : "—"}
+                        <td>
+                          <input
+                            className="input text-right"
+                            type="number"
+                            min="0"
+                            step="any"
+                            inputMode="decimal"
+                            aria-label="Venta público"
+                            placeholder=" "
+                            value={costBreakdown.publicPrice}
+                            onChange={(event) =>
+                              setCostBreakdown((current) => ({
+                                ...current,
+                                publicPrice: event.target.value,
+                              }))
+                            }
+                          />
                         </td>
                       </tr>
                       <tr className="bg-primary/10 font-bold">
                         <td>VENTA DISTRIBUIDOR</td>
-                        <td className="text-right">
-                          {costBreakdown.distributorPrice.trim()
-                            ? money(Number(costBreakdown.distributorPrice.replace(",", ".")) || 0)
-                            : "—"}
+                        <td>
+                          <input
+                            className="input text-right"
+                            type="number"
+                            min="0"
+                            step="any"
+                            inputMode="decimal"
+                            aria-label="Venta distribuidor"
+                            placeholder=" "
+                            value={costBreakdown.distributorPrice}
+                            onChange={(event) =>
+                              setCostBreakdown((current) => ({
+                                ...current,
+                                distributorPrice: event.target.value,
+                              }))
+                            }
+                          />
                         </td>
                       </tr>
                     </tbody>

@@ -1,21 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Printer, Save, Search, Trash2, X } from "lucide-react";
+import { FileDown, Pencil, Plus, Printer, Save, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   calculateCubicationTotal,
+  CUBICATION_CATEGORIES,
   CUBICATION_COST_FIELDS,
   EMPTY_CUBICATION_COSTS,
   groupByCategory,
-  normalizeCubicationCostBreakdown,
+  normalizeCubicationCategory,
   type CubicationLine,
   type CubicationCostBreakdown,
   type CubicationProduct,
 } from "@/lib/cubication";
 import { hasPermission, useAppAccess } from "@/lib/permissions";
-import { CATEGORIES, money } from "@/lib/warehouse";
-import { printCubicationPdf } from "@/lib/cubication-pdf";
+import { money } from "@/lib/warehouse";
+import { UNIT_TYPE_LABELS } from "@/lib/comprobante-pdf";
+import { downloadCubicationPdf, printCubicationPdf } from "@/lib/cubication-pdf";
 
 type SpecialItem = {
   id: string;
@@ -49,11 +51,15 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
   const [selection, setSelection] = useState<Map<string, string>>(new Map());
   const [costBreakdown, setCostBreakdown] =
     useState<CubicationCostBreakdown>(EMPTY_CUBICATION_COSTS);
+  const [client, setClient] = useState("");
+  const [unitType, setUnitType] = useState("");
+  const [salesOrderNumber, setSalesOrderNumber] = useState("");
   const [specialEnabled, setSpecialEnabled] = useState(false);
   const [specialItems, setSpecialItems] = useState<SpecialItem[]>([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [dirty, setDirty] = useState(false);
+  const previousUnitCode = useRef(unitCode);
 
   const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["cubication-products"],
@@ -92,11 +98,18 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
   useEffect(() => {
     setDirty(false);
     setPicking(false);
-    if (!template) {
-      setSelection(new Map());
+    const unitChanged = previousUnitCode.current !== unitCode;
+    if (unitChanged) {
+      previousUnitCode.current = unitCode;
       setCostBreakdown({ ...EMPTY_CUBICATION_COSTS });
+      setClient("");
+      setUnitType("");
+      setSalesOrderNumber("");
       setSpecialEnabled(false);
       setSpecialItems([]);
+    }
+    if (!template) {
+      setSelection(new Map());
       return;
     }
     setSelection(
@@ -104,16 +117,10 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
         template.cubication_template_items.map((item) => [item.product_id, String(item.quantity)]),
       ),
     );
-    setCostBreakdown(normalizeCubicationCostBreakdown(template.cost_breakdown));
-    setSpecialEnabled(false);
-    setSpecialItems([]);
   }, [template, unitCode]);
 
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
-  const categories = useMemo(
-    () => [...new Set([...CATEGORIES, ...products.map((p) => p.category).filter(Boolean)])].sort(),
-    [products],
-  );
+  const categories = CUBICATION_CATEGORIES;
 
   const lines: CubicationLine[] = useMemo(
     () =>
@@ -149,7 +156,7 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
     const term = search.trim().toLowerCase();
     return products.filter(
       (p) =>
-        (!category || p.category === category) &&
+        (!category || normalizeCubicationCategory(p.category) === category) &&
         (!term || `${p.name} ${p.sku} ${p.category}`.toLowerCase().includes(term)),
     );
   }, [products, search, category]);
@@ -162,12 +169,7 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
       if (items.length === 0) throw new Error("Selecciona al menos un ítem con cantidad mayor a 0");
       const { error } = await supabase.rpc("save_cubication_template", {
         p_unit_code: unitCode,
-        p_other_costs: 0,
-        p_admin_pct: 0,
-        p_retail_margin_pct: 0,
-        p_distributor_margin_pct: 0,
         p_items: items,
-        p_cost_breakdown: costBreakdown,
       });
       if (error) throw error;
     },
@@ -185,13 +187,16 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
           : "";
       toast.error(
         /schema cache|could not find the function|does not exist/i.test(message)
-          ? `Falta aplicar la migración 0029 (costos de cubicación) en Supabase. Detalle: ${message}`
+          ? `Falta aplicar la migración 0030 (guardado de planillas de cubicación) en Supabase. Detalle: ${message}`
           : message || "No se pudo guardar la cubicación",
       );
     },
   });
 
   const printData = {
+    client,
+    unitTypeLabel: UNIT_TYPE_LABELS[unitType] ?? "",
+    salesOrderNumber,
     unitCode,
     groups,
     costBreakdown,
@@ -213,7 +218,6 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
   };
 
   const setCost = (key: keyof CubicationCostBreakdown, value: string) => {
-    setDirty(true);
     setCostBreakdown((current) => ({ ...current, [key]: value }));
   };
 
@@ -223,7 +227,7 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
   function toggleSpecial(checked: boolean) {
     setSpecialEnabled(checked);
     if (checked && specialItems.length === 0) {
-      setSpecialItems([newSpecialItem(CATEGORIES[0])]);
+      setSpecialItems([newSpecialItem(CUBICATION_CATEGORIES[0])]);
     }
   }
 
@@ -231,6 +235,41 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
     setSpecialItems((current) =>
       current.map((item) => (item.id === id ? { ...item, [key]: value } : item)),
     );
+  }
+
+  function resetDocumentFields() {
+    setClient("");
+    setUnitType("");
+    setSalesOrderNumber("");
+    setCostBreakdown({ ...EMPTY_CUBICATION_COSTS });
+    setSpecialEnabled(false);
+    setSpecialItems([]);
+  }
+
+  function downloadDocument() {
+    if (!unitType) {
+      toast.error("Selecciona el tipo de unidad antes de descargar el documento");
+      return;
+    }
+    try {
+      downloadCubicationPdf(printData);
+      resetDocumentFields();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo descargar el PDF");
+    }
+  }
+
+  function printDocument() {
+    if (!unitType) {
+      toast.error("Selecciona el tipo de unidad antes de imprimir el documento");
+      return;
+    }
+    try {
+      printCubicationPdf(printData);
+      resetDocumentFields();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo imprimir");
+    }
   }
 
   return (
@@ -267,6 +306,43 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+          {!loading && !picking && (
+            <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-3">
+              <label className="space-y-1">
+                <span className="label">Cliente</span>
+                <input
+                  className="input"
+                  value={client}
+                  onChange={(event) => setClient(event.target.value)}
+                  placeholder="Nombre del cliente"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="label">Tipo de unidad</span>
+                <select
+                  className="input"
+                  value={unitType}
+                  onChange={(event) => setUnitType(event.target.value)}
+                >
+                  <option value="">Selecciona el tipo…</option>
+                  {Object.entries(UNIT_TYPE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="label">N° de orden de venta</span>
+                <input
+                  className="input"
+                  value={salesOrderNumber}
+                  onChange={(event) => setSalesOrderNumber(event.target.value)}
+                  placeholder="Número de orden"
+                />
+              </label>
+            </div>
+          )}
           {!loading && !picking && (
             <label className="flex items-center gap-2 rounded-lg border p-3 font-semibold">
               <input
@@ -341,7 +417,9 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
                           </td>
                           <td className="whitespace-normal font-medium">{p.name}</td>
                           <td>
-                            <span className="badge badge-muted">{p.category}</span>
+                            <span className="badge badge-muted">
+                              {normalizeCubicationCategory(p.category)}
+                            </span>
                           </td>
                           <td className="text-right">
                             <span className={p.stock <= 0 ? "font-semibold text-destructive" : ""}>
@@ -456,7 +534,9 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
                                 ))}
                               </select>
                             ) : (
-                              <span className="badge badge-muted">{line.product.category}</span>
+                              <span className="badge badge-muted">
+                                {normalizeCubicationCategory(line.product.category)}
+                              </span>
                             )}
                           </td>
                           <td className="text-right">
@@ -537,7 +617,10 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
                   type="button"
                   className="btn btn-secondary"
                   onClick={() =>
-                    setSpecialItems((current) => [...current, newSpecialItem(CATEGORIES[0])])
+                    setSpecialItems((current) => [
+                      ...current,
+                      newSpecialItem(CUBICATION_CATEGORIES[0]),
+                    ])
                   }
                 >
                   <Plus className="h-4 w-4" /> Agregar ítem especial
@@ -628,15 +711,16 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => {
-                    try {
-                      printCubicationPdf(printData);
-                    } catch (error) {
-                      toast.error(error instanceof Error ? error.message : "No se pudo imprimir");
-                    }
-                  }}
+                  onClick={printDocument}
                 >
                   <Printer className="h-4 w-4" /> Imprimir
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={downloadDocument}
+                >
+                  <FileDown className="h-4 w-4" /> PDF
                 </button>
               )}
               {lines.length > 0 && canEdit && (

@@ -21,6 +21,18 @@ export type CubicationGroup = {
   subtotal: number;
 };
 
+export const CUBICATION_CATEGORIES = [
+  "ESTRUCTURA",
+  "PINTURA",
+  "CARPINTERIA",
+  "PISO LINOLEO",
+  "CIRCUITO ELECTRICO",
+  "ARTEFACTO ELECTRICO",
+  "FUSION",
+  "ARTEFACTO GASFITERIA",
+  "DETALLE",
+] as const;
+
 export const CUBICATION_COST_FIELDS = [
   { key: "structure", label: "Estructura*" },
   { key: "error", label: "M. Error" },
@@ -81,10 +93,15 @@ export function normalizeCubicationCostBreakdown(value: unknown): CubicationCost
   ) as CubicationCostBreakdown;
 }
 
+export function normalizeCubicationCategory(category: string) {
+  const trimmed = category.trim();
+  return trimmed.toLocaleUpperCase("es-CL") === "DETALLES" ? "DETALLE" : trimmed;
+}
+
 export function groupByCategory(lines: CubicationLine[]): CubicationGroup[] {
   const groups = new Map<string, CubicationGroup>();
   for (const line of lines) {
-    const category = line.product.category?.trim() || "SIN CATEGORÍA";
+    const category = normalizeCubicationCategory(line.product.category) || "SIN CATEGORÍA";
     const subtotal = line.quantity * line.product.unit_cost;
     const group = groups.get(category) ?? { category, lines: [], subtotal: 0 };
     group.lines.push({ ...line, subtotal });
@@ -96,5 +113,18 @@ export function groupByCategory(lines: CubicationLine[]): CubicationGroup[] {
       ...group,
       lines: group.lines.sort((a, b) => a.product.name.localeCompare(b.product.name, "es")),
     }))
-    .sort((a, b) => a.category.localeCompare(b.category, "es"));
+    .sort((a, b) => {
+      const aIndex = CUBICATION_CATEGORIES.indexOf(
+        a.category as (typeof CUBICATION_CATEGORIES)[number],
+      );
+      const bIndex = CUBICATION_CATEGORIES.indexOf(
+        b.category as (typeof CUBICATION_CATEGORIES)[number],
+      );
+      if (aIndex >= 0 || bIndex >= 0) {
+        if (aIndex < 0) return 1;
+        if (bIndex < 0) return -1;
+        return aIndex - bIndex;
+      }
+      return a.category.localeCompare(b.category, "es");
+    });
 }

@@ -8,7 +8,9 @@ import {
 } from "@/lib/cubication";
 
 type CubicationPrintData = {
+  client?: string;
   unitTypeLabel?: string;
+  salesOrderNumber?: string;
   unitCode: string;
   groups: CubicationGroup[];
   costBreakdown: CubicationCostBreakdown;
@@ -25,7 +27,9 @@ function amountOrBlank(value: string) {
 }
 
 function buildCubicationPdf({
+  client,
   unitTypeLabel,
+  salesOrderNumber,
   unitCode,
   groups,
   costBreakdown,
@@ -45,6 +49,9 @@ function buildCubicationPdf({
   doc.setFontSize(10);
   if (unitTypeLabel) doc.text(`Tipo de unidad: ${unitTypeLabel}`, 14, 26);
   doc.text(`Unidad de cubicaje: ${unitCode}`, 14, 32);
+  if (client?.trim()) doc.text(`Cliente: ${client.trim()}`, 14, 38);
+  if (salesOrderNumber?.trim())
+    doc.text(`N° de orden de venta: ${salesOrderNumber.trim()}`, 14, 44);
   doc.text(`Fecha: ${today}`, 196, 18, { align: "right" });
 
   const body: (string | { content: string; colSpan?: number; styles?: object })[][] = [];
@@ -52,7 +59,7 @@ function buildCubicationPdf({
     body.push([
       {
         content: group.category,
-        colSpan: 4,
+        colSpan: 5,
         styles: { fontStyle: "bold", fillColor: [235, 235, 235] },
       },
     ]);
@@ -62,6 +69,10 @@ function buildCubicationPdf({
           ? [
               {
                 content: line.product.name || "Ítem especial",
+                styles: { fillColor: [255, 242, 178] },
+              },
+              {
+                content: "—",
                 styles: { fillColor: [255, 242, 178] },
               },
               {
@@ -79,6 +90,7 @@ function buildCubicationPdf({
             ]
           : [
               line.product.name,
+              `${qty(line.product.stock)} ${line.product.unit}`.trim(),
               `${qty(line.quantity)} ${line.product.unit}`.trim(),
               clp(line.product.unit_cost),
               clp(line.subtotal),
@@ -88,7 +100,7 @@ function buildCubicationPdf({
     body.push([
       {
         content: `Subtotal ${group.category}`,
-        colSpan: 3,
+        colSpan: 4,
         styles: { halign: "right", fontStyle: "bold" },
       },
       { content: clp(group.subtotal), styles: { fontStyle: "bold" } },
@@ -96,8 +108,8 @@ function buildCubicationPdf({
   }
 
   autoTable(doc, {
-    startY: 38,
-    head: [["Descripción", "Cantidad", "Costo unitario", "Subtotal"]],
+    startY: 52,
+    head: [["Descripción", "Stock", "Cantidad", "Costo unitario", "Subtotal"]],
     body,
     styles: { fontSize: 9 },
     headStyles: { fillColor: [40, 52, 80] },
@@ -105,12 +117,13 @@ function buildCubicationPdf({
       1: { halign: "right" },
       2: { halign: "right" },
       3: { halign: "right" },
+      4: { halign: "right" },
     },
   });
 
   const lastY = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY;
   autoTable(doc, {
-    startY: (lastY ?? 38) + 8,
+    startY: (lastY ?? 52) + 8,
     theme: "grid",
     styles: { fontSize: 10 },
     body: [
@@ -150,6 +163,14 @@ function buildCubicationPdf({
   });
 
   return doc;
+}
+
+export function downloadCubicationPdf(data: CubicationPrintData) {
+  const fileName = ["cubicacion", data.unitCode, data.salesOrderNumber?.trim()]
+    .filter(Boolean)
+    .join("-")
+    .replace(/[^\w-]+/g, "_");
+  buildCubicationPdf(data).save(`${fileName}.pdf`);
 }
 
 export function printCubicationPdf(data: CubicationPrintData) {
