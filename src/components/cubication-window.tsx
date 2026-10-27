@@ -708,20 +708,14 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
           ) : (
             <>
               {hasLines && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={printDocument}
-                >
-                  <Printer className="h-4 w-4" /> Imprimir
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={downloadDocument}
-                >
-                  <FileDown className="h-4 w-4" /> PDF
-                </button>
+                <>
+                  <button type="button" className="btn btn-secondary" onClick={printDocument}>
+                    <Printer className="h-4 w-4" /> Imprimir
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={downloadDocument}>
+                    <FileDown className="h-4 w-4" /> PDF
+                  </button>
+                </>
               )}
               {lines.length > 0 && canEdit && (
                 <button
