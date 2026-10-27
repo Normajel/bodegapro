@@ -7,6 +7,8 @@ export const PERMISSION_MODULES = [
   { key: "purchases", label: "Compras", actions: ["view", "create", "edit", "delete"] },
   { key: "contacts", label: "Contactos", actions: ["view", "create", "edit", "delete"] },
   { key: "reports", label: "Informes", actions: ["view"] },
+  { key: "cubication", label: "Cubicación", actions: ["view", "edit"] },
+  { key: "cubication_document", label: "Documento de cubicación", actions: ["view"] },
 ] as const;
 
 export const PERMISSION_ACTIONS = [
@@ -22,12 +24,17 @@ export type RolePermissions = Record<string, Record<string, boolean>>;
 export type CurrentAccess = {
   name: string;
   permissions: unknown;
+  isPlatformOwner?: boolean;
 };
 
 export const AppAccessContext = createContext<CurrentAccess | null>(null);
 
 export function useAppAccess() {
   return useContext(AppAccessContext);
+}
+
+export function isAdminRole(roleName: string | null | undefined) {
+  return roleName === "ADMIN" || roleName === "ADMINPRO";
 }
 
 export function parseRolePermissions(value: unknown): RolePermissions {
@@ -50,6 +57,6 @@ export function hasPermission(
   module: string,
   action: string = "view",
 ) {
-  if (roleName === "ADMIN") return true;
+  if (isAdminRole(roleName)) return true;
   return parseRolePermissions(permissions)[module]?.[action] === true;
 }

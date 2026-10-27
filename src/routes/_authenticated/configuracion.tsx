@@ -11,6 +11,7 @@ import { resetBusinessData } from "@/lib/data-reset.functions";
 import {
   PERMISSION_ACTIONS,
   PERMISSION_MODULES,
+  isAdminRole,
   parseRolePermissions,
   type RolePermissions,
 } from "@/lib/permissions";
@@ -86,7 +87,7 @@ function ConfiguracionPage() {
   });
 
   const selectedRole = roles.find((role) => role.id === selectedRoleId);
-  const selectableRoles = useMemo(() => roles.filter((role) => role.name !== "ADMIN"), [roles]);
+  const selectableRoles = useMemo(() => roles.filter((role) => !isAdminRole(role.name)), [roles]);
 
   function startNewRole() {
     setSelectedRoleId("");
@@ -123,8 +124,8 @@ function ConfiguracionPage() {
       toast.error("Escribe el nombre del perfil");
       return;
     }
-    if (normalizedName === "ADMIN") {
-      toast.error("El perfil ADMIN está reservado y siempre conserva todos los permisos");
+    if (isAdminRole(normalizedName)) {
+      toast.error("Los perfiles ADMIN y ADMINPRO están reservados y conservan todos los permisos");
       return;
     }
 
@@ -196,7 +197,7 @@ function ConfiguracionPage() {
           email: editEmail.trim(),
           fullName: editFullName.trim(),
           ...(editPassword ? { password: editPassword } : {}),
-          ...(editingUser.app_roles?.name === "ADMIN" ? {} : { roleId: editRoleId }),
+          ...(isAdminRole(editingUser.app_roles?.name) ? {} : { roleId: editRoleId }),
         },
       });
       toast.success(
@@ -439,7 +440,7 @@ function ConfiguracionPage() {
                       <td>{profile.email || "—"}</td>
                       <td>
                         <span
-                          className={`badge ${profile.app_roles?.name === "ADMIN" ? "badge-success" : "badge-muted"}`}
+                          className={`badge ${isAdminRole(profile.app_roles?.name) ? "badge-success" : "badge-muted"}`}
                         >
                           {profile.app_roles?.name || "Sin perfil"}
                         </span>
@@ -559,8 +560,8 @@ function ConfiguracionPage() {
                     <label className="label" htmlFor="edit-user-role">
                       Perfil
                     </label>
-                    {editingUser.app_roles?.name === "ADMIN" ? (
-                      <p className="input bg-muted">ADMIN (protegido)</p>
+                    {isAdminRole(editingUser.app_roles?.name) ? (
+                      <p className="input bg-muted">{editingUser.app_roles?.name} (protegido)</p>
                     ) : (
                       <select
                         id="edit-user-role"
@@ -694,7 +695,7 @@ function ConfiguracionPage() {
                         <span className="ml-2 text-xs text-muted-foreground">Predeterminado</span>
                       )}
                     </button>
-                    {role.name !== "ADMIN" && !role.is_system && (
+                    {!isAdminRole(role.name) && !role.is_system && (
                       <button
                         type="button"
                         className="btn btn-ghost p-1.5 text-destructive"
@@ -736,13 +737,13 @@ function ConfiguracionPage() {
                 value={roleName}
                 onChange={(event) => setRoleName(event.target.value)}
                 maxLength={60}
-                disabled={selectedRole?.name === "ADMIN"}
+                disabled={isAdminRole(selectedRole?.name)}
                 required
               />
             </div>
-            {selectedRole?.name === "ADMIN" ? (
+            {isAdminRole(selectedRole?.name) ? (
               <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-                ADMIN siempre conserva acceso total y no se puede modificar.
+                Los perfiles ADMIN y ADMINPRO conservan acceso total y no se pueden modificar.
               </p>
             ) : (
               <>
@@ -791,14 +792,15 @@ function ConfiguracionPage() {
                   </table>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  El acceso a Configuración y administración de usuarios está reservado a ADMIN.
+                  El acceso a Configuración y administración de usuarios está reservado a ADMIN y
+                  ADMINPRO.
                 </p>
               </>
             )}
             <button
               className="btn btn-primary"
               type="submit"
-              disabled={saving || selectedRole?.name === "ADMIN"}
+              disabled={saving || isAdminRole(selectedRole?.name)}
             >
               <Save className="h-4 w-4" /> {saving ? "Guardando…" : "Guardar perfil"}
             </button>

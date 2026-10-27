@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as MfaRouteImport } from './routes/mfa'
+import { Route as AuthenticatedAdminproRouteImport } from './routes/_authenticated/adminpro'
 import { Route as AuthenticatedComprasRouteImport } from './routes/_authenticated/compras'
 import { Route as AuthenticatedConfiguracionRouteImport } from './routes/_authenticated/configuracion'
 import { Route as AuthenticatedContactosRouteImport } from './routes/_authenticated/contactos'
@@ -41,6 +42,11 @@ const MfaRoute = MfaRouteImport.update({
   id: '/mfa',
   path: '/mfa',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAdminproRoute = AuthenticatedAdminproRouteImport.update({
+  id: '/adminpro',
+  path: '/adminpro',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedComprasRoute = AuthenticatedComprasRouteImport.update({
   id: '/compras',
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/mfa': typeof MfaRoute
+  '/adminpro': typeof AuthenticatedAdminproRoute
   '/compras': typeof AuthenticatedComprasRoute
   '/configuracion': typeof AuthenticatedConfiguracionRoute
   '/contactos': typeof AuthenticatedContactosRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/mfa': typeof MfaRoute
+  '/adminpro': typeof AuthenticatedAdminproRoute
   '/compras': typeof AuthenticatedComprasRoute
   '/configuracion': typeof AuthenticatedConfiguracionRoute
   '/contactos': typeof AuthenticatedContactosRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/mfa': typeof MfaRoute
+  '/_authenticated/adminpro': typeof AuthenticatedAdminproRoute
   '/_authenticated/compras': typeof AuthenticatedComprasRoute
   '/_authenticated/configuracion': typeof AuthenticatedConfiguracionRoute
   '/_authenticated/contactos': typeof AuthenticatedContactosRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/mfa'
+    | '/adminpro'
     | '/compras'
     | '/configuracion'
     | '/contactos'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/mfa'
+    | '/adminpro'
     | '/compras'
     | '/configuracion'
     | '/contactos'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/mfa'
+    | '/_authenticated/adminpro'
     | '/_authenticated/compras'
     | '/_authenticated/configuracion'
     | '/_authenticated/contactos'
@@ -217,6 +229,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/mfa'
       preLoaderRoute: typeof MfaRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/adminpro': {
+      id: '/_authenticated/adminpro'
+      path: '/adminpro'
+      fullPath: '/adminpro'
+      preLoaderRoute: typeof AuthenticatedAdminproRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/compras': {
       id: '/_authenticated/compras'
@@ -285,6 +304,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminproRoute: typeof AuthenticatedAdminproRoute
   AuthenticatedComprasRoute: typeof AuthenticatedComprasRoute
   AuthenticatedConfiguracionRoute: typeof AuthenticatedConfiguracionRoute
   AuthenticatedContactosRoute: typeof AuthenticatedContactosRoute
@@ -297,6 +317,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminproRoute: AuthenticatedAdminproRoute,
   AuthenticatedComprasRoute: AuthenticatedComprasRoute,
   AuthenticatedConfiguracionRoute: AuthenticatedConfiguracionRoute,
   AuthenticatedContactosRoute: AuthenticatedContactosRoute,

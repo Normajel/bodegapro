@@ -45,7 +45,7 @@ function newSpecialItem(category: string): SpecialItem {
 export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onClose: () => void }) {
   const queryClient = useQueryClient();
   const access = useAppAccess();
-  const canEdit = hasPermission(access?.name, access?.permissions, "movements", "edit");
+  const canEdit = hasPermission(access?.name, access?.permissions, "cubication", "edit");
 
   const [picking, setPicking] = useState(false);
   const [selection, setSelection] = useState<Map<string, string>>(new Map());

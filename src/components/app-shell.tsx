@@ -11,6 +11,7 @@ import {
   Calculator,
   FileText,
   Settings,
+  Shield,
   LogOut,
   Menu,
   X,
@@ -25,9 +26,15 @@ const NAV_ITEMS = [
   { to: "/movimientos", label: "Movimientos", icon: ArrowLeftRight, module: "movements" },
   { to: "/contactos", label: "Contactos", icon: Users, module: "contacts" },
   { to: "/informes", label: "Informes", icon: FileBarChart, module: "reports" },
-  { to: "/cubicacion", label: "Cubicación", icon: Calculator, module: "reports" },
-  { to: "/documento-cubicacion", label: "Doc. cubicación", icon: FileText, module: "reports" },
+  { to: "/cubicacion", label: "Cubicación", icon: Calculator, module: "cubication" },
+  {
+    to: "/documento-cubicacion",
+    label: "Doc. cubicación",
+    icon: FileText,
+    module: "cubication_document",
+  },
   { to: "/configuracion", label: "Configuración", icon: Settings, module: "settings" },
+  { to: "/adminpro", label: "Panel ADMINPRO", icon: Shield, module: "platform" },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -55,20 +62,58 @@ export function AppShell({ children }: { children: ReactNode }) {
         .eq("id", user.id)
         .single();
       if (error) throw error;
-      return data.app_roles;
+      if (!data.app_roles) throw new Error("El usuario no tiene un perfil asignado");
+
+      const { data: isPlatformOwner, error: ownerError } = await supabase.rpc("is_platform_owner");
+      if (ownerError) throw ownerError;
+
+      return { ...data.app_roles, isPlatformOwner };
     },
   });
 
-  const visibleNavItems = NAV_ITEMS.filter(({ module }) =>
-    module === "settings"
-      ? access?.name === "ADMIN"
-      : hasPermission(access?.name, access?.permissions, module),
-  );
-  const activeModule = NAV_ITEMS.find(({ to }) => pathname.startsWith(to))?.module;
+  const {
+    data: menuSettings = [],
+    isLoading: menuSettingsLoading,
+    isError: menuSettingsError,
+  } = useQuery({
+    queryKey: ["platform-menu-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("platform_menu_settings")
+        .select("module_key, label, enabled");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  function isMenuEnabled(module: string) {
+    return menuSettings.find((setting) => setting.module_key === module)?.enabled !== false;
+  }
+
+  const visibleNavItems = NAV_ITEMS.filter(({ module }) => {
+    if (module === "platform") return access?.isPlatformOwner === true;
+    return (
+      isMenuEnabled(module) &&
+      hasPermission(
+        access?.name,
+        access?.permissions,
+        module,
+        module === "settings" ? "manage" : "view",
+      )
+    );
+  });
+  const activeNavItem = NAV_ITEMS.find(({ to }) => pathname.startsWith(to));
   const canViewCurrentPage =
-    activeModule === "settings"
-      ? access?.name === "ADMIN"
-      : !activeModule || hasPermission(access?.name, access?.permissions, activeModule);
+    activeNavItem?.module === "platform"
+      ? access?.isPlatformOwner === true
+      : !activeNavItem ||
+        (isMenuEnabled(activeNavItem.module) &&
+          hasPermission(
+            access?.name,
+            access?.permissions,
+            activeNavItem.module,
+            activeNavItem.module === "settings" ? "manage" : "view",
+          ));
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
@@ -100,7 +145,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     </nav>
   );
 
-  if (isLoading) {
+  if (isLoading || menuSettingsLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-muted-foreground">
         Cargando permisos…
@@ -108,13 +153,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
 
-  if (isError || !access) {
+  if (isError || menuSettingsError || !access) {
     return (
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="card max-w-md space-y-3 p-6 text-center">
-          <h1 className="font-semibold">No se pudo cargar tu perfil</h1>
+          <h1 className="font-semibold">No se pudo cargar tu acceso</h1>
           <p className="text-sm text-muted-foreground">
-            Contacta a un administrador para verificar tu usuario y sus permisos.
+            Verifica tu perfil y que la migración de configuración de menús esté aplicada.
           </p>
           <button className="btn btn-secondary" onClick={handleSignOut}>
             Cerrar sesión

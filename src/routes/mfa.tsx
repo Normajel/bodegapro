@@ -62,7 +62,7 @@ function AdminMfaPage() {
           .eq("id", user.id)
           .single();
         if (profileError) throw profileError;
-        if (profile.app_roles?.name !== "ADMIN") {
+        if (profile.app_roles?.name !== "ADMIN" && profile.app_roles?.name !== "ADMINPRO") {
           await navigate({ to: "/dashboard", replace: true });
           return;
         }
@@ -200,7 +200,7 @@ const verifiedFactor = factors.totp.find(
         <div>
           <h1 className="text-xl font-bold">Verificación de administrador</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Para proteger el acceso de ADMIN, verifica con una aplicación autenticadora.
+            Para proteger el acceso de ADMIN y ADMINPRO, verifica con una aplicación autenticadora.
           </p>
         </div>
 

@@ -37,8 +37,8 @@ export const createManagedUser = createServerFn({ method: "POST" })
 
     if (profileError)
       throw new Error(`No se pudo verificar el administrador: ${profileError.message}`);
-    if (currentProfile.app_roles?.name !== "ADMIN") {
-      throw new Error("Solo un usuario ADMIN puede crear cuentas");
+    if (!["ADMIN", "ADMINPRO"].includes(currentProfile.app_roles?.name ?? "")) {
+      throw new Error("Solo un usuario administrador puede crear cuentas");
     }
     if (context.claims["aal"] !== "aal2") {
       throw new Error("Se requiere verificar el segundo factor para administrar usuarios");
@@ -51,8 +51,10 @@ export const createManagedUser = createServerFn({ method: "POST" })
       .single();
 
     if (roleError) throw new Error(`No se pudo validar el perfil: ${roleError.message}`);
-    if (role.name === "ADMIN")
-      throw new Error("No se puede asignar ADMIN desde el alta de usuarios");
+    if (role.name === "ADMIN" || role.name === "ADMINPRO")
+      throw new Error(
+        "No se pueden asignar los perfiles ADMIN o ADMINPRO desde el alta de usuarios",
+      );
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: takenUsername } = await supabaseAdmin
@@ -105,8 +107,8 @@ export const updateManagedUser = createServerFn({ method: "POST" })
 
     if (profileError)
       throw new Error(`No se pudo verificar el administrador: ${profileError.message}`);
-    if (currentProfile.app_roles?.name !== "ADMIN") {
-      throw new Error("Solo un usuario ADMIN puede modificar cuentas");
+    if (!["ADMIN", "ADMINPRO"].includes(currentProfile.app_roles?.name ?? "")) {
+      throw new Error("Solo un usuario administrador puede modificar cuentas");
     }
     if (context.claims["aal"] !== "aal2") {
       throw new Error("Se requiere verificar el segundo factor para administrar usuarios");
@@ -120,9 +122,9 @@ export const updateManagedUser = createServerFn({ method: "POST" })
 
     if (targetError) throw new Error(`No se pudo encontrar el usuario: ${targetError.message}`);
 
-    const isAdminAccount = profile.app_roles?.name === "ADMIN";
+    const isAdminAccount = ["ADMIN", "ADMINPRO"].includes(profile.app_roles?.name ?? "");
     if (isAdminAccount && data.roleId && data.roleId !== profile.role_id) {
-      throw new Error("No se puede cambiar el perfil ADMIN");
+      throw new Error("No se puede cambiar el perfil de una cuenta administradora");
     }
 
     let roleId = profile.role_id;
@@ -134,7 +136,9 @@ export const updateManagedUser = createServerFn({ method: "POST" })
         .eq("id", data.roleId)
         .single();
       if (roleError) throw new Error(`No se pudo validar el perfil: ${roleError.message}`);
-      if (role.name === "ADMIN") throw new Error("No se puede asignar el perfil ADMIN");
+      if (role.name === "ADMIN" || role.name === "ADMINPRO") {
+        throw new Error("No se pueden asignar los perfiles ADMIN o ADMINPRO");
+      }
       roleId = role.id;
     }
 

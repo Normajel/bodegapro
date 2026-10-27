@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authenticated")({
       .single();
     if (error) throw error;
 
-    if (profile.app_roles?.name === "ADMIN") {
+    if (profile.app_roles?.name === "ADMIN" || profile.app_roles?.name === "ADMINPRO") {
       const { data: assurance, error: assuranceError } =
         await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       if (assuranceError) throw assuranceError;

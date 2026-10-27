@@ -33,8 +33,8 @@ export const resetBusinessData = createServerFn({ method: "POST" })
       .single();
 
     if (profileError) throw new Error(`No se pudo verificar el perfil: ${profileError.message}`);
-    if (profile.app_roles?.name !== "ADMIN") {
-      throw new Error("Solo un usuario ADMIN puede reiniciar los datos");
+    if (profile.app_roles?.name !== "ADMIN" && profile.app_roles?.name !== "ADMINPRO") {
+      throw new Error("Solo un usuario administrador puede reiniciar los datos");
     }
     if (context.claims["aal"] !== "aal2") {
       throw new Error("Se requiere verificar el segundo factor para reiniciar los datos");

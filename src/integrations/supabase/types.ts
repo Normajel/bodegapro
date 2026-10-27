@@ -423,6 +423,30 @@ export type Database = {
           },
         ];
       };
+      platform_menu_settings: {
+        Row: {
+          enabled: boolean;
+          label: string;
+          module_key: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          enabled?: boolean;
+          label: string;
+          module_key: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          enabled?: boolean;
+          label?: string;
+          module_key?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       stock_movements: {
         Row: {
           batch_id: string | null;
@@ -607,6 +631,10 @@ export type Database = {
         Returns: boolean;
       };
       is_app_admin: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
+      is_platform_owner: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
       };
