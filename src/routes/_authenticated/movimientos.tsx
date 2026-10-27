@@ -180,6 +180,7 @@ function MovimientosPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([newPurchaseItem()]);
   const [purchaseOrder, setPurchaseOrder] = useState("");
+  const [selectedPurchaseOrderId, setSelectedPurchaseOrderId] = useState("");
   const [documentType, setDocumentType] = useState<"factura" | "guia_despacho">("factura");
   const [documentNumber, setDocumentNumber] = useState("");
   const [filterType, setFilterType] = useState<"" | "entrada" | "salida">("");
@@ -243,6 +244,24 @@ function MovimientosPage() {
 
       if (error) throw error;
       return data;
+    },
+  });
+
+  const {
+    data: availablePurchaseOrders = [],
+    isLoading: purchaseOrdersLoading,
+    isError: purchaseOrdersError,
+  } = useQuery({
+    queryKey: ["purchase-orders-for-entry"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("purchase_orders")
+        .select("id, order_number, status, approval_status, supplier_id")
+        .in("status", ["pendiente", "parcial"])
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -527,6 +546,7 @@ function MovimientosPage() {
     setForm(emptyForm);
     setPurchaseItems([newPurchaseItem()]);
     setPurchaseOrder("");
+    setSelectedPurchaseOrderId("");
     setDocumentType("factura");
     setDocumentNumber("");
     setFormOpen(true);
@@ -548,6 +568,7 @@ function MovimientosPage() {
     setDocumentType(m.document_type === "guia_despacho" ? "guia_despacho" : "factura");
     setDocumentNumber(m.document_number ?? "");
     setPurchaseOrder(m.purchase_order ?? "");
+    setSelectedPurchaseOrderId("");
     setForm({
       product_id: m.product_id,
       type: m.type,
@@ -638,6 +659,7 @@ function MovimientosPage() {
           }),
         );
         setPurchaseOrder(document.purchase_order ?? "");
+        setSelectedPurchaseOrderId("");
         setDocumentType(document.document_type === "guia_despacho" ? "guia_despacho" : "factura");
         setDocumentNumber(document.document_number);
         setFormOpen(true);
@@ -706,6 +728,7 @@ function MovimientosPage() {
         });
         setPurchaseItems(entryItems);
         setPurchaseOrder(document.purchase_order ?? "");
+        setSelectedPurchaseOrderId("");
         setDocumentType(document.document_type === "guia_despacho" ? "guia_despacho" : "factura");
         setDocumentNumber(document.document_number);
         setFormOpen(true);
@@ -861,6 +884,7 @@ function MovimientosPage() {
         setForm(emptyForm);
         setPurchaseItems([newPurchaseItem()]);
         setPurchaseOrder("");
+        setSelectedPurchaseOrderId("");
         setDocumentType("factura");
         setDocumentNumber("");
 
@@ -982,6 +1006,7 @@ function MovimientosPage() {
         setForm(emptyForm);
         setPurchaseItems([newPurchaseItem()]);
         setPurchaseOrder("");
+        setSelectedPurchaseOrderId("");
         setDocumentType("factura");
         setDocumentNumber("");
 
@@ -1943,12 +1968,72 @@ function MovimientosPage() {
 
                       <div>
                         <label className="label">Orden de compra</label>
+                        <select
+                          className="input mb-2"
+                          value={selectedPurchaseOrderId}
+                          onChange={(event) => {
+                            const order = availablePurchaseOrders.find(
+                              (item) => item.id === event.target.value,
+                            );
+                            if (!event.target.value) {
+                              setSelectedPurchaseOrderId("");
+                              return;
+                            }
+                            if (!order || order.approval_status !== "aprobada") {
+                              setSelectedPurchaseOrderId("");
+                              toast.error("Falta aprobación");
+                              return;
+                            }
+
+                            setSelectedPurchaseOrderId(order.id);
+                            setPurchaseOrder(order.order_number);
+                            setForm((current) => ({
+                              ...current,
+                              supplier_id: order.supplier_id,
+                            }));
+                          }}
+                        >
+                          <option value="">
+                            {purchaseOrdersLoading
+                              ? "Cargando órdenes de compra…"
+                              : availablePurchaseOrders.length
+                                ? "Selecciona una orden de compra…"
+                                : "No hay órdenes pendientes de recepción"}
+                          </option>
+                          {availablePurchaseOrders.map((order) => {
+                            const isApproved = order.approval_status === "aprobada";
+                            const supplier =
+                              suppliers.find((item) => item.id === order.supplier_id)?.name ??
+                              "Proveedor";
+                            const receiptStatus =
+                              order.status === "parcial" ? "Recepción parcial" : "Pendiente";
+                            return (
+                              <option
+                                key={order.id}
+                                value={order.id}
+                                className={isApproved ? undefined : "text-red-600"}
+                                style={isApproved ? undefined : { color: "#dc2626" }}
+                              >
+                                {order.order_number} · {receiptStatus} · {supplier} ·{" "}
+                                {isApproved ? "Aprobada" : "Por aprobar"}
+                              </option>
+                            );
+                          })}
+                        </select>
                         <input
                           className="input"
                           value={purchaseOrder}
-                          onChange={(e) => setPurchaseOrder(e.target.value)}
-                          placeholder="Número de orden de compra"
+                          onChange={(event) => {
+                            setPurchaseOrder(event.target.value);
+                            setSelectedPurchaseOrderId("");
+                          }}
+                          placeholder="O ingresa un número manualmente"
                         />
+                        {purchaseOrdersError && (
+                          <p className="mt-1 text-sm text-destructive">
+                            No se pudieron cargar las órdenes de compra.
+                          </p>
+                        )}
                       </div>
 
                       <div>
