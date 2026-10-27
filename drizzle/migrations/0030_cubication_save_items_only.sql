@@ -1,5 +1,6 @@
 DROP FUNCTION IF EXISTS public.save_cubication_template(text, numeric, numeric, numeric, numeric, jsonb, jsonb);
 DROP FUNCTION IF EXISTS public.save_cubication_template(text, numeric, numeric, numeric, numeric, jsonb);
+DROP FUNCTION IF EXISTS public.save_cubication_template(text, text, numeric, numeric, numeric, numeric, jsonb);
 
 ALTER TABLE public.cubication_templates
   DROP COLUMN IF EXISTS cost_breakdown,
