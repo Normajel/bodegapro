@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, Printer, Trash2, X } from "lucide-react";
+import { Eye, Pencil, Plus, Printer, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -169,6 +169,7 @@ function MovimientosPage() {
   const db = supabase as any;
 
   const [formOpen, setFormOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
   const [editingPurchaseEntryId, setEditingPurchaseEntryId] = useState<string | null>(null);
@@ -828,7 +829,32 @@ function MovimientosPage() {
         });
         if (error) throw error;
 
+        if (print) {
+          generarComprobanteCompra({
+            id: editingRegisteredMovementIds[0] ?? documentNumber.trim(),
+            created_at: new Date().toISOString(),
+            supplier:
+              suppliers.find((supplier) => supplier.id === form.supplier_id)?.name ??
+              "Sin proveedor",
+            purchase_order: purchaseOrder.trim(),
+            document_type: documentType,
+            document_number: documentNumber.trim(),
+            notes: form.notes.trim(),
+            items: validItems.map((item) => {
+              const product = products.find((current) => current.id === item.product_id);
+              return {
+                product_name: product?.name ?? item.search,
+                product_sku: product?.sku ?? "—",
+                quantity: item.quantity,
+                unit: item.unit,
+                unit_price: item.unit_price,
+              };
+            }),
+          });
+        }
+
         toast.success("Compra modificada y stock actualizado");
+        setPreviewOpen(false);
         setFormOpen(false);
         setEditingId(null);
         setEditingRegisteredMovementIds(null);
@@ -947,6 +973,7 @@ function MovimientosPage() {
           });
         }
 
+        setPreviewOpen(false);
         setFormOpen(false);
         setEditingId(null);
         setEditingBatchId(null);
@@ -1079,6 +1106,7 @@ function MovimientosPage() {
           });
         }
 
+        setPreviewOpen(false);
         setFormOpen(false);
         setEditingId(null);
         setEditingBatchId(null);
@@ -1168,6 +1196,7 @@ function MovimientosPage() {
 
       if (print && saved) printMovement(saved);
 
+      setPreviewOpen(false);
       setFormOpen(false);
       setEditingId(null);
       setForm({ ...emptyForm, type: form.type });
@@ -1368,6 +1397,46 @@ function MovimientosPage() {
   const isPurchaseForm =
     form.type === "entrada" &&
     (!editingId || Boolean(editingPurchaseEntryId) || Boolean(editingRegisteredMovementIds));
+  const previewItems =
+    isPurchaseForm || form.type === "salida"
+      ? purchaseItems
+          .filter((item) => item.product_id)
+          .map((item) => {
+            const product = products.find((current) => current.id === item.product_id);
+            return {
+              key: item.key,
+              name: product?.name ?? item.search,
+              sku: product?.sku ?? "—",
+              quantity: item.quantity,
+              unit: item.unit,
+              unitPrice: item.unit_price,
+            };
+          })
+      : form.product_id
+        ? (() => {
+            const product = products.find((current) => current.id === form.product_id);
+            return [
+              {
+                key: form.product_id,
+                name: product?.name ?? "Producto",
+                sku: product?.sku ?? "—",
+                quantity: form.quantity,
+                unit: product?.unit ?? "unidad",
+                unitPrice: Number(product?.unit_cost) || 0,
+              },
+            ];
+          })()
+        : [];
+  const previewTotal = previewItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const previewTitle = isPurchaseForm
+    ? "Vista previa · Entrada de compra"
+    : form.type === "salida"
+      ? "Vista previa · Salida"
+      : "Vista previa · Entrada";
+  const previewSupplier =
+    suppliers.find((supplier) => supplier.id === form.supplier_id)?.name ?? "Sin proveedor";
+  const customerName = customers.find((customer) => customer.id === form.customer_id)?.name;
+  const previewCustomer = customerName || form.reference.trim() || "—";
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -2504,10 +2573,10 @@ function MovimientosPage() {
                   type="button"
                   className="btn btn-secondary"
                   disabled={saving}
-                  onClick={() => save(true)}
+                  onClick={() => setPreviewOpen(true)}
                 >
-                  <Printer className="h-4 w-4" />
-                  {saving ? "Guardando…" : "Registrar e imprimir"}
+                  <Eye className="h-4 w-4" />
+                  Vista previa
                 </button>
 
                 <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -2516,6 +2585,158 @@ function MovimientosPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {previewOpen && formOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-foreground/50 p-3 sm:p-6">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="movement-preview-title"
+            className="card flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden"
+          >
+            <header className="flex items-start justify-between gap-4 border-b p-4 sm:p-6">
+              <div>
+                <h2 id="movement-preview-title" className="font-display text-xl font-bold">
+                  {previewTitle}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Revisa los datos antes de registrar e imprimir.
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => void save(true)}
+                  disabled={saving}
+                >
+                  <Printer className="h-4 w-4" />
+                  {saving ? "Registrando…" : "Imprimir"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost p-1.5"
+                  aria-label="Cerrar vista previa"
+                  onClick={() => setPreviewOpen(false)}
+                  disabled={saving}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </header>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+              <div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
+                {isPurchaseForm ? (
+                  <>
+                    <p>
+                      <strong>Proveedor:</strong> {previewSupplier}
+                    </p>
+                    <p>
+                      <strong>Orden de compra:</strong> {purchaseOrder.trim() || "—"}
+                    </p>
+                    <p>
+                      <strong>
+                        {documentType === "factura" ? "Factura" : "Guía de despacho"}:
+                      </strong>{" "}
+                      {documentNumber.trim() || "—"}
+                    </p>
+                    <p>
+                      <strong>Tipo:</strong> Entrada
+                    </p>
+                  </>
+                ) : form.type === "salida" ? (
+                  <>
+                    <p>
+                      <strong>Tipo de unidad:</strong>{" "}
+                      {UNIT_TYPE_LABELS[form.unit_type] ?? form.unit_type}
+                    </p>
+                    <p>
+                      <strong>UNIDADES:</strong> {form.unit_type_value || "—"}
+                    </p>
+                    <p>
+                      <strong>Cliente / Nombre maestro:</strong> {previewCustomer}
+                    </p>
+                    <p>
+                      <strong>Valor / Número:</strong> {form.document_number.trim() || "—"}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      <strong>Tipo:</strong> Entrada
+                    </p>
+                    <p>
+                      <strong>Proveedor:</strong> {previewSupplier}
+                    </p>
+                    <p>
+                      <strong>Referencia:</strong> {form.reference.trim() || "—"}
+                    </p>
+                  </>
+                )}
+                <p className="sm:col-span-2">
+                  <strong>Observaciones:</strong> {form.notes.trim() || "—"}
+                </p>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="table-base [&_td]:whitespace-nowrap">
+                  <thead>
+                    <tr>
+                      <th>Descripción</th>
+                      <th>SKU</th>
+                      <th className="text-right">Cantidad</th>
+                      <th>Unidad</th>
+                      <th className="text-right">
+                        {form.type === "salida" ? "Costo unitario" : "Valor unitario"}
+                      </th>
+                      <th className="text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewItems.map((item) => (
+                      <tr key={item.key}>
+                        <td>{item.name}</td>
+                        <td>{item.sku}</td>
+                        <td className="text-right">{item.quantity}</td>
+                        <td>{item.unit}</td>
+                        <td className="text-right">{formatMoney(item.unitPrice)}</td>
+                        <td className="text-right">
+                          {formatMoney(item.quantity * item.unitPrice)}
+                        </td>
+                      </tr>
+                    ))}
+                    {previewItems.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="py-6 text-center text-muted-foreground">
+                          No hay productos agregados.
+                        </td>
+                      </tr>
+                    )}
+                    <tr className="bg-muted font-bold">
+                      <td colSpan={5} className="text-right">
+                        TOTAL
+                      </td>
+                      <td className="text-right">{formatMoney(previewTotal)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <footer className="flex justify-end border-t p-4 sm:px-6">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setPreviewOpen(false)}
+                disabled={saving}
+              >
+                Volver a editar
+              </button>
+            </footer>
+          </section>
         </div>
       )}
     </div>

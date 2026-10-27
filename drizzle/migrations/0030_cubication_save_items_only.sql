@@ -2,6 +2,20 @@ DROP FUNCTION IF EXISTS public.save_cubication_template(text, numeric, numeric, 
 DROP FUNCTION IF EXISTS public.save_cubication_template(text, numeric, numeric, numeric, numeric, jsonb);
 DROP FUNCTION IF EXISTS public.save_cubication_template(text, text, numeric, numeric, numeric, numeric, jsonb);
 
+DELETE FROM public.cubication_templates older
+USING public.cubication_templates newer
+WHERE older.unit_code = newer.unit_code
+  AND (older.updated_at, older.id) < (newer.updated_at, newer.id);
+
+ALTER TABLE public.cubication_templates
+  DROP CONSTRAINT IF EXISTS cubication_templates_unit_type_unit_code_key,
+  DROP CONSTRAINT IF EXISTS cubication_templates_unit_code_key,
+  DROP CONSTRAINT IF EXISTS cubication_templates_unit_type_check,
+  DROP COLUMN IF EXISTS unit_type;
+
+ALTER TABLE public.cubication_templates
+  ADD CONSTRAINT cubication_templates_unit_code_key UNIQUE (unit_code);
+
 ALTER TABLE public.cubication_templates
   DROP COLUMN IF EXISTS cost_breakdown,
   DROP COLUMN IF EXISTS other_costs,

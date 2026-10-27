@@ -76,23 +76,6 @@ export function calculateCubicationTotal(materials: number, breakdown: Cubicatio
   );
 }
 
-export function normalizeCubicationCostBreakdown(value: unknown): CubicationCostBreakdown {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { ...EMPTY_CUBICATION_COSTS };
-  }
-
-  const values = value as Partial<Record<keyof CubicationCostBreakdown, unknown>>;
-  return Object.fromEntries(
-    Object.keys(EMPTY_CUBICATION_COSTS).map((key) => [
-      key,
-      typeof values[key as keyof CubicationCostBreakdown] === "string" ||
-      typeof values[key as keyof CubicationCostBreakdown] === "number"
-        ? String(values[key as keyof CubicationCostBreakdown])
-        : "",
-    ]),
-  ) as CubicationCostBreakdown;
-}
-
 export function normalizeCubicationCategory(category: string) {
   const trimmed = category.trim();
   return trimmed.toLocaleUpperCase("es-CL") === "DETALLES" ? "DETALLE" : trimmed;

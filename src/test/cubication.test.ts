@@ -3,7 +3,6 @@ import {
   calculateCubicationTotal,
   EMPTY_CUBICATION_COSTS,
   groupByCategory,
-  normalizeCubicationCostBreakdown,
   type CubicationCostBreakdown,
 } from "@/lib/cubication";
 
@@ -39,18 +38,6 @@ describe("Costos de planillas de cubicación", () => {
     };
 
     expect(calculateCubicationTotal(1000, breakdown)).toBe(2925.5);
-  });
-
-  it("conserva ventas en blanco y normaliza una estructura guardada", () => {
-    expect(
-      normalizeCubicationCostBreakdown({
-        structure: 500,
-        publicPrice: "",
-      }),
-    ).toEqual({
-      ...EMPTY_CUBICATION_COSTS,
-      structure: "500",
-    });
   });
 
   it("ordena las categorías requeridas y muestra DETALLE en singular", () => {
