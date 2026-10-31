@@ -99,7 +99,7 @@ function ComprasPage() {
   const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
   const canApprove =
-        ["ADMIN", "GERENCIA", "GERENTE"].includes((access?.name ?? "").trim().toUpperCase());
+        ["ADMINPRO", "ADMIN", "GERENCIA"].includes((access?.name ?? "").trim().toUpperCase());
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
