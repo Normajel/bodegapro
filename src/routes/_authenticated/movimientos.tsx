@@ -111,7 +111,7 @@ type PurchaseOperationFilter = "" | "entrada" | "salida";
 
 const emptyForm: FormState = {
   product_id: "",
-  type: "entrada",
+  type: "salida",
   quantity: 1,
   supplier_id: "",
   customer_id: "",
@@ -543,7 +543,7 @@ function MovimientosPage() {
     setEditingBatchId(null);
     setEditingPurchaseEntryId(null);
     setEditingRegisteredMovementIds(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, type: "salida" });
     setPurchaseItems([newPurchaseItem()]);
     setPurchaseOrder("");
     setSelectedPurchaseOrderId("");
@@ -1468,7 +1468,7 @@ function MovimientosPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Movimientos</h1>
-          <p className="text-sm text-muted-foreground">Entradas y salidas de stock</p>
+          <p className="text-sm text-muted-foreground">Historial de entradas y salidas. La recepción de productos se realiza desde Órdenes de compra aprobadas.</p>
         </div>
 
         <div className="flex flex-wrap items-end gap-2">
@@ -1520,7 +1520,7 @@ function MovimientosPage() {
 
           {canCreate && (
             <button className="btn btn-primary" onClick={openNew}>
-              <Plus className="h-4 w-4" /> Registrar movimiento
+              <Plus className="h-4 w-4" /> Registrar salida
             </button>
           )}
         </div>
@@ -1638,7 +1638,7 @@ function MovimientosPage() {
                       >
                         <Printer className="h-4 w-4" />
                       </button>
-                      {canEdit && (
+                      {canEdit && m.type === "salida" && (
                         <button
                           type="button"
                           className="btn btn-ghost p-1.5"
@@ -1649,7 +1649,7 @@ function MovimientosPage() {
                           <Pencil className="h-4 w-4" />
                         </button>
                       )}
-                      {canDelete && (
+                      {canDelete && m.type === "salida" && (
                         <button
                           type="button"
                           className="btn btn-ghost p-1.5 text-destructive"
@@ -1851,8 +1851,7 @@ function MovimientosPage() {
                   <td>
                     <div className="flex flex-wrap gap-1">
                       {!purchase.cancelled_at &&
-                        ((purchase.type === "entrada" && canEditPurchases) ||
-                          (purchase.type === "salida" && canEdit)) && (
+                        (purchase.type === "salida" && canEdit) && (
                           <button
                             type="button"
                             className="btn btn-ghost"
@@ -1900,11 +1899,7 @@ function MovimientosPage() {
                         ? "Modificar compra"
                         : "Modificar venta"
                       : "Modificar movimiento"
-                  : isPurchaseForm
-                    ? "Registrar entrada de compra"
-                    : form.type === "salida"
-                      ? "Registrar salida"
-                      : "Registrar movimiento"}
+                  : "Registrar salida"}
               </h2>
 
               <button
@@ -1924,23 +1919,6 @@ function MovimientosPage() {
               className="flex min-h-0 flex-1 flex-col gap-3"
             >
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-                <div className="grid grid-cols-2 gap-2">
-                  {(["entrada", "salida"] as const).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      disabled={!!editingId}
-                      className={`btn ${form.type === t ? "btn-primary" : "btn-secondary"}`}
-                      onClick={() => {
-                        setForm({ ...form, type: t });
-
-                        setPurchaseItems([newPurchaseItem()]);
-                      }}
-                    >
-                      {t === "entrada" ? "Entrada" : "Salida"}
-                    </button>
-                  ))}
-                </div>
 
                 {isPurchaseForm ? (
                   <>
