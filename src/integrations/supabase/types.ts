@@ -720,6 +720,10 @@ export type Database = {
         Args: { p_product_id: string };
         Returns: undefined;
       };
+      can_manage_role_members: {
+        Args: { p_role_id: string };
+        Returns: boolean;
+      };
       has_app_permission: {
         Args: { action_name?: string; module_name: string };
         Returns: boolean;

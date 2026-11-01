@@ -40,6 +40,12 @@ export const resetBusinessData = createServerFn({ method: "POST" })
       throw new Error("Se requiere verificar el segundo factor para reiniciar los datos");
     }
 
+    const { data: canManage, error: manageError } = await context.supabase.rpc(
+      "has_app_permission",
+      { module_name: "settings", action_name: "manage" },
+    );
+    if (manageError || !canManage)
+      throw new Error("Tu perfil no tiene permiso para administrar la configuración");
     const ownerCode = process.env["BODEGAPRO_RESET_CODE"];
     if (!ownerCode || ownerCode.length < 20) {
       throw new Error(

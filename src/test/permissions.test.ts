@@ -7,6 +7,7 @@ import {
   effectiveRolePermission,
   canEditRolePermission,
   updateRolePermission,
+  canDelegateRole,
 } from "@/lib/permissions";
 const gerencia = {
   purchases: { view: true, create: false, edit: false, delete: false, approve: true },
@@ -51,7 +52,9 @@ describe("explicit role authorization", () => {
     expect(canReceivePurchaseOrder("VENTA", bodega)).toBe(false);
   });
   it("keeps administrator actions available in the MFA-protected application", () => {
-    expect(canApprovePurchaseOrder("ADMIN", {})).toBe(true);
+    expect(
+      canApprovePurchaseOrder("ADMIN", { purchases: { view: true, approve: true, edit: true } }),
+    ).toBe(true);
     expect(canReceivePurchaseOrder("ADMINPRO", {})).toBe(true);
   });
 });
@@ -85,7 +88,9 @@ describe("role editor and explicit purchase actions", () => {
   it("keeps privileged access and ineligible actions read-only", () => {
     expect(effectiveRolePermission("ADMIN", {}, "platform", "manage")).toBe(false);
     expect(effectiveRolePermission("ADMINPRO", {}, "platform", "manage")).toBe(true);
-    expect(effectiveRolePermission("ADMIN", {}, "settings", "manage")).toBe(true);
+    expect(
+      effectiveRolePermission("ADMIN", { settings: { manage: true } }, "settings", "manage"),
+    ).toBe(true);
     expect(canEditRolePermission("ADMIN", "inventory", "view")).toBe(false);
     expect(canEditRolePermission("GERENCIA", "settings", "manage")).toBe(false);
     expect(canEditRolePermission("BODEGA", "purchases", "approve")).toBe(false);
@@ -117,5 +122,62 @@ describe("role editor and explicit purchase actions", () => {
       false,
     );
     expect(Object.values(hidden["purchases"] ?? {}).every((value) => !value)).toBe(true);
+  });
+});
+
+describe("owner-managed ADMIN permissions", () => {
+  it("lets only the owner editor change ADMIN and keeps ADMINPRO protected", () => {
+    expect(canEditRolePermission("ADMIN", "inventory", "delete", true)).toBe(true);
+    expect(canEditRolePermission("ADMIN", "settings", "manage", true)).toBe(true);
+    expect(canEditRolePermission("ADMIN", "platform", "manage", true)).toBe(false);
+    expect(canEditRolePermission("ADMINPRO", "inventory", "view", true)).toBe(false);
+  });
+  it("honors explicit ADMIN revocations instead of bypassing them", () => {
+    expect(hasPermission("ADMIN", { inventory: { delete: false } }, "inventory", "delete")).toBe(
+      false,
+    );
+    expect(hasPermission("ADMIN", {}, "inventory", "delete")).toBe(false);
+    expect(hasPermission("ADMIN", { inventory: { delete: true } }, "inventory", "delete")).toBe(
+      true,
+    );
+    expect(hasPermission("ADMINPRO", {}, "inventory", "delete")).toBe(true);
+    expect(
+      canApprovePurchaseOrder("ADMIN", { purchases: { view: true, approve: true, edit: false } }),
+    ).toBe(false);
+  });
+  it("cannot delegate a revoked permission or manage a more privileged account", () => {
+    const access = {
+      name: "ADMIN",
+      permissions: { settings: { manage: true }, inventory: { view: true, delete: false } },
+    };
+    expect(
+      canDelegateRole(access, { name: "OTRO", permissions: { inventory: { view: true } } }),
+    ).toBe(true);
+    expect(
+      canDelegateRole(access, {
+        name: "OTRO",
+        permissions: { inventory: { view: true, delete: true } },
+      }),
+    ).toBe(false);
+    expect(canDelegateRole(access, { name: "ADMINPRO", permissions: {} })).toBe(false);
+    expect(canDelegateRole({ ...access, permissions: {} }, { name: "OTRO", permissions: {} })).toBe(
+      false,
+    );
+    expect(
+      canDelegateRole(
+        { name: "ADMINPRO", isPlatformOwner: true, permissions: {} },
+        { name: "ADMIN", permissions: { inventory: { delete: true } } },
+      ),
+    ).toBe(true);
+  });
+  it("keeps ADMIN purchase edit dependencies synchronized", () => {
+    const enabled = updateRolePermission({}, "purchases", "receive", true, "ADMIN");
+    expect(canReceivePurchaseOrder("ADMIN", enabled)).toBe(true);
+    expect(
+      canReceivePurchaseOrder(
+        "ADMIN",
+        updateRolePermission(enabled, "purchases", "edit", false, "ADMIN"),
+      ),
+    ).toBe(false);
   });
 });

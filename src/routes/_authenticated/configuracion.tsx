@@ -17,6 +17,8 @@ import {
   effectiveRolePermission,
   canEditRolePermission,
   updateRolePermission,
+  hasPermission,
+  canDelegateRole,
   type RolePermissions,
 } from "@/lib/permissions";
 
@@ -96,18 +98,38 @@ function ConfiguracionPage() {
   }, [selectedRole]);
   const assignableUserRoles = useMemo(
     () =>
-      roles.filter((role) => !isAdminRole(role.name) || (role.name === "ADMIN" && canAssignAdmin)),
-    [roles, canAssignAdmin],
+      roles.filter(
+        (role) =>
+          (!isAdminRole(role.name) || (role.name === "ADMIN" && canAssignAdmin)) &&
+          canDelegateRole(access, role),
+      ),
+    [roles, canAssignAdmin, access],
   );
 
   function setPermission(module: string, action: string, enabled: boolean) {
-    if (!selectedRole || !canEditRolePermission(selectedRole.name, module, action)) return;
-    setRolePermissions((current) => updateRolePermission(current, module, action, enabled));
+    if (!selectedRole || !canEditRolePermission(selectedRole.name, module, action, canAssignAdmin))
+      return;
+    if (
+      enabled &&
+      !canAssignAdmin &&
+      !hasPermission(access?.name, access?.permissions, module, action)
+    ) {
+      toast.error("Solo ADMINPRO puede conceder un permiso que tu perfil no posee");
+      return;
+    }
+    setRolePermissions((current) =>
+      updateRolePermission(current, module, action, enabled, selectedRole.name),
+    );
   }
 
   async function saveRole(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedRole || isAdminRole(selectedRole.name)) return;
+    if (
+      !selectedRole ||
+      selectedRole.name === "ADMINPRO" ||
+      (selectedRole.name === "ADMIN" && !canAssignAdmin)
+    )
+      return;
     setSaving(true);
     try {
       const { error } = await supabase
@@ -429,7 +451,15 @@ function ConfiguracionPage() {
                           className="btn btn-ghost p-1.5"
                           aria-label={`Editar usuario ${profile.full_name || profile.email || ""}`}
                           title="Editar usuario"
-                          disabled={profile.app_roles?.name === "ADMINPRO" && !canAssignAdmin}
+                          disabled={
+                            !canDelegateRole(
+                              access,
+                              roles.find((role) => role.id === profile.role_id) ?? {
+                                name: profile.app_roles?.name ?? "",
+                                permissions: {},
+                              },
+                            )
+                          }
                           onClick={() => openEditUser(profile)}
                         >
                           <Pencil className="h-4 w-4" />
@@ -681,7 +711,9 @@ function ConfiguracionPage() {
                           <span className="block font-semibold">{role.name}</span>
                           <span className="block text-xs text-muted-foreground">
                             {allowed} permisos activos ·{" "}
-                            {isAdminRole(role.name) ? "Protegido" : "Editable"}
+                            {role.name === "ADMINPRO" || (role.name === "ADMIN" && !canAssignAdmin)
+                              ? "Protegido"
+                              : "Editable"}
                           </span>
                         </button>
                         {!role.is_system && !isAdminRole(role.name) && (
@@ -706,11 +738,18 @@ function ConfiguracionPage() {
                 <div>
                   <h3 className="font-semibold">Permisos de {selectedRole.name}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {isAdminRole(selectedRole.name)
+                    {selectedRole.name === "ADMINPRO" ||
+                    (selectedRole.name === "ADMIN" && !canAssignAdmin)
                       ? "Perfil protegido. Sus permisos se muestran para consulta."
                       : "Marca las acciones permitidas y guarda los cambios."}
                   </p>
                 </div>
+                {selectedRole.name === "ADMIN" && canAssignAdmin && (
+                  <p className="rounded-md bg-muted p-3 text-sm">
+                    Los cambios se aplicarán a todas las cuentas con perfil ADMIN. ADMINPRO
+                    conservará su acceso para administrar estos permisos.
+                  </p>
+                )}
                 <div className="space-y-3">
                   {PERMISSION_MODULES.map((module) => (
                     <fieldset key={module.key} className="rounded-lg border p-3" disabled={saving}>
@@ -721,6 +760,7 @@ function ConfiguracionPage() {
                             selectedRole.name,
                             module.key,
                             action,
+                            canAssignAdmin,
                           );
                           const checked = effectiveRolePermission(
                             selectedRole.name,
@@ -768,8 +808,8 @@ function ConfiguracionPage() {
                       )}
                       {module.key === "settings" && (
                         <p className="mt-3 text-xs text-muted-foreground">
-                          Reservado a ADMIN y ADMINPRO con segundo factor. Asignar ADMIN requiere al
-                          propietario ADMINPRO.
+                          Disponible para ADMIN si tiene este permiso y para ADMINPRO, con segundo
+                          factor. Asignar ADMIN requiere al propietario ADMINPRO.
                         </p>
                       )}
                       {module.key === "platform" && (
@@ -793,12 +833,13 @@ function ConfiguracionPage() {
                     : "Sin acceso"}
                   . El acceso a Servicios se modifica con «Ver» en Órdenes de compra y servicios.
                 </div>
-                {!isAdminRole(selectedRole.name) && (
-                  <button className="btn btn-primary" type="submit" disabled={saving}>
-                    <Save className="h-4 w-4" />
-                    {saving ? "Guardando…" : "Guardar permisos"}
-                  </button>
-                )}
+                {selectedRole.name !== "ADMINPRO" &&
+                  (selectedRole.name !== "ADMIN" || canAssignAdmin) && (
+                    <button className="btn btn-primary" type="submit" disabled={saving}>
+                      <Save className="h-4 w-4" />
+                      {saving ? "Guardando…" : "Guardar permisos"}
+                    </button>
+                  )}
               </form>
             )}
           </div>

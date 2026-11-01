@@ -19,8 +19,10 @@ const p: ManagementProduct = {
 };
 describe("Panel gerencial", () => {
   it("restricts access by assigned role, never by username or a forged permission", () => {
-    for (const role of ["ADMIN", "GERENCIA", "GERENTE"])
-      expect(canViewManagement(role, {})).toBe(true);
+    for (const role of ["GERENCIA", "GERENTE"])
+      expect(canViewManagement(role, { management: { view: true } })).toBe(true);
+    expect(canViewManagement("ADMIN", { management: { view: true } })).toBe(true);
+    expect(canViewManagement("ADMIN", {})).toBe(false);
     for (const role of ["BODEGA", "VENTAS", "ADMINPRO", "Admin_1", "Gerencia_1", undefined]) {
       expect(canViewManagement(role, { management: { view: true } })).toBe(false);
       expect(hasPermission(role, { management: { view: true } }, "management")).toBe(false);

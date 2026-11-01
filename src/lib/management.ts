@@ -3,7 +3,7 @@ import { dateKey } from "./warehouse";
 export function canViewManagement(role: string | null | undefined, permissions: unknown) {
   const allowed = ["ADMIN", "GERENCIA", "GERENTE"].includes(role?.trim().toUpperCase() ?? "");
   const value = permissions as { management?: { view?: boolean } } | null;
-  return allowed && value?.management?.view !== false;
+  return allowed && value?.management?.view === true;
 }
 export type ManagementProduct = {
   id: string;

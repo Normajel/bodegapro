@@ -127,6 +127,15 @@ export const createManagedUser = createServerFn({ method: "POST" })
       throw new Error("Se requiere verificar el segundo factor para administrar usuarios");
     }
 
+    const { data: canManageRole, error: manageError } = await context.supabase.rpc(
+      "can_manage_role_members",
+      { p_role_id: data.roleId },
+    );
+    if (manageError || !canManageRole)
+      throw new Error(
+        "No puedes administrar usuarios con esos permisos. Solicita el alta a ADMINPRO",
+      );
+
     const { data: role, error: roleError } = await context.supabase
       .from("app_roles")
       .select("id, name")
@@ -220,6 +229,14 @@ export const updateManagedUser = createServerFn({ method: "POST" })
         throw new Error("Solo el propietario puede modificar su cuenta ADMINPRO");
       }
     }
+    const { data: canManageTarget, error: targetPermissionError } = await context.supabase.rpc(
+      "can_manage_role_members",
+      { p_role_id: profile.role_id! },
+    );
+    if (targetPermissionError || !canManageTarget)
+      throw new Error(
+        "No puedes modificar una cuenta con permisos superiores a los tuyos. Solicita el cambio a ADMINPRO",
+      );
     const isAdminAccount = ["ADMIN", "ADMINPRO"].includes(profile.app_roles?.name ?? "");
     if (isAdminAccount && data.roleId && data.roleId !== profile.role_id) {
       throw new Error("No se puede cambiar el perfil de una cuenta administradora");
@@ -235,6 +252,14 @@ export const updateManagedUser = createServerFn({ method: "POST" })
         .eq("id", data.roleId)
         .single();
       if (roleError) throw new Error(`No se pudo validar el perfil: ${roleError.message}`);
+      const { data: canAssignRole, error: assignmentError } = await context.supabase.rpc(
+        "can_manage_role_members",
+        { p_role_id: role.id },
+      );
+      if (assignmentError || !canAssignRole)
+        throw new Error(
+          "No puedes asignar permisos que tu perfil no posee. Solicita el cambio a ADMINPRO",
+        );
       if (role.name === "ADMINPRO")
         throw new Error("ADMINPRO está reservado al propietario de la plataforma");
       if (role.name === "ADMIN") {

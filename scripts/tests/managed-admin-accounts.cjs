@@ -83,7 +83,10 @@ async function run(options = {}) {
         }),
       }),
     }),
-    rpc: async () => ({ data: options.owner !== false, error: options.ownerError ? {} : null }),
+    rpc: async (name) =>
+      name === "can_manage_role_members"
+        ? { data: options.canManage !== false, error: null }
+        : { data: options.owner !== false, error: options.ownerError ? {} : null },
   };
   const exports = {};
   new Function("require", "exports", compiled)((name) => {
@@ -186,6 +189,13 @@ async function run(options = {}) {
     promotionError: true,
   });
   assert.match(r.error.message, /no se pudo asignar ADMIN/);
+  r = await run({ actorRole: "ADMIN", targetRole: "GERENCIA", canManage: false });
+  assert(r.error);
+  assert.equal(r.created, 0);
+  r = await run({ update: true, currentRole: "GERENCIA", actorRole: "ADMIN", canManage: false });
+  assert(r.error);
+  assert.equal(r.updated, 0);
+  assert.equal(r.writes.length, 0);
   console.log(
     "PASS: owner-only ADMIN creation and assignment, MFA, deferred promotion, Auth failure rollback and ADMINPRO account protection; no real accounts created.",
   );

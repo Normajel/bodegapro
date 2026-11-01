@@ -32,7 +32,7 @@ const invoke = () => {
           return this;
         },
         single: async () => ({
-          data: { app_roles: { name: fixture.role, permissions: {} } },
+          data: { app_roles: { name: fixture.role, permissions: { management: { view: true } } } },
           error: null,
         }),
         gte() {

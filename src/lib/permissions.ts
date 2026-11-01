@@ -4,6 +4,7 @@ import { canViewManagement } from "./management";
 export const PERMISSION_MODULES = [
   { key: "management", label: "Panel Gerencial (Admin y Gerencia)", actions: ["view"] },
   { key: "dashboard", label: "Panel", actions: ["view"] },
+  { key: "management", label: "Panel gerencial", actions: ["view"] },
   { key: "inventory", label: "Inventario", actions: ["view", "create", "edit", "delete"] },
   { key: "movements", label: "Movimientos", actions: ["view", "create", "edit", "delete"] },
   {
@@ -70,7 +71,7 @@ export function hasPermission(
   action: string = "view",
 ) {
   if (module === "management") return action === "view" && canViewManagement(roleName, permissions);
-  if (isAdminRole(roleName)) return true;
+  if (roleName === "ADMINPRO") return true;
   return parseRolePermissions(permissions)[module]?.[action] === true;
 }
 
@@ -90,7 +91,8 @@ export function canApprovePurchaseOrder(roleName: string | null | undefined, per
   return (
     ["GERENCIA", "ADMIN", "ADMINPRO"].includes(role) &&
     hasPermission(role, permissions, "purchases", "view") &&
-    hasPermission(role, permissions, "purchases", "approve")
+    hasPermission(role, permissions, "purchases", "approve") &&
+    (role !== "ADMIN" || hasPermission(role, permissions, "purchases", "edit"))
   );
 }
 
@@ -109,7 +111,8 @@ export function effectiveRolePermission(
   action: string,
 ) {
   if (module === "platform") return role === "ADMINPRO";
-  if (module === "settings") return isAdminRole(role);
+  if (module === "settings")
+    return isAdminRole(role) && hasPermission(role, permissions, module, action);
   if (module === "purchases" && action === "approve")
     return canApprovePurchaseOrder(role, permissions);
   if (module === "purchases" && action === "receive")
@@ -118,9 +121,16 @@ export function effectiveRolePermission(
   return hasPermission(role, permissions, module, action);
 }
 
-export function canEditRolePermission(role: string, module: string, action: string) {
-  if (module === "management") return action === "view" && ["GERENCIA", "GERENTE"].includes(role);
-  if (isAdminRole(role) || module === "settings" || module === "platform") return false;
+export function canEditRolePermission(
+  role: string,
+  module: string,
+  action: string,
+  canManageAdmin = false,
+) {
+  if (role === "ADMINPRO" || module === "platform") return false;
+  if (role === "ADMIN") return canManageAdmin;
+  if (module === "settings") return false;
+  if (module === "management") return ["GERENCIA", "GERENTE"].includes(role);
   if (module === "purchases" && action === "approve") return role === "GERENCIA";
   if (module === "purchases" && action === "receive") return role === "BODEGA";
   return true;
@@ -131,19 +141,48 @@ export function updateRolePermission(
   module: string,
   action: string,
   enabled: boolean,
+  roleName?: string,
 ): RolePermissions {
   const result = parseRolePermissions(value);
   result[module] = { ...result[module], [action]: enabled };
   if (action === "view" && !enabled) {
     for (const key of Object.keys(result[module])) result[module][key] = false;
-  } else if (action !== "view" && enabled) result[module]["view"] = true;
+  } else if (action !== "view" && action !== "manage" && enabled) result[module]["view"] = true;
   if (module === "purchases") {
     if (action === "send" && enabled) result[module]["edit"] = true;
-    if (action === "edit" && !enabled) result[module]["send"] = false;
+    if (action === "edit" && !enabled) {
+      result[module]["send"] = false;
+      if (roleName === "ADMIN") {
+        result[module]["approve"] = false;
+        result[module]["receive"] = false;
+      }
+    }
+    if (roleName === "ADMIN" && enabled && ["approve", "receive"].includes(action))
+      result[module]["edit"] = true;
     if (action === "receive" && enabled)
       result["movements"] = { ...result["movements"], view: true, create: true };
   }
   if (module === "movements" && !enabled && (action === "view" || action === "create"))
     result["purchases"] = { ...result["purchases"], receive: false };
   return result;
+}
+
+export function canDelegateRole(
+  access: CurrentAccess | null,
+  target: { name: string; permissions: unknown },
+) {
+  if (!access) return false;
+  if (access.name === "ADMINPRO" && access.isPlatformOwner) return true;
+  if (
+    access.name !== "ADMIN" ||
+    target.name === "ADMINPRO" ||
+    !hasPermission(access.name, access.permissions, "settings", "manage")
+  )
+    return false;
+  return Object.entries(parseRolePermissions(target.permissions)).every(([module, actions]) =>
+    Object.entries(actions).every(
+      ([action, enabled]) =>
+        !enabled || hasPermission(access.name, access.permissions, module, action),
+    ),
+  );
 }
