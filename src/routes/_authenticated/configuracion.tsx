@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Building2, Pencil, Plus, Save, Trash2, Users, X } from "lucide-react";
 import { CompanySettingsForm } from "@/components/company-settings-form";
 import { toast } from "sonner";
@@ -14,6 +14,9 @@ import {
   isAdminRole,
   useAppAccess,
   parseRolePermissions,
+  effectiveRolePermission,
+  canEditRolePermission,
+  updateRolePermission,
   type RolePermissions,
 } from "@/lib/permissions";
 
@@ -41,9 +44,7 @@ function ConfiguracionPage() {
   const canAssignAdmin = access?.isPlatformOwner === true && access.name === "ADMINPRO";
   const [tab, setTab] = useState<Tab>("users");
   const [selectedRoleId, setSelectedRoleId] = useState("");
-  const [roleName, setRoleName] = useState("");
   const [rolePermissions, setRolePermissions] = useState<RolePermissions>(emptyPermissions);
-  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -89,70 +90,40 @@ function ConfiguracionPage() {
     },
   });
 
-  const selectedRole = roles.find((role) => role.id === selectedRoleId);
+  const selectedRole = roles.find((role) => role.id === selectedRoleId) ?? roles[0];
+  useEffect(() => {
+    setRolePermissions(parseRolePermissions(selectedRole?.permissions));
+  }, [selectedRole]);
   const assignableUserRoles = useMemo(
     () =>
       roles.filter((role) => !isAdminRole(role.name) || (role.name === "ADMIN" && canAssignAdmin)),
     [roles, canAssignAdmin],
   );
 
-  function startNewRole() {
-    setSelectedRoleId("");
-    setEditingRoleId(null);
-    setRoleName("");
-    setRolePermissions({});
-  }
-
-  function startEditRole(role: Role) {
-    setEditingRoleId(role.id);
-    setRoleName(role.name);
-    setRolePermissions(parseRolePermissions(role.permissions));
-  }
-
   function setPermission(module: string, action: string, enabled: boolean) {
-    setRolePermissions((current) => ({
-      ...current,
-      [module]: {
-        ...current[module],
-        [action]: enabled,
-        ...(action === "view" && !enabled
-          ? { create: false, edit: false, delete: false }
-          : action !== "view" && enabled
-            ? { view: true }
-            : {}),
-      },
-    }));
+    if (!selectedRole || !canEditRolePermission(selectedRole.name, module, action)) return;
+    setRolePermissions((current) => updateRolePermission(current, module, action, enabled));
   }
 
   async function saveRole(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const normalizedName = roleName.trim().toLocaleUpperCase("es-CL");
-    if (!normalizedName) {
-      toast.error("Escribe el nombre del perfil");
-      return;
-    }
-    if (isAdminRole(normalizedName)) {
-      toast.error("Los perfiles ADMIN y ADMINPRO están reservados y conservan todos los permisos");
-      return;
-    }
-
+    if (!selectedRole || isAdminRole(selectedRole.name)) return;
     setSaving(true);
     try {
-      const payload = {
-        name: normalizedName,
-        permissions: rolePermissions as Json,
-      };
-      const result = editingRoleId
-        ? await supabase.from("app_roles").update(payload).eq("id", editingRoleId)
-        : await supabase.from("app_roles").insert(payload);
-      if (result.error) throw result.error;
-      toast.success(editingRoleId ? "Perfil actualizado" : "Perfil creado");
-      setEditingRoleId(null);
-      setRoleName("");
-      setRolePermissions({});
-      await queryClient.invalidateQueries({ queryKey: ["app-roles"] });
+      const { error } = await supabase
+        .from("app_roles")
+        .update({ permissions: rolePermissions as Json })
+        .eq("id", selectedRole.id)
+        .select("id")
+        .single();
+      if (error) throw error;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["app-roles"] }),
+        queryClient.invalidateQueries({ queryKey: ["current-user-access"] }),
+      ]);
+      toast.success("Permisos guardados");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo guardar el perfil");
+      toast.error(error instanceof Error ? error.message : "No se pudieron guardar los permisos");
     } finally {
       setSaving(false);
     }
@@ -170,7 +141,7 @@ function ConfiguracionPage() {
       return;
     }
     toast.success("Perfil eliminado");
-    if (editingRoleId === role.id) startNewRole();
+    if (selectedRoleId === role.id) setSelectedRoleId("");
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["app-roles"] }),
       queryClient.invalidateQueries({ queryKey: ["managed-profiles"] }),
@@ -298,7 +269,7 @@ function ConfiguracionPage() {
           className={`btn ${tab === "roles" ? "btn-primary" : "btn-secondary"}`}
           onClick={() => setTab("roles")}
         >
-          Perfiles y permisos
+          Roles y permisos
         </button>
         <button
           className={`btn ${tab === "company" ? "btn-primary" : "btn-secondary"}`}
@@ -674,145 +645,163 @@ function ConfiguracionPage() {
       ) : tab === "company" ? (
         <CompanySettingsForm />
       ) : (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-          <section className="card overflow-hidden">
-            <div className="flex items-center justify-between gap-2 border-b p-4">
-              <h2 className="font-semibold">Perfiles disponibles</h2>
-              <button className="btn btn-secondary" type="button" onClick={startNewRole}>
-                <Plus className="h-4 w-4" /> Nuevo perfil
-              </button>
-            </div>
-            {rolesLoading ? (
-              <p className="p-4 text-sm text-muted-foreground">Cargando perfiles…</p>
-            ) : rolesError ? (
-              <p className="p-4 text-sm text-destructive">No se pudieron cargar los perfiles.</p>
-            ) : (
-              <ul className="divide-y">
-                {roles.map((role) => (
-                  <li key={role.id} className="flex items-center justify-between gap-2 p-3">
-                    <button
-                      type="button"
-                      className="flex-1 text-left"
-                      onClick={() => {
-                        setSelectedRoleId(role.id);
-                        startEditRole(role);
-                      }}
-                    >
-                      <span className="font-medium">{role.name}</span>
-                      {role.is_system && (
-                        <span className="ml-2 text-xs text-muted-foreground">Predeterminado</span>
-                      )}
-                    </button>
-                    {!isAdminRole(role.name) && !role.is_system && (
-                      <button
-                        type="button"
-                        className="btn btn-ghost p-1.5 text-destructive"
-                        aria-label={`Eliminar perfil ${role.name}`}
-                        onClick={() => void deleteRole(role)}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Roles y permisos</h2>
+            <p className="text-sm text-muted-foreground">
+              Selecciona un perfil para consultar sus permisos actuales o modificarlos.
+            </p>
+          </div>
+          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.5fr)]">
+            <section className="card overflow-hidden" aria-label="Perfiles disponibles">
+              {rolesLoading ? (
+                <p className="p-4 text-sm text-muted-foreground">Cargando perfiles…</p>
+              ) : rolesError ? (
+                <p className="p-4 text-sm text-destructive">No se pudieron cargar los perfiles.</p>
+              ) : (
+                <ul className="divide-y">
+                  {roles.map((role) => {
+                    const allowed = PERMISSION_MODULES.flatMap((module) =>
+                      module.actions.map((action) =>
+                        effectiveRolePermission(role.name, role.permissions, module.key, action),
+                      ),
+                    ).filter(Boolean).length;
+                    return (
+                      <li
+                        key={role.id}
+                        className={`flex items-center gap-2 p-3 ${selectedRole?.id === role.id ? "bg-primary/10" : ""}`}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <form onSubmit={saveRole} className="card space-y-4 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="font-semibold">
-                {editingRoleId ? "Editar permisos" : "Nuevo perfil"}
-              </h2>
-              {editingRoleId && (
-                <button
-                  type="button"
-                  className="btn btn-ghost p-1.5"
-                  aria-label="Nuevo perfil"
-                  onClick={startNewRole}
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                        <button
+                          type="button"
+                          className="min-w-0 flex-1 space-y-1 text-left"
+                          disabled={saving}
+                          aria-pressed={selectedRole?.id === role.id}
+                          onClick={() => setSelectedRoleId(role.id)}
+                        >
+                          <span className="block font-semibold">{role.name}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {allowed} permisos activos ·{" "}
+                            {isAdminRole(role.name) ? "Protegido" : "Editable"}
+                          </span>
+                        </button>
+                        {!role.is_system && !isAdminRole(role.name) && (
+                          <button
+                            type="button"
+                            className="btn btn-ghost p-1.5 text-destructive"
+                            disabled={saving}
+                            aria-label={`Eliminar perfil ${role.name}`}
+                            onClick={() => void deleteRole(role)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
-            </div>
-            <div>
-              <label className="label" htmlFor="role-name">
-                Nombre del perfil
-              </label>
-              <input
-                id="role-name"
-                className="input"
-                value={roleName}
-                onChange={(event) => setRoleName(event.target.value)}
-                maxLength={60}
-                disabled={isAdminRole(selectedRole?.name)}
-                required
-              />
-            </div>
-            {isAdminRole(selectedRole?.name) ? (
-              <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-                Los perfiles ADMIN y ADMINPRO conservan acceso total y no se pueden modificar.
-              </p>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Selecciona qué puede ver y qué acciones puede realizar este perfil.
-                </p>
-                <div className="overflow-x-auto rounded-md border">
-                  <table className="table-base min-w-[480px]">
-                    <thead>
-                      <tr>
-                        <th>Sección</th>
-                        {PERMISSION_ACTIONS.map((action) => (
-                          <th key={action.key}>{action.label}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {PERMISSION_MODULES.map((module) => (
-                        <tr key={module.key}>
-                          <td className="font-medium">{module.label}</td>
-                          {PERMISSION_ACTIONS.map((action) => {
-                            const available = (module.actions as readonly string[]).includes(
-                              action.key,
-                            );
-                            return (
-                              <td key={action.key}>
-                                {available ? (
-                                  <input
-                                    type="checkbox"
-                                    className="h-4 w-4 accent-primary"
-                                    checked={rolePermissions[module.key]?.[action.key] === true}
-                                    onChange={(event) =>
-                                      setPermission(module.key, action.key, event.target.checked)
-                                    }
-                                    aria-label={`${action.label} ${module.label}`}
-                                  />
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            </section>
+            {selectedRole && !rolesError && (
+              <form onSubmit={saveRole} className="card min-w-0 space-y-4 p-4">
+                <div>
+                  <h3 className="font-semibold">Permisos de {selectedRole.name}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {isAdminRole(selectedRole.name)
+                      ? "Perfil protegido. Sus permisos se muestran para consulta."
+                      : "Marca las acciones permitidas y guarda los cambios."}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  El acceso a Configuración y administración de usuarios está reservado a ADMIN y
-                  ADMINPRO.
-                </p>
-              </>
+                <div className="space-y-3">
+                  {PERMISSION_MODULES.map((module) => (
+                    <fieldset key={module.key} className="rounded-lg border p-3" disabled={saving}>
+                      <legend className="px-1 text-sm font-semibold">{module.label}</legend>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {module.actions.map((action) => {
+                          const editable = canEditRolePermission(
+                            selectedRole.name,
+                            module.key,
+                            action,
+                          );
+                          const checked = effectiveRolePermission(
+                            selectedRole.name,
+                            rolePermissions,
+                            module.key,
+                            action,
+                          );
+                          const actionLabel =
+                            action === "delete" && ["purchases", "movements"].includes(module.key)
+                              ? "Anular"
+                              : action === "delete" && module.key === "inventory"
+                                ? "Archivar productos"
+                                : (PERMISSION_ACTIONS.find((a) => a.key === action)?.label ??
+                                  action);
+                          return (
+                            <label
+                              key={action}
+                              className={`flex items-center gap-2 text-sm ${editable ? "" : "text-muted-foreground"}`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 shrink-0 accent-primary"
+                                checked={checked}
+                                disabled={!editable || saving}
+                                onChange={(event) =>
+                                  setPermission(module.key, action, event.target.checked)
+                                }
+                                aria-label={`${actionLabel}: ${module.label}, ${selectedRole.name}`}
+                              />
+                              <span>
+                                {actionLabel}
+                                {!editable && <span className="ml-1 text-xs">(protegido)</span>}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {module.key === "purchases" && (
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          Aprobar está disponible para Gerencia y administradores; recibir, para
+                          Bodega y administradores. Recibir requiere registrar movimientos; enviar
+                          requiere editar compras. Los servicios comparten los permisos de consulta
+                          de compras.
+                        </p>
+                      )}
+                      {module.key === "settings" && (
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          Reservado a ADMIN y ADMINPRO con segundo factor. Asignar ADMIN requiere al
+                          propietario ADMINPRO.
+                        </p>
+                      )}
+                      {module.key === "platform" && (
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          Exclusivo del propietario ADMINPRO. La configuración de correo exige
+                          segundo factor.
+                        </p>
+                      )}
+                      {module.key === "movements" && (
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          La recepción de productos se registra desde una orden de compra aprobada.
+                        </p>
+                      )}
+                    </fieldset>
+                  ))}
+                </div>
+                <div className="rounded-lg bg-muted p-3 text-sm">
+                  <strong>Servicios aceptados:</strong>{" "}
+                  {effectiveRolePermission(selectedRole.name, rolePermissions, "purchases", "view")
+                    ? "Puede consultar"
+                    : "Sin acceso"}
+                  . El acceso a Servicios se modifica con «Ver» en Órdenes de compra y servicios.
+                </div>
+                {!isAdminRole(selectedRole.name) && (
+                  <button className="btn btn-primary" type="submit" disabled={saving}>
+                    <Save className="h-4 w-4" />
+                    {saving ? "Guardando…" : "Guardar permisos"}
+                  </button>
+                )}
+              </form>
             )}
-            <button
-              className="btn btn-primary"
-              type="submit"
-              disabled={saving || isAdminRole(selectedRole?.name)}
-            >
-              <Save className="h-4 w-4" /> {saving ? "Guardando…" : "Guardar perfil"}
-            </button>
-          </form>
+          </div>
         </div>
       )}
     </div>

@@ -2,17 +2,17 @@
 
 Migración aplicada: 20261101193014_enforce_explicit_role_permissions.sql.
 
-| Operación | GERENCIA | BODEGA |
-|---|---|---|
-| Consultar inventario, movimientos y OC | Sí | Sí |
-| Aprobar OC | Sí | No |
-| Crear, editar o anular compras | No | No |
-| Recibir productos desde una OC aprobada | No | Sí |
-| Editar o eliminar productos existentes | No | No |
-| Editar o eliminar movimientos existentes | No | No |
-| Crear entradas directamente en movimientos | No | No |
-| Registrar salidas nuevas | No | Se conserva el permiso anterior |
-| Enviar OC por correo | No | No |
+| Operación                                  | GERENCIA | BODEGA                          |
+| ------------------------------------------ | -------- | ------------------------------- |
+| Consultar inventario, movimientos y OC     | Sí       | Sí                              |
+| Aprobar OC                                 | Sí       | No                              |
+| Crear, editar o anular compras             | No       | No                              |
+| Recibir productos desde una OC aprobada    | No       | Sí                              |
+| Editar o eliminar productos existentes     | No       | No                              |
+| Editar o eliminar movimientos existentes   | No       | No                              |
+| Crear entradas directamente en movimientos | No       | No                              |
+| Registrar salidas nuevas                   | No       | Se conserva el permiso anterior |
+| Enviar OC por correo                       | No       | No                              |
 
 Se conservan otros permisos no relacionados de Bodega, incluida su configuración previa de creación de productos y contactos. No se modifican cantidades, precios, recepciones ni documentos existentes.
 
@@ -33,3 +33,13 @@ Se conservan otros permisos no relacionados de Bodega, incluida su configuració
 - Tras actualizar, recargar la aplicación para obtener los permisos guardados de nuevo.
 
 Esta corrección aborda los permisos que devolvían NULL y la configuración indicada de Gerencia/Bodega. Los demás hallazgos del informe de seguridad mantienen su revisión pendiente.
+
+## Editor Roles y permisos
+
+Configuración → Roles y permisos permite seleccionar un perfil existente y guardar únicamente sus permisos. Se retiraron el formulario de creación y el cambio de nombre. ADMIN y ADMINPRO se muestran para consulta, con permisos protegidos; Configuración y Panel AdminPro se identifican como accesos reservados.
+
+El listado incluye todas las áreas actuales y las acciones específicas de compras `approve`, `receive` y `send`. Las tres se verifican también en SQL. La migración conserva los accesos previos al inicializar las acciones nuevas. Servicios comparte el acceso de consulta de Compras. La anulación de documentos y el archivo de productos se identifican con sus nombres operativos.
+
+Aprobar está disponible para Gerencia y administradores; recibir, para Bodega y administradores. El editor respeta estas restricciones, activa las dependencias necesarias al habilitar recepción o envío, y desactiva las acciones dependientes cuando se retira el permiso principal. Los administradores requieren segundo factor para sus operaciones. No se otorgan permisos adicionales a Gerencia o Bodega por instalar el nuevo editor.
+
+Verificación: pruebas unitarias de acciones, restricciones y dependencias; pruebas SQL con ROLLBACK de revocación/habilitación de aprobación, recepción y envío, conservando MFA. Las pruebas SQL no modificaron inventario ni enviaron correos.

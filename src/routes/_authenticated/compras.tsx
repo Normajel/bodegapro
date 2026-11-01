@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   canReceivePurchaseOrder,
   canApprovePurchaseOrder,
+  canSendPurchaseOrder,
   hasPermission,
   useAppAccess,
 } from "@/lib/permissions";
@@ -109,6 +110,7 @@ function ComprasPage() {
   const canCreate = hasPermission(access?.name, access?.permissions, "purchases", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
+  const canSend = canSendPurchaseOrder(access?.name, access?.permissions);
   const canReceive = canReceivePurchaseOrder(access?.name, access?.permissions);
   const canApprove = canApprovePurchaseOrder(access?.name, access?.permissions);
   const queryClient = useQueryClient();
@@ -880,7 +882,7 @@ function ComprasPage() {
                             <DropdownMenuItem onSelect={() => setTrackingOrderId(order.id)}>
                               Historial / plazo de entrega
                             </DropdownMenuItem>
-                            {canEdit && approvalStatus === "aprobada" && status !== "anulada" && (
+                            {canSend && approvalStatus === "aprobada" && status !== "anulada" && (
                               <DropdownMenuItem onSelect={() => setTrackingOrderId(order.id)}>
                                 Enviar PDF por correo
                               </DropdownMenuItem>
@@ -930,7 +932,7 @@ function ComprasPage() {
         <PurchaseOrderTracking
           key={trackingOrder.id}
           order={trackingOrder}
-          canSend={canEdit}
+          canSend={canSend}
           canEdit={canEdit}
           onClose={() => setTrackingOrderId(null)}
         />
