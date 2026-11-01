@@ -33,6 +33,7 @@ const PROFILE_LABELS: Record<string, string> = {
 };
 
 const NAV_ITEMS = [
+  { to: "/panel-gerencial", label: "Panel Gerencial", icon: FileBarChart, module: "management" },
   { to: "/dashboard", label: "Panel", icon: LayoutDashboard, module: "dashboard" },
   { to: "/productos", label: "Inventario", icon: Package, module: "inventory" },
   { to: "/compras", label: "Ordenes de Compra", icon: ShoppingCart, module: "purchases" },

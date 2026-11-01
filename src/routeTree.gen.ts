@@ -22,6 +22,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDocumentoCubicacionRouteImport } from './routes/_authenticated/documento-cubicacion'
 import { Route as AuthenticatedInformesRouteImport } from './routes/_authenticated/informes'
 import { Route as AuthenticatedMovimientosRouteImport } from './routes/_authenticated/movimientos'
+import { Route as AuthenticatedPanelGerencialRouteImport } from './routes/_authenticated/panel-gerencial'
 import { Route as AuthenticatedProductosRouteImport } from './routes/_authenticated/productos'
 import { Route as AuthenticatedServiciosRouteImport } from './routes/_authenticated/servicios'
 
@@ -92,6 +93,12 @@ const AuthenticatedMovimientosRoute =
     path: '/movimientos',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPanelGerencialRoute =
+  AuthenticatedPanelGerencialRouteImport.update({
+    id: '/panel-gerencial',
+    path: '/panel-gerencial',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProductosRoute = AuthenticatedProductosRouteImport.update({
   id: '/productos',
   path: '/productos',
@@ -116,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/documento-cubicacion': typeof AuthenticatedDocumentoCubicacionRoute
   '/informes': typeof AuthenticatedInformesRoute
   '/movimientos': typeof AuthenticatedMovimientosRoute
+  '/panel-gerencial': typeof AuthenticatedPanelGerencialRoute
   '/productos': typeof AuthenticatedProductosRoute
   '/servicios': typeof AuthenticatedServiciosRoute
 }
@@ -132,6 +140,7 @@ export interface FileRoutesByTo {
   '/documento-cubicacion': typeof AuthenticatedDocumentoCubicacionRoute
   '/informes': typeof AuthenticatedInformesRoute
   '/movimientos': typeof AuthenticatedMovimientosRoute
+  '/panel-gerencial': typeof AuthenticatedPanelGerencialRoute
   '/productos': typeof AuthenticatedProductosRoute
   '/servicios': typeof AuthenticatedServiciosRoute
 }
@@ -150,6 +159,7 @@ export interface FileRoutesById {
   '/_authenticated/documento-cubicacion': typeof AuthenticatedDocumentoCubicacionRoute
   '/_authenticated/informes': typeof AuthenticatedInformesRoute
   '/_authenticated/movimientos': typeof AuthenticatedMovimientosRoute
+  '/_authenticated/panel-gerencial': typeof AuthenticatedPanelGerencialRoute
   '/_authenticated/productos': typeof AuthenticatedProductosRoute
   '/_authenticated/servicios': typeof AuthenticatedServiciosRoute
 }
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/documento-cubicacion'
     | '/informes'
     | '/movimientos'
+    | '/panel-gerencial'
     | '/productos'
     | '/servicios'
   fileRoutesByTo: FileRoutesByTo
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/documento-cubicacion'
     | '/informes'
     | '/movimientos'
+    | '/panel-gerencial'
     | '/productos'
     | '/servicios'
   id:
@@ -201,6 +213,7 @@ export interface FileRouteTypes {
     | '/_authenticated/documento-cubicacion'
     | '/_authenticated/informes'
     | '/_authenticated/movimientos'
+    | '/_authenticated/panel-gerencial'
     | '/_authenticated/productos'
     | '/_authenticated/servicios'
   fileRoutesById: FileRoutesById
@@ -305,6 +318,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMovimientosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/panel-gerencial': {
+      id: '/_authenticated/panel-gerencial'
+      path: '/panel-gerencial'
+      fullPath: '/panel-gerencial'
+      preLoaderRoute: typeof AuthenticatedPanelGerencialRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/productos': {
       id: '/_authenticated/productos'
       path: '/productos'
@@ -332,6 +352,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDocumentoCubicacionRoute: typeof AuthenticatedDocumentoCubicacionRoute
   AuthenticatedInformesRoute: typeof AuthenticatedInformesRoute
   AuthenticatedMovimientosRoute: typeof AuthenticatedMovimientosRoute
+  AuthenticatedPanelGerencialRoute: typeof AuthenticatedPanelGerencialRoute
   AuthenticatedProductosRoute: typeof AuthenticatedProductosRoute
   AuthenticatedServiciosRoute: typeof AuthenticatedServiciosRoute
 }
@@ -346,6 +367,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDocumentoCubicacionRoute: AuthenticatedDocumentoCubicacionRoute,
   AuthenticatedInformesRoute: AuthenticatedInformesRoute,
   AuthenticatedMovimientosRoute: AuthenticatedMovimientosRoute,
+  AuthenticatedPanelGerencialRoute: AuthenticatedPanelGerencialRoute,
   AuthenticatedProductosRoute: AuthenticatedProductosRoute,
   AuthenticatedServiciosRoute: AuthenticatedServiciosRoute,
 }

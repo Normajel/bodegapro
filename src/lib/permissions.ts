@@ -1,6 +1,8 @@
 import { createContext, useContext } from "react";
+import { canViewManagement } from "./management";
 
 export const PERMISSION_MODULES = [
+  { key: "management", label: "Panel Gerencial (Admin y Gerencia)", actions: ["view"] },
   { key: "dashboard", label: "Panel", actions: ["view"] },
   { key: "inventory", label: "Inventario", actions: ["view", "create", "edit", "delete"] },
   { key: "movements", label: "Movimientos", actions: ["view", "create", "edit", "delete"] },
@@ -67,6 +69,7 @@ export function hasPermission(
   module: string,
   action: string = "view",
 ) {
+  if (module === "management") return action === "view" && canViewManagement(roleName, permissions);
   if (isAdminRole(roleName)) return true;
   return parseRolePermissions(permissions)[module]?.[action] === true;
 }
@@ -116,6 +119,7 @@ export function effectiveRolePermission(
 }
 
 export function canEditRolePermission(role: string, module: string, action: string) {
+  if (module === "management") return action === "view" && ["GERENCIA", "GERENTE"].includes(role);
   if (isAdminRole(role) || module === "settings" || module === "platform") return false;
   if (module === "purchases" && action === "approve") return role === "GERENCIA";
   if (module === "purchases" && action === "receive") return role === "BODEGA";
