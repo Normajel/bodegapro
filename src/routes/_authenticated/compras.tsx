@@ -418,6 +418,19 @@ function ComprasPage() {
       toast.error("Ingresa al menos una cantidad recibida");
       return;
     }
+    // Validación de interfaz; Supabase debe aplicar la misma regla.
+    if (
+      linesToReceive.some(
+        (line) =>
+          !Number.isSafeInteger(line.quantity) ||
+          line.quantity < 0 ||
+          line.quantity > (activeOrderItems.find((item) => item.id === line.item_id)?.quantity ?? 0) -
+            (activeOrderItems.find((item) => item.id === line.item_id)?.received_quantity ?? 0),
+      )
+    ) {
+      toast.error("Las cantidades deben ser enteras, no negativas y no superar lo pendiente");
+      return;
+    }
 
     setSaving(true);
     try {
