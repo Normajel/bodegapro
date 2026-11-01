@@ -8,76 +8,8 @@ export type Database = {
   };
   public: {
     Tables: {
-      companies: {
-        Row: {
-          created_at: string;
-          created_by: string | null;
-          id: string;
-          name: string;
-        };
-        Insert: {
-          created_at?: string;
-          created_by?: string | null;
-          id?: string;
-          name: string;
-        };
-        Update: {
-          created_at?: string;
-          created_by?: string | null;
-          id?: string;
-          name?: string;
-        };
-        Relationships: [];
-      };
-      company_memberships: {
-        Row: {
-          company_id: string;
-          created_at: string;
-          is_active: boolean;
-          role_id: string;
-          user_id: string;
-        };
-        Insert: {
-          company_id: string;
-          created_at?: string;
-          is_active?: boolean;
-          role_id: string;
-          user_id: string;
-        };
-        Update: {
-          company_id?: string;
-          created_at?: string;
-          is_active?: boolean;
-          role_id?: string;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "company_memberships_company_id_fkey";
-            columns: ["company_id"];
-            isOneToOne: false;
-            referencedRelation: "companies";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "company_memberships_role_id_fkey";
-            columns: ["role_id"];
-            isOneToOne: false;
-            referencedRelation: "app_roles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "company_memberships_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       app_roles: {
         Row: {
-          company_id: string | null;
           created_at: string;
           id: string;
           is_system: boolean;
@@ -86,7 +18,6 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
-          company_id?: string | null;
           created_at?: string;
           id?: string;
           is_system?: boolean;
@@ -95,7 +26,6 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
-          company_id?: string | null;
           created_at?: string;
           id?: string;
           is_system?: boolean;
@@ -103,22 +33,13 @@ export type Database = {
           permissions?: Json;
           updated_at?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "app_roles_company_id_fkey";
-            columns: ["company_id"];
-            isOneToOne: false;
-            referencedRelation: "companies";
-            referencedColumns: ["id"];
-          },
-        ];
+        Relationships: [];
       };
       company_settings: {
         Row: {
           address: string;
           billing_email: string;
           business_activity: string;
-          company_id: string;
           email: string;
           id: boolean;
           name: string;
@@ -131,7 +52,6 @@ export type Database = {
           address?: string;
           billing_email?: string;
           business_activity?: string;
-          company_id?: string;
           email?: string;
           id?: boolean;
           name?: string;
@@ -144,7 +64,6 @@ export type Database = {
           address?: string;
           billing_email?: string;
           business_activity?: string;
-          company_id?: string;
           email?: string;
           id?: boolean;
           name?: string;
@@ -153,33 +72,22 @@ export type Database = {
           updated_at?: string;
           updated_by?: string | null;
         };
-        Relationships: [
-          {
-            foreignKeyName: "company_settings_company_id_fkey";
-            columns: ["company_id"];
-            isOneToOne: false;
-            referencedRelation: "companies";
-            referencedColumns: ["id"];
-          },
-        ];
+        Relationships: [];
       };
       cubication_template_items: {
         Row: {
-          company_id: string;
           id: string;
           product_id: string;
           quantity: number;
           template_id: string;
         };
         Insert: {
-          company_id?: string;
           id?: string;
           product_id: string;
           quantity: number;
           template_id: string;
         };
         Update: {
-          company_id?: string;
           id?: string;
           product_id?: string;
           quantity?: number;
@@ -204,7 +112,6 @@ export type Database = {
       };
       cubication_templates: {
         Row: {
-          company_id: string;
           created_at: string;
           created_by: string | null;
           id: string;
@@ -212,7 +119,6 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
-          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           id?: string;
@@ -220,7 +126,6 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
-          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           id?: string;
@@ -232,7 +137,6 @@ export type Database = {
       customers: {
         Row: {
           address: string | null;
-          company_id: string;
           contact_name: string | null;
           created_at: string;
           email: string | null;
@@ -244,7 +148,6 @@ export type Database = {
         };
         Insert: {
           address?: string | null;
-          company_id?: string;
           contact_name?: string | null;
           created_at?: string;
           email?: string | null;
@@ -256,7 +159,6 @@ export type Database = {
         };
         Update: {
           address?: string | null;
-          company_id?: string;
           contact_name?: string | null;
           created_at?: string;
           email?: string | null;
@@ -270,7 +172,6 @@ export type Database = {
       };
       purchase_order_items: {
         Row: {
-          company_id: string;
           description: string;
           id: string;
           item_type: string;
@@ -280,12 +181,9 @@ export type Database = {
           purchase_order_id: string;
           quantity: number;
           received_quantity: number;
-          service_executed_at: string | null;
-          service_executed_by: string | null;
           unit_cost: number;
         };
         Insert: {
-          company_id?: string;
           description: string;
           id?: string;
           item_type?: string;
@@ -295,12 +193,9 @@ export type Database = {
           purchase_order_id: string;
           quantity: number;
           received_quantity?: number;
-          service_executed_at?: string | null;
-          service_executed_by?: string | null;
           unit_cost: number;
         };
         Update: {
-          company_id?: string;
           description?: string;
           id?: string;
           item_type?: string;
@@ -310,8 +205,6 @@ export type Database = {
           purchase_order_id?: string;
           quantity?: number;
           received_quantity?: number;
-          service_executed_at?: string | null;
-          service_executed_by?: string | null;
           unit_cost?: number;
         };
         Relationships: [
@@ -333,19 +226,16 @@ export type Database = {
       };
       purchase_cost_centers: {
         Row: {
-          company_id: string;
           created_at: string;
           id: string;
           name: string;
         };
         Insert: {
-          company_id?: string;
           created_at?: string;
           id?: string;
           name: string;
         };
         Update: {
-          company_id?: string;
           created_at?: string;
           id?: string;
           name?: string;
@@ -357,16 +247,10 @@ export type Database = {
           approval_status: string;
           approved_at: string | null;
           approved_by: string | null;
-          company_id: string;
           cost_center_id: string | null;
-          completed_at: string | null;
           created_at: string;
           created_by: string | null;
-          delivery_due_date: string | null;
-          delivery_lead_time_days: number | null;
-          delivery_lead_time_override_days: number | null;
           description: string | null;
-          first_sent_at: string | null;
           id: string;
           net_total: number;
           notes: string | null;
@@ -385,16 +269,10 @@ export type Database = {
           approval_status?: string;
           approved_at?: string | null;
           approved_by?: string | null;
-          company_id?: string;
           cost_center_id?: string | null;
-          completed_at?: string | null;
           created_at?: string;
           created_by?: string | null;
-          delivery_due_date?: string | null;
-          delivery_lead_time_days?: number | null;
-          delivery_lead_time_override_days?: number | null;
           description?: string | null;
-          first_sent_at?: string | null;
           id?: string;
           net_total?: number;
           notes?: string | null;
@@ -413,16 +291,10 @@ export type Database = {
           approval_status?: string;
           approved_at?: string | null;
           approved_by?: string | null;
-          company_id?: string;
           cost_center_id?: string | null;
-          completed_at?: string | null;
           created_at?: string;
           created_by?: string | null;
-          delivery_due_date?: string | null;
-          delivery_lead_time_days?: number | null;
-          delivery_lead_time_override_days?: number | null;
           description?: string | null;
-          first_sent_at?: string | null;
           id?: string;
           net_total?: number;
           notes?: string | null;
@@ -454,223 +326,11 @@ export type Database = {
           },
         ];
       };
-      purchase_order_dispatches: {
-        Row: {
-          company_id: string;
-          created_at: string;
-          delivery_due_date: string | null;
-          delivery_lead_time_days: number | null;
-          error_message: string | null;
-          id: string;
-          idempotency_key: string | null;
-          pdf_storage_path: string | null;
-          provider_message_id: string | null;
-          purchase_order_id: string;
-          recipient_email: string;
-          requested_by: string | null;
-          sent_at: string | null;
-          status: string;
-        };
-        Insert: {
-          company_id?: string;
-          created_at?: string;
-          delivery_due_date?: string | null;
-          delivery_lead_time_days?: number | null;
-          error_message?: string | null;
-          id?: string;
-          idempotency_key?: string | null;
-          pdf_storage_path?: string | null;
-          provider_message_id?: string | null;
-          purchase_order_id: string;
-          recipient_email: string;
-          requested_by?: string | null;
-          sent_at?: string | null;
-          status?: string;
-        };
-        Update: {
-          company_id?: string;
-          created_at?: string;
-          delivery_due_date?: string | null;
-          delivery_lead_time_days?: number | null;
-          error_message?: string | null;
-          id?: string;
-          idempotency_key?: string | null;
-          pdf_storage_path?: string | null;
-          provider_message_id?: string | null;
-          purchase_order_id?: string;
-          recipient_email?: string;
-          requested_by?: string | null;
-          sent_at?: string | null;
-          status?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "purchase_order_dispatches_company_id_fkey";
-            columns: ["company_id"];
-            isOneToOne: false;
-            referencedRelation: "companies";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "purchase_order_dispatches_purchase_order_id_fkey";
-            columns: ["purchase_order_id"];
-            isOneToOne: false;
-            referencedRelation: "purchase_orders";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      purchase_order_closures: {
-        Row: {
-          closed_at: string;
-          closed_by: string;
-          company_id: string;
-          id: string;
-          purchase_order_id: string;
-          reason: string;
-        };
-        Insert: {
-          closed_at?: string;
-          closed_by: string;
-          company_id?: string;
-          id?: string;
-          purchase_order_id: string;
-          reason: string;
-        };
-        Update: {
-          closed_at?: string;
-          closed_by?: string;
-          company_id?: string;
-          id?: string;
-          purchase_order_id?: string;
-          reason?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "purchase_order_closures_company_id_fkey";
-            columns: ["company_id"];
-            isOneToOne: false;
-            referencedRelation: "companies";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "purchase_order_closures_purchase_order_id_fkey";
-            columns: ["purchase_order_id"];
-            isOneToOne: true;
-            referencedRelation: "purchase_orders";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      purchase_order_closure_items: {
-        Row: {
-          closure_id: string;
-          company_id: string;
-          id: string;
-          ordered_quantity: number;
-          purchase_order_item_id: string;
-          received_quantity: number;
-          waived_quantity: number;
-        };
-        Insert: {
-          closure_id: string;
-          company_id?: string;
-          id?: string;
-          ordered_quantity: number;
-          purchase_order_item_id: string;
-          received_quantity: number;
-          waived_quantity: number;
-        };
-        Update: {
-          closure_id?: string;
-          company_id?: string;
-          id?: string;
-          ordered_quantity?: number;
-          purchase_order_item_id?: string;
-          received_quantity?: number;
-          waived_quantity?: number;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "purchase_order_closure_items_closure_id_fkey";
-            columns: ["closure_id"];
-            isOneToOne: false;
-            referencedRelation: "purchase_order_closures";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "purchase_order_closure_items_company_id_fkey";
-            columns: ["company_id"];
-            isOneToOne: false;
-            referencedRelation: "companies";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "purchase_order_closure_items_purchase_order_item_id_fkey";
-            columns: ["purchase_order_item_id"];
-            isOneToOne: false;
-            referencedRelation: "purchase_order_items";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      purchase_order_delivery_notifications: {
-        Row: {
-          alert_type: string;
-          company_id: string;
-          created_at: string;
-          delivery_due_date: string;
-          id: string;
-          purchase_order_id: string;
-          read_at: string | null;
-          resolved_at: string | null;
-          user_id: string;
-        };
-        Insert: {
-          alert_type: string;
-          company_id?: string;
-          created_at?: string;
-          delivery_due_date: string;
-          id?: string;
-          purchase_order_id: string;
-          read_at?: string | null;
-          resolved_at?: string | null;
-          user_id: string;
-        };
-        Update: {
-          alert_type?: string;
-          company_id?: string;
-          created_at?: string;
-          delivery_due_date?: string;
-          id?: string;
-          purchase_order_id?: string;
-          read_at?: string | null;
-          resolved_at?: string | null;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "purchase_order_delivery_notifications_company_id_fkey";
-            columns: ["company_id"];
-            isOneToOne: false;
-            referencedRelation: "companies";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "purchase_order_delivery_notifications_purchase_order_id_fkey";
-            columns: ["purchase_order_id"];
-            isOneToOne: false;
-            referencedRelation: "purchase_orders";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       products: {
         Row: {
           active: boolean;
           barcode: string | null;
           category: string;
-          company_id: string;
           created_at: string;
           id: string;
           location: string | null;
@@ -688,7 +348,6 @@ export type Database = {
           active?: boolean;
           barcode?: string | null;
           category?: string;
-          company_id?: string;
           created_at?: string;
           id?: string;
           location?: string | null;
@@ -706,7 +365,6 @@ export type Database = {
           active?: boolean;
           barcode?: string | null;
           category?: string;
-          company_id?: string;
           created_at?: string;
           id?: string;
           location?: string | null;
@@ -732,7 +390,6 @@ export type Database = {
       };
       profiles: {
         Row: {
-          active_company_id: string | null;
           created_at: string;
           email: string | null;
           full_name: string | null;
@@ -741,7 +398,6 @@ export type Database = {
           username: string | null;
         };
         Insert: {
-          active_company_id?: string | null;
           created_at?: string;
           email?: string | null;
           full_name?: string | null;
@@ -750,7 +406,6 @@ export type Database = {
           username?: string | null;
         };
         Update: {
-          active_company_id?: string | null;
           created_at?: string;
           email?: string | null;
           full_name?: string | null;
@@ -764,13 +419,6 @@ export type Database = {
             columns: ["role_id"];
             isOneToOne: false;
             referencedRelation: "app_roles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "profiles_active_company_id_fkey";
-            columns: ["active_company_id"];
-            isOneToOne: false;
-            referencedRelation: "companies";
             referencedColumns: ["id"];
           },
         ];
@@ -802,7 +450,6 @@ export type Database = {
       stock_movements: {
         Row: {
           batch_id: string | null;
-          company_id: string;
           created_at: string;
           created_by: string | null;
           customer_id: string | null;
@@ -827,7 +474,6 @@ export type Database = {
         };
         Insert: {
           batch_id?: string | null;
-          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           customer_id?: string | null;
@@ -852,7 +498,6 @@ export type Database = {
         };
         Update: {
           batch_id?: string | null;
-          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           customer_id?: string | null;
@@ -876,13 +521,6 @@ export type Database = {
           unit_type_value?: string | null;
         };
         Relationships: [
-          {
-            foreignKeyName: "stock_movements_company_id_fkey";
-            columns: ["company_id"];
-            isOneToOne: false;
-            referencedRelation: "companies";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "stock_movements_customer_id_fkey";
             columns: ["customer_id"];
@@ -924,102 +562,43 @@ export type Database = {
         Row: {
           address: string | null;
           city: string | null;
-          company_id: string;
           contact_name: string | null;
           created_at: string;
           delivery_address: string | null;
-          delivery_lead_time_days: number | null;
           email: string | null;
           id: string;
           name: string;
           notes: string | null;
           phone: string | null;
           rut: string | null;
-          supplier_type: "producto" | "servicio" | "ambos";
         };
         Insert: {
           address?: string | null;
           city?: string | null;
-          company_id?: string;
           contact_name?: string | null;
           created_at?: string;
           delivery_address?: string | null;
-          delivery_lead_time_days?: number | null;
           email?: string | null;
           id?: string;
           name: string;
           notes?: string | null;
           phone?: string | null;
           rut?: string | null;
-          supplier_type?: "producto" | "servicio" | "ambos";
         };
         Update: {
           address?: string | null;
           city?: string | null;
-          company_id?: string;
           contact_name?: string | null;
           created_at?: string;
           delivery_address?: string | null;
-          delivery_lead_time_days?: number | null;
           email?: string | null;
           id?: string;
           name?: string;
           notes?: string | null;
           phone?: string | null;
           rut?: string | null;
-          supplier_type?: "producto" | "servicio" | "ambos";
         };
-        Relationships: [
-          {
-            foreignKeyName: "suppliers_company_id_fkey";
-            columns: ["company_id"];
-            isOneToOne: false;
-            referencedRelation: "companies";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      stock_movement_document_cancellations: {
-        Row: {
-          cancellation_id: string;
-          cancelled_at: string;
-          cancelled_by: string;
-          cancellation_reason: string | null;
-          company_id: string;
-          stock_movement_id: string;
-        };
-        Insert: {
-          cancellation_id: string;
-          cancelled_at?: string;
-          cancelled_by: string;
-          cancellation_reason?: string | null;
-          company_id?: string;
-          stock_movement_id: string;
-        };
-        Update: {
-          cancellation_id?: string;
-          cancelled_at?: string;
-          cancelled_by?: string;
-          cancellation_reason?: string | null;
-          company_id?: string;
-          stock_movement_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "stock_movement_document_cancellations_company_id_fkey";
-            columns: ["company_id"];
-            isOneToOne: false;
-            referencedRelation: "companies";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "stock_movement_document_cancellations_stock_movement_id_fkey";
-            columns: ["stock_movement_id"];
-            isOneToOne: true;
-            referencedRelation: "stock_movements";
-            referencedColumns: ["id"];
-          },
-        ];
+        Relationships: [];
       };
     };
     Views: {
@@ -1028,80 +607,7 @@ export type Database = {
           id: string;
           name: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "suppliers_company_id_fkey";
-            columns: ["company_id"];
-            isOneToOne: false;
-            referencedRelation: "companies";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      purchase_order_services: {
-        Row: {
-          approved_at: string | null;
-          company_id: string;
-          created_at: string;
-          description: string;
-          id: string;
-          line_total: number;
-          measure_unit: string;
-          payment_terms: string;
-          payment_terms_other: string | null;
-          purchase_order_id: string;
-          quantity: number;
-          service_executed_at: string | null;
-          service_executed_by: string | null;
-          service_status: string;
-          supplier_id: string;
-          supplier_name: string;
-          unit_cost: number;
-          order_number: string;
-        };
         Relationships: [];
-      };
-      stock_movement_document_cancellations: {
-        Row: {
-          cancellation_id: string;
-          cancelled_at: string;
-          cancelled_by: string;
-          cancellation_reason: string | null;
-          company_id: string;
-          stock_movement_id: string;
-        };
-        Insert: {
-          cancellation_id: string;
-          cancelled_at?: string;
-          cancelled_by: string;
-          cancellation_reason?: string | null;
-          company_id?: string;
-          stock_movement_id: string;
-        };
-        Update: {
-          cancellation_id?: string;
-          cancelled_at?: string;
-          cancelled_by?: string;
-          cancellation_reason?: string | null;
-          company_id?: string;
-          stock_movement_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "stock_movement_document_cancellations_company_id_fkey";
-            columns: ["company_id"];
-            isOneToOne: false;
-            referencedRelation: "companies";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "stock_movement_document_cancellations_stock_movement_id_fkey";
-            columns: ["stock_movement_id"];
-            isOneToOne: true;
-            referencedRelation: "stock_movements";
-            referencedColumns: ["id"];
-          },
-        ];
       };
       supplier_directory: {
         Row: {
@@ -1112,25 +618,9 @@ export type Database = {
       };
     };
     Functions: {
-      active_company_id: {
-        Args: Record<PropertyKey, never>;
-        Returns: string | null;
-      };
-      active_role_name: {
-        Args: Record<PropertyKey, never>;
-        Returns: string | null;
-      };
       reset_business_data: {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
-      };
-      current_company_id: {
-        Args: Record<PropertyKey, never>;
-        Returns: string | null;
-      };
-      create_company_with_admin: {
-        Args: { p_name: string };
-        Returns: string;
       };
       archive_product: {
         Args: { p_product_id: string };
@@ -1143,10 +633,6 @@ export type Database = {
       is_app_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
-      };
-      set_active_company: {
-        Args: { p_company_id: string };
-        Returns: string;
       };
       is_platform_owner: {
         Args: Record<PropertyKey, never>;
@@ -1162,7 +648,6 @@ export type Database = {
           batch_id: string | null;
           created_at: string;
           created_by: string | null;
-          company_id: string;
           customer_id: string | null;
           document_number: string | null;
           document_type: string | null;
@@ -1202,24 +687,8 @@ export type Database = {
         };
         Returns: string;
       };
-      can_approve_purchase_orders: {
-        Args: Record<PropertyKey, never>;
-        Returns: boolean;
-      };
       approve_purchase_order: {
         Args: { p_order_id: string };
-        Returns: undefined;
-      };
-      close_purchase_order_with_difference: {
-        Args: { p_order_id: string; p_reason: string };
-        Returns: string;
-      };
-      mark_purchase_order_service_executed: {
-        Args: { p_item_id: string };
-        Returns: undefined;
-      };
-      refresh_purchase_order_delivery_notifications: {
-        Args: Record<PropertyKey, never>;
         Returns: undefined;
       };
       get_supplier_order_info: {

@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useAppAccess } from "@/lib/permissions";
 import { formatRut, isValidRut } from "@/lib/rut";
 
 export const COMPANY_QUERY_KEY = ["company-settings"];
@@ -20,12 +19,10 @@ const EMPTY = {
 
 export function CompanySettingsForm() {
   const queryClient = useQueryClient();
-  const access = useAppAccess();
-  const companyQueryKey = [...COMPANY_QUERY_KEY, access?.companyId];
   const [form, setForm] = useState(EMPTY);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: companyQueryKey,
+    queryKey: COMPANY_QUERY_KEY,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("company_settings")
@@ -43,29 +40,24 @@ export function CompanySettingsForm() {
   const save = useMutation({
     mutationFn: async () => {
       if (form.rut.trim() && !isValidRut(form.rut)) throw new Error("El RUT no es válido");
-      if (!access?.companyId) throw new Error("No se encontró la empresa activa");
       const { data: userData } = await supabase.auth.getUser();
-      const { error } = await supabase.from("company_settings").upsert(
-        {
-          company_id: access.companyId,
-          id: true,
-          name: form.name.trim(),
-          rut: form.rut.trim() ? formatRut(form.rut) : "",
-          business_activity: form.business_activity.trim(),
-          address: form.address.trim(),
-          phone: form.phone.trim(),
-          email: form.email.trim(),
-          billing_email: form.billing_email.trim(),
-          updated_at: new Date().toISOString(),
-          updated_by: userData.user?.id ?? null,
-        },
-        { onConflict: "company_id,id" },
-      );
+      const { error } = await supabase.from("company_settings").upsert({
+        id: true,
+        name: form.name.trim(),
+        rut: form.rut.trim() ? formatRut(form.rut) : "",
+        business_activity: form.business_activity.trim(),
+        address: form.address.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        billing_email: form.billing_email.trim(),
+        updated_at: new Date().toISOString(),
+        updated_by: userData.user?.id ?? null,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Datos de la empresa guardados");
-      queryClient.invalidateQueries({ queryKey: companyQueryKey });
+      queryClient.invalidateQueries({ queryKey: COMPANY_QUERY_KEY });
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : "No se pudieron guardar los datos"),
@@ -90,7 +82,7 @@ export function CompanySettingsForm() {
       </div>
       {isError && (
         <p className="text-sm text-destructive">
-          No se pudieron cargar los datos. ¿Aplicaste la migración 0035?
+          No se pudieron cargar los datos. ¿Aplicaste la migración 0021?
         </p>
       )}
       <div className="grid gap-3 sm:grid-cols-2">

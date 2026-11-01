@@ -1,13 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Check, Eye, MoreHorizontal, Pencil, Plus, Printer, Search, Truck, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { canReceivePurchaseOrder, hasPermission, useAppAccess } from "@/lib/permissions";
+import { hasPermission, useAppAccess } from "@/lib/permissions";
 import { COMPANY_QUERY_KEY } from "@/components/company-settings-form";
-import { getPurchaseDeliveryStatus } from "@/lib/purchase-delivery";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,12 +23,7 @@ export const Route = createFileRoute("/_authenticated/compras")({
   component: ComprasPage,
 });
 
-type OrderStatus =
-  | "pendiente"
-  | "parcial"
-  | "completa"
-  | "anulada"
-  | "cerrada_con_diferencia";
+type OrderStatus = "pendiente" | "parcial" | "completa" | "anulada";
 type ApprovalStatus = "por_aprobar" | "aprobada";
 type PurchaseItemType = "producto" | "servicio";
 type PaymentTerms =
@@ -55,17 +48,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   parcial: "Recepción parcial",
   completa: "Completa",
   anulada: "Anulada",
-  cerrada_con_diferencia: "Cerrada con diferencia",
 };
-const DELIVERY_STATUS_LABELS = {
-  sin_envio: "Sin envío",
-  en_plazo: "Dentro del plazo",
-  por_vencer: "Próxima a vencer",
-  vencida: "Vencida",
-  completa: "Recibida",
-  cerrada: "Cerrada",
-  anulada: "Anulada",
-} as const;
 
 const PAYMENT_TERMS_LABELS: Record<PaymentTerms, string> = {
   contado: "Contado",
@@ -115,16 +98,11 @@ function ComprasPage() {
   const canCreate = hasPermission(access?.name, access?.permissions, "purchases", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
-  const canReceive = canReceivePurchaseOrder(access?.name, access?.permissions);
   const canApprove =
         ["ADMINPRO", "ADMIN", "GERENCIA"].includes((access?.name ?? "").trim().toUpperCase());
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
-  const [closureOrderId, setClosureOrderId] = useState<string | null>(null);
-  const [closureReason, setClosureReason] = useState("");
-  const [deliveryOverrideOrderId, setDeliveryOverrideOrderId] = useState<string | null>(null);
-  const [deliveryOverrideDays, setDeliveryOverrideDays] = useState("");
   const [costCentersOpen, setCostCentersOpen] = useState(false);
   const [previewOrderId, setPreviewOrderId] = useState<string | null>(null);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
@@ -344,7 +322,6 @@ function ComprasPage() {
   }
 
   function openReceive(orderId: string) {
-    if (!canReceive) return;
     const items = orderItems.filter(
       (item) => item.purchase_order_id === orderId && item.item_type === "producto",
     );
@@ -491,57 +468,6 @@ function ComprasPage() {
     }
   }
 
-  async function saveDeliveryOverride(event: React.FormEvent) {
-    event.preventDefault();
-    if (!deliveryOverrideOrderId) return;
-    const rawDays = deliveryOverrideDays.trim();
-    const days = rawDays === "" ? null : Number(rawDays);
-    if (days !== null && (!Number.isInteger(days) || days < 0)) {
-      toast.error("El plazo debe ser un número entero igual o mayor que cero");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from("purchase_orders")
-        .update({ delivery_lead_time_override_days: days })
-        .eq("id", deliveryOverrideOrderId)
-        .select("id")
-        .single();
-      if (error) throw error;
-      toast.success("Plazo especial actualizado");
-      setDeliveryOverrideOrderId(null);
-      setDeliveryOverrideDays("");
-      await invalidateOrders();
-    } catch (error) {
-      toast.error(errorMessage(error, "No se pudo actualizar el plazo"));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function closeOrderWithDifference(event: React.FormEvent) {
-    event.preventDefault();
-    if (!closureOrderId) return;
-    setSaving(true);
-    try {
-      const { error } = await supabase.rpc("close_purchase_order_with_difference", {
-        p_order_id: closureOrderId,
-        p_reason: closureReason.trim(),
-      });
-      if (error) throw error;
-      toast.success("Orden cerrada con diferencias autorizadas");
-      setClosureOrderId(null);
-      setClosureReason("");
-      await invalidateOrders();
-    } catch (error) {
-      toast.error(errorMessage(error, "No se pudo cerrar la orden con diferencias"));
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function saveCostCenter(event: React.FormEvent) {
     event.preventDefault();
     const name = costCenterName.trim();
@@ -629,12 +555,8 @@ function ComprasPage() {
             Órdenes de compra, recepciones y saldos pendientes.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {hasPermission(access?.name, access?.permissions, "purchases", "view") && (
-            <Link to="/servicios" className="btn btn-secondary">
-              Servicios contratados
-            </Link>
-          )}
+        {(canCreate || canEdit) && (
+          <div className="flex flex-wrap gap-2">
             {canEdit && (
               <button
                 className="btn btn-secondary"
@@ -653,7 +575,8 @@ function ComprasPage() {
                 Nueva orden de compra
               </button>
             )}
-        </div>
+          </div>
+        )}
       </div>
 
       <div className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[minmax(16rem,2fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_auto]">
@@ -687,8 +610,6 @@ function ComprasPage() {
             <option value="pendiente">Pendiente</option>
             <option value="parcial">Recepción parcial</option>
             <option value="completa">Completa</option>
-            <option value="cerrada_con_diferencia">Cerrada con diferencia</option>
-            <option value="anulada">Anulada</option>
           </select>
         </div>
         <div>
@@ -723,18 +644,15 @@ function ComprasPage() {
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="table-base min-w-[1380px]">
+        <table className="table-base min-w-[1080px]">
           <thead>
             <tr>
               <th>N° OC</th>
               <th>Fecha</th>
-              <th>Aprobada el</th>
               <th>Proveedor</th>
               <th>Total OC</th>
               <th>Centro de costo</th>
               <th>Recepción</th>
-              <th>Servicios</th>
-              <th>Entrega</th>
               <th>Estado</th>
               <th className="text-right">Acciones</th>
             </tr>
@@ -742,25 +660,25 @@ function ComprasPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={11} className="py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="py-8 text-center text-muted-foreground">
                   Cargando órdenes…
                 </td>
               </tr>
             ) : isError ? (
               <tr>
-                <td colSpan={11} className="py-8 text-center text-destructive">
+                <td colSpan={8} className="py-8 text-center text-destructive">
                   No se pudieron cargar las órdenes de compra.
                 </td>
               </tr>
             ) : orders.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="py-8 text-center text-muted-foreground">
                   No hay órdenes de compra. Crea una para comenzar.
                 </td>
               </tr>
             ) : filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="py-8 text-center text-muted-foreground">
                   No se encontraron órdenes con esos criterios.
                 </td>
               </tr>
@@ -770,59 +688,17 @@ function ComprasPage() {
                 const approvalStatus = order.approval_status as ApprovalStatus;
                 const supplier = suppliers.find((item) => item.id === order.supplier_id);
                 const costCenter = costCenters.find((item) => item.id === order.cost_center_id);
-                const productItems = orderItems.filter(
-                  (item) => item.purchase_order_id === order.id && item.item_type === "producto",
-                );
-                const serviceItems = orderItems.filter(
-                  (item) => item.purchase_order_id === order.id && item.item_type === "servicio",
-                );
-                const pendingQuantity = productItems.reduce(
-                  (sum, item) => sum + Math.max(0, item.quantity - item.received_quantity),
-                  0,
-                );
-                const executedServices = serviceItems.filter(
-                  (item) => item.service_executed_at,
-                ).length;
-                const serviceStatusLabel =
-                  status === "anulada"
-                    ? "ANULADO"
-                    : approvalStatus !== "aprobada"
-                      ? "POR APROBAR"
-                      : executedServices === serviceItems.length
-                        ? "EJECUTADO"
-                        : executedServices > 0
-                          ? `EJECUCIÓN ${executedServices}/${serviceItems.length}`
-                          : "ACEPTADO";
-                const deliveryStatus =
-                  productItems.length === 0
-                    ? "sin_envio"
-                    : getPurchaseDeliveryStatus({
-                        dueDate: order.delivery_due_date,
-                        pendingQuantity,
-                        today: new Intl.DateTimeFormat("en-CA", {
-                          timeZone: "America/Santiago",
-                        }).format(new Date()),
-                        closed: status === "cerrada_con_diferencia",
-                        cancelled: status === "anulada",
-                      });
                 return (
                   <tr key={order.id}>
                     <td className="font-mono text-sm">{order.order_number}</td>
                     <td className="whitespace-nowrap text-muted-foreground">
                       {new Date(`${order.order_date}T00:00:00`).toLocaleDateString("es-CL")}
                     </td>
-                    <td className="whitespace-nowrap text-muted-foreground">
-                      {order.approved_at ? new Date(order.approved_at).toLocaleString("es-CL") : "—"}
-                    </td>
                     <td>{supplier?.name ?? "—"}</td>
                     <td className="whitespace-nowrap font-medium">{money(orderTotal(order.id))}</td>
                     <td>
                       {costCenter?.name ??
-                        (canEdit &&
-                        status === "pendiente" &&
-                        approvalStatus === "por_aprobar" &&
-                        !order.first_sent_at &&
-                        costCenters.length > 0 ? (
+                        (canEdit && status !== "anulada" && costCenters.length > 0 ? (
                           <select
                             className="input min-w-40"
                             aria-label={`Asignar centro de costo a ${order.order_number}`}
@@ -854,41 +730,6 @@ function ComprasPage() {
                         }`}
                       >
                         {STATUS_LABELS[status] ?? status}
-                      </span>
-                    </td>
-                    <td>
-                      {serviceItems.length === 0 ? (
-                        "—"
-                      ) : (
-                        <span
-                          className={`badge ${
-                            serviceStatusLabel === "EJECUTADO"
-                              ? "badge-success"
-                              : status === "anulada"
-                                ? "badge-destructive"
-                                : "badge-warning"
-                          }`}
-                        >
-                          {serviceStatusLabel}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span
-                        className={`badge ${
-                          deliveryStatus === "en_plazo"
-                            ? "badge-success"
-                            : deliveryStatus === "por_vencer"
-                              ? "badge-warning"
-                              : deliveryStatus === "vencida"
-                                ? "badge-destructive"
-                                : "badge-secondary"
-                        }`}
-                      >
-                        {DELIVERY_STATUS_LABELS[deliveryStatus]}
-                        {order.delivery_due_date
-                          ? ` · ${new Date(`${order.delivery_due_date}T00:00:00`).toLocaleDateString("es-CL")}`
-                          : ""}
                       </span>
                     </td>
                     <td>
@@ -939,10 +780,7 @@ function ComprasPage() {
                               <Printer className="h-4 w-4" />
                               Imprimir
                             </DropdownMenuItem>
-                            {canEdit &&
-                              status === "pendiente" &&
-                              approvalStatus === "por_aprobar" &&
-                              !order.first_sent_at && (
+                            {canEdit && status === "pendiente" && (
                               <DropdownMenuItem onSelect={() => openEditOrder(order.id)}>
                                 <Pencil className="h-4 w-4" />
                                 Editar
@@ -957,29 +795,6 @@ function ComprasPage() {
                               </DropdownMenuItem>
                             )}
                             {canEdit &&
-                              !order.first_sent_at &&
-                              (status === "pendiente" || status === "parcial") &&
-                              productItems.length > 0 && (
-                                <DropdownMenuItem
-                                  onSelect={() => {
-                                    setDeliveryOverrideOrderId(order.id);
-                                    setDeliveryOverrideDays(
-                                      order.delivery_lead_time_override_days?.toString() ?? "",
-                                    );
-                                  }}
-                                >
-                                  Configurar plazo de entrega
-                                </DropdownMenuItem>
-                              )}
-                            {canApprove &&
-                              approvalStatus === "aprobada" &&
-                              (status === "pendiente" || status === "parcial") &&
-                              productItems.some((item) => item.received_quantity < item.quantity) && (
-                                <DropdownMenuItem onSelect={() => setClosureOrderId(order.id)}>
-                                  Cerrar con diferencia
-                                </DropdownMenuItem>
-                              )}
-                            {canReceive &&
                               approvalStatus === "aprobada" &&
                               (status === "pendiente" || status === "parcial") &&
                               orderItems.some(
@@ -1322,94 +1137,6 @@ function ComprasPage() {
         </div>
       )}
 
-      {deliveryOverrideOrderId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4">
-          <section className="card w-full max-w-lg space-y-4 p-6" role="dialog" aria-modal="true">
-            <div>
-              <h2 className="font-display text-lg font-bold">Plazo especial de entrega</h2>
-              <p className="text-sm text-muted-foreground">
-                Se calculará desde el primer envío confirmado. Déjalo vacío para usar el plazo
-                habitual del proveedor.
-              </p>
-            </div>
-            <form onSubmit={saveDeliveryOverride} className="space-y-4">
-              <label
-                htmlFor="delivery-override-days"
-                className="block space-y-2 text-sm font-medium"
-              >
-                Plazo en días corridos
-                <input
-                  id="delivery-override-days"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={deliveryOverrideDays}
-                  onChange={(event) => setDeliveryOverrideDays(event.target.value)}
-                  className="input w-full"
-                />
-              </label>
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setDeliveryOverrideOrderId(null);
-                    setDeliveryOverrideDays("");
-                  }}
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? "Guardando..." : "Guardar plazo"}
-                </Button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
-
-      {closureOrderId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4">
-          <section className="card w-full max-w-lg space-y-4 p-6" role="dialog" aria-modal="true">
-            <div>
-              <h2 className="font-display text-lg font-bold">Cerrar orden con diferencia</h2>
-              <p className="text-sm text-muted-foreground">
-                Registra el motivo para cerrar la orden aunque existan productos pendientes.
-              </p>
-            </div>
-            <form onSubmit={closeOrderWithDifference} className="space-y-4">
-              <label htmlFor="closure-reason" className="block space-y-2 text-sm font-medium">
-                Motivo del cierre
-                <textarea
-                  id="closure-reason"
-                  value={closureReason}
-                  onChange={(event) => setClosureReason(event.target.value)}
-                  minLength={5}
-                  maxLength={1000}
-                  required
-                  className="input min-h-24 w-full"
-                />
-              </label>
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setClosureOrderId(null);
-                    setClosureReason("");
-                  }}
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={saving || closureReason.trim().length < 5}>
-                  {saving ? "Cerrando..." : "Confirmar cierre"}
-                </Button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
-
       {costCentersOpen && canEdit && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
           <div className="card my-2 w-full max-w-2xl space-y-4 p-4 sm:my-4 sm:p-6">
@@ -1681,7 +1408,7 @@ function ComprasPage() {
         </>
       )}
 
-      {receiveOpen && activeOrder && canReceive && (
+      {receiveOpen && activeOrder && canEdit && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
           <div className="card my-2 w-full max-w-3xl space-y-4 p-4 sm:my-4 sm:p-6">
             <div className="flex items-center justify-between">

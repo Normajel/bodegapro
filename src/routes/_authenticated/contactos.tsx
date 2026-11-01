@@ -11,9 +11,7 @@ import {
   downloadSuppliersWorkbook,
   readSuppliersWorkbook,
   validateSupplierImport,
-  type SupplierExcelRecord,
   type SupplierImportValidation,
-  type SupplierType,
 } from "@/lib/suppliers-excel";
 
 export const Route = createFileRoute("/_authenticated/contactos")({
@@ -40,8 +38,6 @@ const EMPTY_FORM = {
   city: "",
   delivery_address: "",
   notes: "",
-  supplier_type: "producto",
-  delivery_lead_time_days: "",
 };
 
 type Kind = "suppliers" | "customers";
@@ -92,8 +88,6 @@ function ContactosPage() {
     city?: string | null;
     delivery_address?: string | null;
     notes: string | null;
-    supplier_type?: SupplierType | null;
-    delivery_lead_time_days?: number | null;
   }) {
     setEditingId(row.id);
     setForm({
@@ -107,27 +101,12 @@ function ContactosPage() {
       city: row.city ?? "",
       delivery_address: row.delivery_address ?? "",
       notes: row.notes ?? "",
-      supplier_type: row.supplier_type ?? "producto",
-      delivery_lead_time_days:
-        row.delivery_lead_time_days == null ? "" : String(row.delivery_lead_time_days),
     });
     setFormOpen(true);
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    const rawLeadTime = form.delivery_lead_time_days.trim();
-    const leadTime = rawLeadTime === "" ? null : Number(rawLeadTime);
-    if (
-      tab === "suppliers" &&
-      form.supplier_type !== "servicio" &&
-      rawLeadTime !== "" &&
-      (!Number.isInteger(leadTime) || leadTime! < 0)
-    ) {
-      toast.error("El plazo de entrega debe ser un número entero mayor o igual a 0");
-      return;
-    }
-
     setSaving(true);
     try {
       if (tab === "customers") {
@@ -155,18 +134,10 @@ function ContactosPage() {
           phone: form.phone || null,
           address: form.address || null,
           notes: form.notes || null,
-          supplier_type: form.supplier_type as SupplierType,
-          delivery_lead_time_days:
-            form.supplier_type !== "servicio" && Number.isInteger(leadTime) && leadTime! >= 0
-              ? leadTime
-              : null,
         };
         const result = editingId
-          ? await supabase
-              .from("suppliers")
-              .update(payload as never)
-              .eq("id", editingId)
-          : await supabase.from("suppliers").insert(payload as never);
+          ? await supabase.from("suppliers").update(payload).eq("id", editingId)
+          : await supabase.from("suppliers").insert(payload);
         if (result.error) throw result.error;
       }
 
@@ -203,17 +174,6 @@ function ContactosPage() {
       toast.error(
         err instanceof Error ? err.message : "No se pudo crear la plantilla de proveedores",
       );
-    } finally {
-      setDownloadingTemplate(false);
-    }
-  }
-
-  async function handleExportSuppliers() {
-    setDownloadingTemplate(true);
-    try {
-      await downloadSuppliersWorkbook(rows as unknown as SupplierExcelRecord[]);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo exportar a los proveedores");
     } finally {
       setDownloadingTemplate(false);
     }
@@ -284,10 +244,8 @@ function ContactosPage() {
         city: supplier.city || null,
         delivery_address: supplier.delivery_address || null,
         notes: supplier.notes || null,
-        supplier_type: supplier.supplier_type,
-        delivery_lead_time_days: supplier.delivery_lead_time_days,
       }));
-      const { error } = await supabase.from("suppliers").insert(payload as never);
+      const { error } = await supabase.from("suppliers").insert(payload);
       if (error) throw error;
 
       await queryClient.invalidateQueries({ queryKey: ["suppliers"] });
@@ -320,15 +278,6 @@ function ContactosPage() {
               >
                 <Download className="h-4 w-4" />
                 {downloadingTemplate ? "Preparando…" : "Plantilla Excel"}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => void handleExportSuppliers()}
-                disabled={downloadingTemplate || importingSuppliers || rows.length === 0}
-              >
-                <Download className="h-4 w-4" />
-                Exportar proveedores
               </button>
               {canCreate && (
                 <>
@@ -449,8 +398,6 @@ function ContactosPage() {
                 <>
                   <th>RUT</th>
                   <th>Ciudad</th>
-                  <th>Tipo</th>
-                  <th>Plazo de entrega</th>
                   <th>Contacto</th>
                   <th>Correo</th>
                   <th>Teléfono</th>
@@ -465,7 +412,7 @@ function ContactosPage() {
             {isLoading ? (
               <tr>
                 <td
-                  colSpan={tab === "suppliers" ? 9 : 3}
+                  colSpan={tab === "suppliers" ? 7 : 3}
                   className="py-8 text-center text-muted-foreground"
                 >
                   Cargando…
@@ -474,7 +421,7 @@ function ContactosPage() {
             ) : rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={tab === "suppliers" ? 9 : 3}
+                  colSpan={tab === "suppliers" ? 7 : 3}
                   className="py-8 text-center text-muted-foreground"
                 >
                   No hay {tab === "suppliers" ? "proveedores" : "nombres maestros"} registrados.
@@ -488,23 +435,6 @@ function ContactosPage() {
                     <>
                       <td className="text-muted-foreground">{("rut" in r && r.rut) || "—"}</td>
                       <td className="text-muted-foreground">{("city" in r && r.city) || "—"}</td>
-                      <td className="text-muted-foreground">
-                        {(() => {
-                          const type =
-                            ("supplier_type" in r ? r.supplier_type : null) || "producto";
-                          return type === "servicio"
-                            ? "Servicio"
-                            : type === "ambos"
-                              ? "Ambos"
-                              : "Producto";
-                        })()}
-                      </td>
-                      <td className="text-muted-foreground">
-                        {("delivery_lead_time_days" in r &&
-                          r.delivery_lead_time_days != null &&
-                          `${r.delivery_lead_time_days} días`) ||
-                          "—"}
-                      </td>
                       <td className="text-muted-foreground">{r.contact_name ?? "—"}</td>
                       <td className="text-muted-foreground">{r.email ?? "—"}</td>
                       <td className="text-muted-foreground">{r.phone ?? "—"}</td>
@@ -593,41 +523,6 @@ function ContactosPage() {
                 </div>
               ) : (
                 <>
-                  <div>
-                    <label className="label">Tipo de proveedor *</label>
-                    <select
-                      className="input"
-                      value={form.supplier_type}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          supplier_type: e.target.value as SupplierType,
-                          delivery_lead_time_days:
-                            e.target.value === "servicio" ? "" : form.delivery_lead_time_days,
-                        })
-                      }
-                      required
-                    >
-                      <option value="producto">Producto</option>
-                      <option value="servicio">Servicio</option>
-                      <option value="ambos">Ambos</option>
-                    </select>
-                  </div>
-                  {form.supplier_type !== "servicio" && (
-                    <div>
-                      <label className="label">Plazo de entrega predeterminado (días)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        className="input"
-                        value={form.delivery_lead_time_days}
-                        onChange={(e) =>
-                          setForm({ ...form, delivery_lead_time_days: e.target.value })
-                        }
-                      />
-                    </div>
-                  )}
                   <div>
                     <label className="label">Persona de contacto</label>
                     <input

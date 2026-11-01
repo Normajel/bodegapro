@@ -56,12 +56,13 @@ function AdminMfaPage() {
           return;
         }
 
-        const { data: roleName, error: roleError } = await supabase.rpc("active_role_name");
-        if (roleError) throw roleError;
-        const { data: isPlatformOwner, error: ownerError } =
-          await supabase.rpc("is_platform_owner");
-        if (ownerError) throw ownerError;
-        if (!isPlatformOwner && roleName !== "ADMIN" && roleName !== "ADMINPRO") {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("app_roles(name)")
+          .eq("id", user.id)
+          .single();
+        if (profileError) throw profileError;
+        if (profile.app_roles?.name !== "ADMIN" && profile.app_roles?.name !== "ADMINPRO") {
           await navigate({ to: "/dashboard", replace: true });
           return;
         }

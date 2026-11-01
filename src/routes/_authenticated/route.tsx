@@ -12,12 +12,14 @@ export const Route = createFileRoute("/_authenticated")({
       throw redirect({ to: "/auth" });
     }
 
-    const { data: roleName, error } = await supabase.rpc("active_role_name");
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("app_roles(name)")
+      .eq("id", user.id)
+      .single();
     if (error) throw error;
-    const { data: isPlatformOwner, error: ownerError } = await supabase.rpc("is_platform_owner");
-    if (ownerError) throw ownerError;
 
-    if (isPlatformOwner || roleName === "ADMIN" || roleName === "ADMINPRO") {
+    if (profile.app_roles?.name === "ADMIN" || profile.app_roles?.name === "ADMINPRO") {
       const { data: assurance, error: assuranceError } =
         await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       if (assuranceError) throw assuranceError;

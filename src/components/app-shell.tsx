@@ -12,7 +12,6 @@ import {
   FileText,
   Settings,
   Shield,
-  Wrench,
   LogOut,
   Menu,
   X,
@@ -24,7 +23,6 @@ const NAV_ITEMS = [
   { to: "/dashboard", label: "Panel", icon: LayoutDashboard, module: "dashboard" },
   { to: "/productos", label: "Inventario", icon: Package, module: "inventory" },
   { to: "/compras", label: "Ordenes de Compra", icon: ShoppingCart, module: "purchases" },
-  { to: "/servicios", label: "Servicios", icon: Wrench, module: "purchases" },
   { to: "/movimientos", label: "Movimientos", icon: ArrowLeftRight, module: "movements" },
   { to: "/contactos", label: "Contactos", icon: Users, module: "contacts" },
   { to: "/informes", label: "Informes", icon: FileBarChart, module: "reports" },
@@ -58,37 +56,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       if (authError) throw authError;
       if (!user) throw new Error("No se encontró la sesión activa");
 
-      const { data: companyId, error: companyError } = await supabase.rpc("current_company_id");
-      if (companyError) throw companyError;
-      if (!companyId) throw new Error("No tienes una empresa activa asignada");
-
-      const { data: memberships, error: membershipError } = await supabase
-        .from("company_memberships")
-        .select("company_id, is_active, companies(name), app_roles(name, permissions)")
-        .eq("user_id", user.id);
-      if (membershipError) throw membershipError;
-      const membership = memberships.find(
-        (item) => item.company_id === companyId && item.is_active,
-      );
-      if (!membership?.companies || !membership.app_roles) {
-        throw new Error("No se pudo cargar el acceso de la empresa activa");
-      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role_id, app_roles(name, permissions)")
+        .eq("id", user.id)
+        .single();
+      if (error) throw error;
+      if (!data.app_roles) throw new Error("El usuario no tiene un perfil asignado");
 
       const { data: isPlatformOwner, error: ownerError } = await supabase.rpc("is_platform_owner");
       if (ownerError) throw ownerError;
 
-      return {
-        ...membership.app_roles,
-        companyId,
-        companyName: membership.companies.name,
-        memberships: memberships
-          .filter((item) => item.is_active && item.companies)
-          .map((item) => ({
-            companyId: item.company_id,
-            companyName: item.companies!.name,
-          })),
-        isPlatformOwner,
-      };
+      return { ...data.app_roles, isPlatformOwner };
     },
   });
 
@@ -142,36 +121,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }
-
-  async function handleCompanyChange(companyId: string) {
-    if (!companyId || companyId === access?.companyId) return;
-    const { error } = await supabase.rpc("set_active_company", { p_company_id: companyId });
-    if (error) {
-      window.alert(error.message);
-      return;
-    }
-    await queryClient.cancelQueries();
-    queryClient.clear();
-    window.location.reload();
-  }
-
-  const companySwitcher = access && access.memberships.length > 1 ? (
-    <label className="block space-y-1 px-2">
-      <span className="text-xs text-muted-foreground">Empresa activa</span>
-      <select
-        className="input w-full"
-        value={access.companyId}
-        onChange={(event) => void handleCompanyChange(event.target.value)}
-        aria-label="Empresa activa"
-      >
-        {access.memberships.map((item) => (
-          <option key={item.companyId} value={item.companyId}>
-            {item.companyName}
-          </option>
-        ))}
-      </select>
-    </label>
-  ) : null;
 
   const nav = (
     <nav className="flex flex-1 flex-col gap-1">
@@ -230,7 +179,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <span className="font-display text-lg font-bold text-sidebar-foreground">BodegaPro</span>
         </Link>
-        {companySwitcher}
         {nav}
         <button
           onClick={handleSignOut}
@@ -244,10 +192,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Header móvil */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-card px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden">
-          <div className="flex items-center gap-2">
-            <span className="font-display text-lg font-bold">BodegaPro</span>
-            {companySwitcher}
-          </div>
+          <span className="font-display text-lg font-bold">BodegaPro</span>
           <button onClick={() => setOpen(!open)} className="btn btn-ghost p-2" aria-label="Menú">
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>

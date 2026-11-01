@@ -10,14 +10,9 @@ export const SUPPLIER_COLUMNS = [
   "Ciudad",
   "Dirección de despacho",
   "Notas",
-  "Tipo de proveedor",
-  "Plazo de entrega (días)",
 ] as const;
 
-const LEGACY_SUPPLIER_COLUMNS = SUPPLIER_COLUMNS.slice(0, 9);
 const MAX_SUPPLIER_IMPORT_ROWS = 1000;
-
-export type SupplierType = "producto" | "servicio" | "ambos";
 
 export type SupplierImportRow = {
   name: string;
@@ -29,12 +24,8 @@ export type SupplierImportRow = {
   city: string;
   delivery_address: string;
   notes: string;
-  supplier_type: string;
-  delivery_lead_time_days: number | string | null;
   rowNumber: number;
 };
-
-export type SupplierExcelRecord = Omit<SupplierImportRow, "rowNumber">;
 
 export type ExistingSupplier = {
   name: string;
@@ -115,29 +106,6 @@ export function validateSupplierImport(
     const email = row.email.trim();
     const normalizedRut = cleanRut(rut);
     const normalizedName = normalizeText(name);
-    const supplierType =
-      String(row.supplier_type ?? "")
-        .trim()
-        .toLocaleLowerCase() || "producto";
-    const rawLeadTime = String(row.delivery_lead_time_days ?? "").trim();
-    const leadTime = rawLeadTime === "" ? null : Number(rawLeadTime);
-
-    if (!["producto", "servicio", "ambos"].includes(supplierType)) {
-      errors.push(
-        `Fila ${row.rowNumber}: el tipo de proveedor debe ser producto, servicio o ambos.`,
-      );
-    }
-
-    if (rawLeadTime && (!Number.isInteger(leadTime) || leadTime! < 0)) {
-      errors.push(
-        `Fila ${row.rowNumber}: el plazo de entrega debe ser un número entero mayor o igual a 0.`,
-      );
-    }
-    if (supplierType === "servicio" && rawLeadTime) {
-      errors.push(
-        `Fila ${row.rowNumber}: el plazo de entrega solo aplica a proveedores de producto o ambos.`,
-      );
-    }
 
     if (!name) {
       errors.push(`Fila ${row.rowNumber}: falta el nombre o razón social.`);
@@ -182,20 +150,13 @@ export function validateSupplierImport(
       city: row.city.trim(),
       delivery_address: row.delivery_address.trim(),
       notes: row.notes.trim(),
-      supplier_type: (["producto", "servicio", "ambos"].includes(supplierType)
-        ? supplierType
-        : "producto") as SupplierType,
-      delivery_lead_time_days:
-        supplierType !== "servicio" && Number.isInteger(leadTime) && leadTime! >= 0
-          ? leadTime
-          : null,
     };
   });
 
   return { rows: validatedRows, errors };
 }
 
-export async function createSuppliersWorkbook(suppliers?: SupplierExcelRecord[]) {
+export async function downloadSuppliersWorkbook() {
   const { Workbook } = await import("exceljs");
   const workbook = new Workbook();
   const sheet = workbook.addWorksheet("Proveedores");
@@ -217,8 +178,6 @@ export async function createSuppliersWorkbook(suppliers?: SupplierExcelRecord[])
     { width: 22 },
     { width: 34 },
     { width: 40 },
-    { width: 22 },
-    { width: 24 },
   ];
 
   const header = sheet.getRow(1);
@@ -229,22 +188,6 @@ export async function createSuppliersWorkbook(suppliers?: SupplierExcelRecord[])
     pattern: "solid",
     fgColor: { argb: "FF263445" },
   };
-
-  suppliers?.forEach((supplier) => {
-    sheet.addRow([
-      supplier.name,
-      supplier.rut,
-      supplier.contact_name,
-      supplier.email,
-      supplier.phone,
-      supplier.address,
-      supplier.city,
-      supplier.delivery_address,
-      supplier.notes,
-      supplier.supplier_type || "producto",
-      supplier.delivery_lead_time_days ?? "",
-    ]);
-  });
 
   const instructions = workbook.addWorksheet("Instrucciones");
   instructions.columns = [{ width: 32 }, { width: 100 }];
@@ -259,14 +202,6 @@ export async function createSuppliersWorkbook(suppliers?: SupplierExcelRecord[])
     ["Ciudad", "Opcional."],
     ["Dirección de despacho", "Opcional."],
     ["Notas", "Opcional."],
-    [
-      "Tipo de proveedor",
-      'Opcional. "producto", "servicio" o "ambos"; si se omite, se usa "producto".',
-    ],
-    [
-      "Plazo de entrega (días)",
-      "Opcional para proveedores de producto o ambos. Número entero mayor o igual a 0.",
-    ],
     [
       "Importación",
       "Completa una fila por proveedor y conserva los nombres y orden de las columnas.",
@@ -283,11 +218,6 @@ export async function createSuppliersWorkbook(suppliers?: SupplierExcelRecord[])
   };
   instructions.views = [{ state: "frozen", ySplit: 1 }];
 
-  return workbook;
-}
-
-export async function downloadSuppliersWorkbook(suppliers?: SupplierExcelRecord[]) {
-  const workbook = await createSuppliersWorkbook(suppliers);
   const bytes = await workbook.xlsx.writeBuffer();
   const url = URL.createObjectURL(
     new Blob([new Uint8Array(bytes)], {
@@ -296,9 +226,7 @@ export async function downloadSuppliersWorkbook(suppliers?: SupplierExcelRecord[
   );
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = suppliers
-    ? "proveedores-bodegapro.xlsx"
-    : "plantilla-proveedores-bodegapro.xlsx";
+  anchor.download = "plantilla-proveedores-bodegapro.xlsx";
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
@@ -320,10 +248,7 @@ export async function readSuppliersWorkbook(file: File): Promise<SupplierImportR
   const headers = SUPPLIER_COLUMNS.map((_, index) =>
     readCellText(sheet.getCell(1, index + 1).value, SUPPLIER_COLUMNS[index]!, 1),
   );
-  const isLegacyTemplate =
-    LEGACY_SUPPLIER_COLUMNS.every((name, index) => headers[index] === name) &&
-    headers.slice(LEGACY_SUPPLIER_COLUMNS.length).every((header) => !header);
-  if (!isLegacyTemplate && SUPPLIER_COLUMNS.some((name, index) => headers[index] !== name)) {
+  if (SUPPLIER_COLUMNS.some((name, index) => headers[index] !== name)) {
     throw new Error(
       "Usa la plantilla de proveedores de BodegaPro y conserva el orden de sus columnas.",
     );
@@ -333,8 +258,7 @@ export async function readSuppliersWorkbook(file: File): Promise<SupplierImportR
   sheet.eachRow((row, rowNumber) => {
     if (rowNumber === 1) return;
 
-    const columns = isLegacyTemplate ? LEGACY_SUPPLIER_COLUMNS : SUPPLIER_COLUMNS;
-    const values = columns.map((column, index) =>
+    const values = SUPPLIER_COLUMNS.map((column, index) =>
       readCellText(row.getCell(index + 1).value, column, rowNumber),
     );
     if (values.every((value) => !value)) return;
@@ -352,8 +276,6 @@ export async function readSuppliersWorkbook(file: File): Promise<SupplierImportR
       city: values[6]!,
       delivery_address: values[7]!,
       notes: values[8]!,
-      supplier_type: isLegacyTemplate ? "producto" : values[9]!,
-      delivery_lead_time_days: isLegacyTemplate ? "" : values[10]!,
       rowNumber,
     });
   });
