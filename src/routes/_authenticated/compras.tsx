@@ -1,3 +1,4 @@
+import { ManualDispatchDialog } from "@/components/manual-dispatch-dialog";
 import { DeliveryPanel } from "@/components/delivery-panel";
 import { PriceTrend } from "@/components/price-trend";
 import { usePurchasePrices } from "@/hooks/use-purchase-prices";
@@ -116,6 +117,7 @@ function ComprasPage() {
   const canApprove = canApprovePurchaseOrder(access?.name, access?.permissions);
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
+  const [manualOrder, setManualOrder] = useState<(typeof orders)[number] | null>(null);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [costCentersOpen, setCostCentersOpen] = useState(false);
@@ -889,6 +891,11 @@ function ComprasPage() {
                               Historial / plazo de entrega
                             </DropdownMenuItem>
                             {canSend && approvalStatus === "aprobada" && status !== "anulada" && (
+                              <DropdownMenuItem onSelect={() => setManualOrder(order)}>
+                                OC enviada · registrar manualmente
+                              </DropdownMenuItem>
+                            )}
+                            {canSend && approvalStatus === "aprobada" && status !== "anulada" && (
                               <DropdownMenuItem onSelect={() => setTrackingOrderId(order.id)}>
                                 Enviar PDF por correo
                               </DropdownMenuItem>
@@ -938,6 +945,9 @@ function ComprasPage() {
         <DeliveryPanel />
       </div>
 
+      {manualOrder && (
+        <ManualDispatchDialog order={manualOrder} onClose={() => setManualOrder(null)} />
+      )}
       {trackingOrder && (
         <PurchaseOrderTracking
           key={trackingOrder.id}

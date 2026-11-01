@@ -64,7 +64,7 @@ it("opens the bell and displays the admin notices", () => {
 
 it("dismisses a yellow notice by tapping it and decrements the unread badge", () => {
   render(<RoleNotifications access={{ name: "ADMIN", permissions: {}, userId: "admin-test" }} />);
-  const yellow = mocks.warning.mock.calls[0][0];
+  const yellow = mocks.warning.mock.calls[0]![0];
   const popup = render(yellow);
   fireEvent.click(
     screen.getByRole("button", { name: /Cerrar aviso: Hay productos no recepcionados/ }),
@@ -88,7 +88,7 @@ it("acknowledges a swipe dismissal and keeps the other user's notices unread", (
   const { rerender } = render(
     <RoleNotifications access={{ name: "ADMIN", permissions: {}, userId: "user-a" }} />,
   );
-  const onDismiss = mocks.warning.mock.calls[0][1].onDismiss;
+  const onDismiss = mocks.warning.mock.calls[0]![1].onDismiss;
   // Sonner invokes onDismiss for a manual close or swipe.
   act(() => onDismiss());
   expect(screen.getByRole("button", { name: "Notificaciones: 1 sin leer" })).toBeInTheDocument();

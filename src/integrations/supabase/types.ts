@@ -18,6 +18,8 @@ export type Database = {
           created_at: string;
           sent_at: string | null;
           status: string;
+          dispatch_method: string | null;
+          dispatch_notes: string | null;
           provider_id: string | null;
           error_message: string | null;
         };
@@ -704,6 +706,18 @@ export type Database = {
       };
     };
     Functions: {
+      record_manual_purchase_dispatch: {
+        Args: {
+          p_order_id: string;
+          p_request_id: string;
+          p_sent_at: string;
+          p_recipient: string;
+          p_method: string;
+          p_notes: string;
+          p_delivery_days: number;
+        };
+        Returns: string;
+      };
       get_role_notifications: { Args: Record<PropertyKey, never>; Returns: Json };
       get_panel_branding: {
         Args: Record<PropertyKey, never>;

@@ -77,7 +77,7 @@ describe("delivery panel missing tracking and mobile detail", () => {
     mocks.result.data = [unsent];
     mocks.single.mockResolvedValue({ data: unsent, error: null });
     render(<DeliveryPanel />);
-    fireEvent.click(screen.getAllByRole("button", { name: "Revisar envío y plazo de OC-1" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Revisar envío y plazo de OC-1" })[0]!);
     await waitFor(() =>
       expect(screen.getByRole("dialog")).toHaveTextContent("Editar: false · Enviar: false"),
     );

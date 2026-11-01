@@ -91,7 +91,8 @@ export function DeliveryPanel() {
         <div className="min-w-0">
           <h2 className="text-lg font-bold">Recepciones de productos</h2>
           <p className="text-sm text-muted-foreground">
-            Plazos en días corridos desde el primer envío exitoso registrado.
+            Plazos en días corridos desde el primer envío registrado: correo confirmado o registro
+            manual.
           </p>
         </div>
         <label className="label w-full sm:w-auto">

@@ -3,6 +3,8 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { ManualDispatchDialog } from "@/components/manual-dispatch-dialog";
+import { DISPATCH_METHODS } from "@/lib/manual-dispatch";
 import { displayDate } from "@/lib/purchase-delivery";
 type Order = Database["public"]["Tables"]["purchase_orders"]["Row"];
 export function PurchaseOrderTracking({
@@ -17,6 +19,7 @@ export function PurchaseOrderTracking({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const [manualOpen, setManualOpen] = useState(false);
   const [days, setDays] = useState(order.delivery_days == null ? "" : String(order.delivery_days));
   const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -119,6 +122,7 @@ export function PurchaseOrderTracking({
     sent: "Enviado al servicio de correo",
     failed: "Fallido",
     unknown: "Por verificar",
+    manual: "OC enviada · registro manual",
   };
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-foreground/40 p-4">
@@ -146,7 +150,7 @@ export function PurchaseOrderTracking({
             <dd>{displayDate(order.approved_at)}</dd>
           </div>
           <div>
-            <dt>Primer envío exitoso</dt>
+            <dt>Primer envío registrado</dt>
             <dd>{displayDate(order.sent_at)}</dd>
           </div>
           <div>
@@ -217,7 +221,26 @@ export function PurchaseOrderTracking({
             </button>
           </div>
         )}
+        {canSend && order.approval_status === "aprobada" && order.status !== "anulada" && (
+          <button type="button" className="btn btn-secondary" onClick={() => setManualOpen(true)}>
+            OC enviada · registrar manualmente
+          </button>
+        )}
+        {manualOpen && (
+          <ManualDispatchDialog
+            order={order}
+            onClose={() => setManualOpen(false)}
+            onSaved={() => {
+              setManualOpen(false);
+              onClose();
+            }}
+          />
+        )}
         <h3 className="font-semibold">Historial de envíos</h3>
+        <p className="text-xs text-muted-foreground">
+          Los intentos fallidos no establecen fecha de envío. Los registros manuales indican una
+          declaración del usuario, no una confirmación del servicio de correo.
+        </p>
         {isError ? (
           <p role="alert">No se pudo cargar el historial.</p>
         ) : !events.length ? (
@@ -240,7 +263,10 @@ export function PurchaseOrderTracking({
                     <td>{e.recipient}</td>
                     <td>{labels[e.status] ?? e.status}</td>
                     <td>
-                      {e.error_message ?? (e.provider_id ? "Referencia: " + e.provider_id : "—")}
+                      {e.status === "manual"
+                        ? `${DISPATCH_METHODS[e.dispatch_method as keyof typeof DISPATCH_METHODS] ?? "Medio externo"}${e.dispatch_notes ? " · " + e.dispatch_notes : ""} · Registrado: ${displayDate(e.created_at)}`
+                        : (e.error_message ??
+                          (e.provider_id ? "Referencia: " + e.provider_id : "—"))}
                     </td>
                   </tr>
                 ))}
