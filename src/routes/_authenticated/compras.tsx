@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Check, Eye, MoreHorizontal, Pencil, Plus, Printer, Search, Truck, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { hasPermission, useAppAccess } from "@/lib/permissions";
+import { canReceivePurchaseOrder, hasPermission, useAppAccess } from "@/lib/permissions";
 import { COMPANY_QUERY_KEY } from "@/components/company-settings-form";
 import { getPurchaseDeliveryStatus } from "@/lib/purchase-delivery";
 import { Button } from "@/components/ui/button";
@@ -115,6 +115,7 @@ function ComprasPage() {
   const canCreate = hasPermission(access?.name, access?.permissions, "purchases", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
+  const canReceive = canReceivePurchaseOrder(access?.name, access?.permissions);
   const canApprove =
         ["ADMINPRO", "ADMIN", "GERENCIA"].includes((access?.name ?? "").trim().toUpperCase());
   const queryClient = useQueryClient();
@@ -343,6 +344,7 @@ function ComprasPage() {
   }
 
   function openReceive(orderId: string) {
+    if (!canReceive) return;
     const items = orderItems.filter(
       (item) => item.purchase_order_id === orderId && item.item_type === "producto",
     );
@@ -977,7 +979,7 @@ function ComprasPage() {
                                   Cerrar con diferencia
                                 </DropdownMenuItem>
                               )}
-                            {canEdit &&
+                            {canReceive &&
                               approvalStatus === "aprobada" &&
                               (status === "pendiente" || status === "parcial") &&
                               orderItems.some(
@@ -1679,7 +1681,7 @@ function ComprasPage() {
         </>
       )}
 
-      {receiveOpen && activeOrder && canEdit && (
+      {receiveOpen && activeOrder && canReceive && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
           <div className="card my-2 w-full max-w-3xl space-y-4 p-4 sm:my-4 sm:p-6">
             <div className="flex items-center justify-between">

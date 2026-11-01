@@ -63,3 +63,22 @@ export function hasPermission(
   if (isAdminRole(roleName)) return true;
   return parseRolePermissions(permissions)[module]?.[action] === true;
 }
+
+export function canReceivePurchaseOrder(
+  roleName: string | null | undefined,
+  permissions: unknown,
+) {
+  const normalizedRoleName = roleName?.trim().toUpperCase();
+  if (
+    !["BODEGA", "ADMIN", "ADMINPRO"].includes(normalizedRoleName ?? "") ||
+    !hasPermission(normalizedRoleName, permissions, "purchases", "view") ||
+    !hasPermission(normalizedRoleName, permissions, "movements", "create")
+  ) {
+    return false;
+  }
+
+  return (
+    normalizedRoleName === "BODEGA" ||
+    hasPermission(normalizedRoleName, permissions, "purchases", "edit")
+  );
+}
