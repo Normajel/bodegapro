@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Building2, Shield, SlidersHorizontal, Users } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { PlatformEmailSettings } from "@/components/platform-email-settings";
 import { createSeparateAdminProAccount } from "@/lib/user-admin.functions";
 
 export const Route = createFileRoute("/_authenticated/adminpro")({
@@ -128,6 +129,8 @@ function AdminProPage() {
           </p>
         </div>
       </header>
+
+      <PlatformEmailSettings />
 
       <section className="card space-y-4 p-4 sm:p-6">
         <div className="flex items-start gap-3">

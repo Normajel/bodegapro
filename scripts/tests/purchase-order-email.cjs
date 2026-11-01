@@ -77,6 +77,17 @@ async function run(options = {}) {
     }),
   };
   const admin = {
+    rpc: async () => ({
+      data: {
+        enabled: true,
+        api_key: env.RESEND_API_KEY,
+        from_email: env.PURCHASE_ORDER_FROM_EMAIL,
+        domain: "example.com",
+        domain_id: id,
+        ...options.mailConfig,
+      },
+      error: options.configError ? { message: "unavailable" } : null,
+    }),
     from: () => ({
       update: (v) => {
         recorded.push(v);
@@ -93,6 +104,17 @@ async function run(options = {}) {
       ? { createClient: (_url, key) => (key === "server" ? admin : userClient) }
       : require(name);
   const transport = async (_url, init) => {
+    if (_url.includes("/domains/")) {
+      if (options.domainError) throw new Error("Domain unavailable");
+      return new Response(
+        JSON.stringify({
+          id,
+          name: "example.com",
+          status: options.domainStatus ?? "verified",
+          capabilities: { sending: options.sendingCapability ?? "enabled" },
+        }),
+      );
+    }
     mailCalls++;
     mail = JSON.parse(init.body);
     if (options.transportError) throw new Error("Timeout");
@@ -146,7 +168,7 @@ async function run(options = {}) {
     Buffer.from(r.mail.attachments[0].content, "base64").subarray(0, 4).equals(Buffer.from("%PDF")),
   );
   assert(r.mail.attachments[0].filename.endsWith(".pdf"));
-  r = await run({ env: { PURCHASE_ORDER_FROM_EMAIL: "BodegaPro <shared@example.com>" } });
+  r = await run({ env: { PURCHASE_ORDER_FROM_EMAIL: "shared@example.com" } });
   assert.equal(r.mail.from, '\"INTEGRASTOCK — vía BodegaPro\" <shared@example.com>');
   assert.equal(r.mail.reply_to, "test@example.com");
   r = await run({
@@ -175,6 +197,19 @@ async function run(options = {}) {
     assert.equal(invalid.code, 422);
     assert.equal(invalid.recorded[0].status, "failed");
     assert.equal(invalid.mailCalls, 0);
+  }
+  for (const options of [
+    { mailConfig: { enabled: false } },
+    { configError: true },
+    { domainStatus: "pending" },
+    { domainError: true },
+    { sendingCapability: "disabled" },
+    { mailConfig: { from_email: "other@wrong-domain.cl" } },
+  ]) {
+    const blocked = await run(options);
+    assert.equal(blocked.code, 503);
+    assert.equal(blocked.mailCalls, 0);
+    assert.equal(blocked.recorded[0].status, "failed");
   }
   r = await run({ env: { PURCHASE_ORDER_FROM_EMAIL: "invalid" } });
   assert.equal(r.code, 503);

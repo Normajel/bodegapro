@@ -113,18 +113,44 @@ Deno.serve(async (req: Request) => {
       .eq("status", "processing");
     return !error;
   }
-  const key = Deno.env.get("RESEND_API_KEY");
-  const from = Deno.env.get("PURCHASE_ORDER_FROM_EMAIL");
-  if (!key || !from) {
-    await record(
-      "failed",
-      "Servicio de correo sin configurar. Faltan RESEND_API_KEY y/o PURCHASE_ORDER_FROM_EMAIL.",
+  const { data: mailConfig, error: mailConfigError } = await admin.rpc("get_platform_email_config");
+  if (mailConfigError || !mailConfig?.enabled || !mailConfig.api_key || !mailConfig.domain_id) {
+    await record("failed", "El envío de correo no está habilitado en AdminPro.");
+    return json(
+      {
+        status: "failed",
+        message: "El propietario debe configurar, verificar y activar el correo en Panel AdminPro.",
+      },
+      503,
     );
+  }
+  const key = mailConfig.api_key;
+  const from = mailConfig.from_email;
+  // Check the provider again before every actual send: cached verification never authorizes sending.
+  try {
+    const check = await fetch(
+      "https://api.resend.com/domains/" + encodeURIComponent(mailConfig.domain_id),
+      {
+        headers: { Authorization: "Bearer " + key },
+        signal: AbortSignal.timeout(12000),
+      },
+    );
+    const domain = check.ok ? await check.json() : null;
+    if (
+      !domain ||
+      domain.name !== mailConfig.domain ||
+      domain.status !== "verified" ||
+      domain.capabilities?.sending !== "enabled" ||
+      from.split("@")[1] !== mailConfig.domain
+    )
+      throw new Error("Domain not verified");
+  } catch {
+    await record("failed", "No se pudo verificar el dominio de envío. No se envió correo.");
     return json(
       {
         status: "failed",
         message:
-          "El envío necesita configurar la clave de Resend y un remitente de dominio verificado en Supabase.",
+          "No se pudo verificar el dominio con Resend. Pide al propietario revisar el correo en AdminPro.",
       },
       503,
     );
