@@ -633,7 +633,7 @@ function ComprasPage() {
         )}
       </div>
 
-      <div className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[minmax(16rem,2fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_auto]">
+      <div className="card grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-[minmax(16rem,2fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_auto]">
         <div>
           <label className="label" htmlFor="purchase-order-search">
             Buscar orden
