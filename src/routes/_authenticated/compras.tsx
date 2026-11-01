@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Check, Eye, MoreHorizontal, Pencil, Plus, Printer, Search, Truck, X } from "lucide-react";
@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { hasPermission, useAppAccess } from "@/lib/permissions";
 import { COMPANY_QUERY_KEY } from "@/components/company-settings-form";
+import { getPurchaseDeliveryStatus } from "@/lib/purchase-delivery";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/compras")({
   component: ComprasPage,
 });
 
-type OrderStatus = "pendiente" | "parcial" | "completa" | "anulada";
+type OrderStatus = "pendiente" | "parcial" | "completa" | "anulada" | "cerrada_con_diferencia";
 type ApprovalStatus = "por_aprobar" | "aprobada";
 type PurchaseItemType = "producto" | "servicio";
 type PaymentTerms =
@@ -48,6 +50,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   parcial: "Recepción parcial",
   completa: "Completa",
   anulada: "Anulada",
+  cerrada_con_diferencia: "Cerrada con diferencia",
 };
 
 const PAYMENT_TERMS_LABELS: Record<PaymentTerms, string> = {
@@ -58,6 +61,15 @@ const PAYMENT_TERMS_LABELS: Record<PaymentTerms, string> = {
   credito_90_dias: "Crédito 90 días",
   otro: "Otro",
 };
+const DELIVERY_STATUS_LABELS = {
+  sin_envio: "Sin envío",
+  en_plazo: "Dentro del plazo",
+  por_vencer: "Próxima a vencer",
+  vencida: "Vencida",
+  completa: "Recibida",
+  cerrada: "Cerrada",
+  anulada: "Anulada",
+} as const;
 
 const money = (value: number) => `$ ${value.toLocaleString("es-CL", { maximumFractionDigits: 0 })}`;
 
@@ -98,15 +110,21 @@ function ComprasPage() {
   const canCreate = hasPermission(access?.name, access?.permissions, "purchases", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
-  const canReceive = ["BODEGA", "ADMIN", "ADMINPRO"].includes((access?.name ?? "").trim().toUpperCase()) &&
+  const canReceive =
+    ["BODEGA", "ADMIN", "ADMINPRO"].includes((access?.name ?? "").trim().toUpperCase()) &&
     hasPermission(access?.name, access?.permissions, "purchases", "view") &&
     hasPermission(access?.name, access?.permissions, "movements", "create") &&
     (["BODEGA"].includes((access?.name ?? "").trim().toUpperCase()) || canEdit);
-  const canApprove =
-        ["ADMINPRO", "ADMIN", "GERENCIA"].includes((access?.name ?? "").trim().toUpperCase());
+  const canApprove = ["ADMINPRO", "ADMIN", "GERENCIA"].includes(
+    (access?.name ?? "").trim().toUpperCase(),
+  );
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
+  const [closureOrderId, setClosureOrderId] = useState<string | null>(null);
+  const [closureReason, setClosureReason] = useState("");
+  const [deliveryOverrideOrderId, setDeliveryOverrideOrderId] = useState<string | null>(null);
+  const [deliveryOverrideDays, setDeliveryOverrideDays] = useState("");
   const [costCentersOpen, setCostCentersOpen] = useState(false);
   const [previewOrderId, setPreviewOrderId] = useState<string | null>(null);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
@@ -428,8 +446,9 @@ function ComprasPage() {
         (line) =>
           !Number.isSafeInteger(line.quantity) ||
           line.quantity < 0 ||
-          line.quantity > (activeOrderItems.find((item) => item.id === line.item_id)?.quantity ?? 0) -
-            (activeOrderItems.find((item) => item.id === line.item_id)?.received_quantity ?? 0),
+          line.quantity >
+            (activeOrderItems.find((item) => item.id === line.item_id)?.quantity ?? 0) -
+              (activeOrderItems.find((item) => item.id === line.item_id)?.received_quantity ?? 0),
       )
     ) {
       toast.error("Las cantidades deben ser enteras, no negativas y no superar lo pendiente");
@@ -480,6 +499,57 @@ function ComprasPage() {
       await invalidateOrders();
     } catch (error) {
       toast.error(errorMessage(error, "No se pudo aprobar la orden"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function closeOrderWithDifference(event: React.FormEvent) {
+    event.preventDefault();
+    if (!closureOrderId) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.rpc("close_purchase_order_with_difference", {
+        p_order_id: closureOrderId,
+        p_reason: closureReason.trim(),
+      });
+      if (error) throw error;
+      toast.success("Orden cerrada con diferencias autorizadas");
+      setClosureOrderId(null);
+      setClosureReason("");
+      await invalidateOrders();
+    } catch (error) {
+      toast.error(errorMessage(error, "No se pudo cerrar la orden con diferencias"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveDeliveryOverride(event: React.FormEvent) {
+    event.preventDefault();
+    if (!deliveryOverrideOrderId) return;
+    const trimmedDays = deliveryOverrideDays.trim();
+    const days = trimmedDays === "" ? null : Number(trimmedDays);
+    if (days !== null && (!Number.isInteger(days) || days < 0)) {
+      toast.error("El plazo debe ser un número entero igual o mayor que cero");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("purchase_orders")
+        .update({ delivery_lead_time_override_days: days })
+        .eq("id", deliveryOverrideOrderId)
+        .select("id")
+        .single();
+      if (error) throw error;
+      toast.success("Plazo especial actualizado");
+      setDeliveryOverrideOrderId(null);
+      setDeliveryOverrideDays("");
+      await invalidateOrders();
+    } catch (error) {
+      toast.error(errorMessage(error, "No se pudo actualizar el plazo"));
     } finally {
       setSaving(false);
     }
@@ -572,8 +642,12 @@ function ComprasPage() {
             Órdenes de compra, recepciones y saldos pendientes.
           </p>
         </div>
-        {(canCreate || canEdit) && (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
+            {hasPermission(access?.name, access?.permissions, "purchases", "view") && (
+              <Link to="/servicios" className="btn btn-secondary">
+                Servicios contratados
+              </Link>
+            )}
             {canEdit && (
               <button
                 className="btn btn-secondary"
@@ -592,8 +666,7 @@ function ComprasPage() {
                 Nueva orden de compra
               </button>
             )}
-          </div>
-        )}
+        </div>
       </div>
 
       <div className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[minmax(16rem,2fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_auto]">
@@ -627,6 +700,8 @@ function ComprasPage() {
             <option value="pendiente">Pendiente</option>
             <option value="parcial">Recepción parcial</option>
             <option value="completa">Completa</option>
+            <option value="cerrada_con_diferencia">Cerrada con diferencia</option>
+            <option value="anulada">Anulada</option>
           </select>
         </div>
         <div>
@@ -661,7 +736,7 @@ function ComprasPage() {
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="table-base min-w-[1080px]">
+        <table className="table-base min-w-[1180px]">
           <thead>
             <tr>
               <th>N° OC</th>
@@ -670,6 +745,7 @@ function ComprasPage() {
               <th>Total OC</th>
               <th>Centro de costo</th>
               <th>Recepción</th>
+              <th>Entrega</th>
               <th>Estado</th>
               <th className="text-right">Acciones</th>
             </tr>
@@ -677,25 +753,25 @@ function ComprasPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                <td colSpan={9} className="py-8 text-center text-muted-foreground">
                   Cargando órdenes…
                 </td>
               </tr>
             ) : isError ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-destructive">
+                <td colSpan={9} className="py-8 text-center text-destructive">
                   No se pudieron cargar las órdenes de compra.
                 </td>
               </tr>
             ) : orders.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                <td colSpan={9} className="py-8 text-center text-muted-foreground">
                   No hay órdenes de compra. Crea una para comenzar.
                 </td>
               </tr>
             ) : filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                <td colSpan={9} className="py-8 text-center text-muted-foreground">
                   No se encontraron órdenes con esos criterios.
                 </td>
               </tr>
@@ -705,6 +781,23 @@ function ComprasPage() {
                 const approvalStatus = order.approval_status as ApprovalStatus;
                 const supplier = suppliers.find((item) => item.id === order.supplier_id);
                 const costCenter = costCenters.find((item) => item.id === order.cost_center_id);
+                const pendingQuantity = orderItems
+                  .filter(
+                    (item) => item.purchase_order_id === order.id && item.item_type === "producto",
+                  )
+                  .reduce(
+                    (sum, item) => sum + Math.max(0, item.quantity - item.received_quantity),
+                    0,
+                  );
+                const deliveryStatus = getPurchaseDeliveryStatus({
+                  dueDate: order.delivery_due_date,
+                  pendingQuantity,
+                  today: new Intl.DateTimeFormat("en-CA", {
+                    timeZone: "America/Santiago",
+                  }).format(new Date()),
+                  closed: status === "cerrada_con_diferencia",
+                  cancelled: status === "anulada",
+                });
                 return (
                   <tr key={order.id}>
                     <td className="font-mono text-sm">{order.order_number}</td>
@@ -747,6 +840,24 @@ function ComprasPage() {
                         }`}
                       >
                         {STATUS_LABELS[status] ?? status}
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          deliveryStatus === "en_plazo"
+                            ? "badge-success"
+                            : deliveryStatus === "por_vencer"
+                              ? "badge-warning"
+                              : deliveryStatus === "vencida"
+                                ? "badge-destructive"
+                                : "badge-secondary"
+                        }`}
+                      >
+                        {DELIVERY_STATUS_LABELS[deliveryStatus]}
+                        {order.delivery_due_date && pendingQuantity > 0
+                          ? ` · ${new Date(`${order.delivery_due_date}T00:00:00`).toLocaleDateString("es-CL")}`
+                          : ""}
                       </span>
                     </td>
                     <td>
@@ -811,6 +922,38 @@ function ComprasPage() {
                                 Anular
                               </DropdownMenuItem>
                             )}
+                            {canEdit &&
+                              !order.first_sent_at &&
+                              (status === "pendiente" || status === "parcial") &&
+                              orderItems.some(
+                                (item) =>
+                                  item.purchase_order_id === order.id &&
+                                  item.item_type === "producto",
+                              ) && (
+                                <DropdownMenuItem
+                                  onSelect={() => {
+                                    setDeliveryOverrideOrderId(order.id);
+                                    setDeliveryOverrideDays(
+                                      order.delivery_lead_time_override_days?.toString() ?? "",
+                                    );
+                                  }}
+                                >
+                                  Configurar plazo de entrega
+                                </DropdownMenuItem>
+                              )}
+                            {canApprove &&
+                              approvalStatus === "aprobada" &&
+                              (status === "pendiente" || status === "parcial") &&
+                              orderItems.some(
+                                (item) =>
+                                  item.purchase_order_id === order.id &&
+                                  item.item_type === "producto" &&
+                                  item.received_quantity < item.quantity,
+                              ) && (
+                                <DropdownMenuItem onSelect={() => setClosureOrderId(order.id)}>
+                                  Cerrar con diferencia
+                                </DropdownMenuItem>
+                              )}
                             {canReceive &&
                               approvalStatus === "aprobada" &&
                               (status === "pendiente" || status === "parcial") &&
@@ -1423,6 +1566,94 @@ function ComprasPage() {
             </div>
           </div>
         </>
+      )}
+
+      {deliveryOverrideOrderId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4">
+          <div className="card w-full max-w-lg space-y-4 p-6">
+            <div>
+              <h2 className="font-display text-lg font-bold">Plazo especial de entrega</h2>
+              <p className="text-sm text-muted-foreground">
+                El plazo se calculará desde el primer envío confirmado. Déjalo vacío para usar el
+                plazo habitual del proveedor.
+              </p>
+            </div>
+            <form onSubmit={saveDeliveryOverride} className="space-y-4">
+              <label
+                htmlFor="delivery-override-days"
+                className="block space-y-2 text-sm font-medium"
+              >
+                Plazo en días corridos
+                <input
+                  id="delivery-override-days"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={deliveryOverrideDays}
+                  onChange={(event) => setDeliveryOverrideDays(event.target.value)}
+                  className="input w-full"
+                />
+              </label>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setDeliveryOverrideOrderId(null);
+                    setDeliveryOverrideDays("");
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? "Guardando..." : "Guardar plazo"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {closureOrderId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4">
+          <div className="card w-full max-w-lg space-y-4 p-6">
+            <div>
+              <h2 className="font-display text-lg font-bold">Cerrar orden con diferencia</h2>
+              <p className="text-sm text-muted-foreground">
+                Registra el motivo para cerrar la orden aunque existan productos pendientes.
+              </p>
+            </div>
+            <form onSubmit={closeOrderWithDifference} className="space-y-4">
+              <label htmlFor="closure-reason" className="block space-y-2 text-sm font-medium">
+                Motivo del cierre
+                <textarea
+                  id="closure-reason"
+                  value={closureReason}
+                  onChange={(event) => setClosureReason(event.target.value)}
+                  minLength={5}
+                  maxLength={1000}
+                  required
+                  className="input min-h-24 w-full"
+                />
+              </label>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setClosureOrderId(null);
+                    setClosureReason("");
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={saving || closureReason.trim().length < 5}>
+                  {saving ? "Cerrando..." : "Confirmar cierre"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {receiveOpen && activeOrder && canReceive && (

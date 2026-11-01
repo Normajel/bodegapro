@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Eye, Pencil, Plus, Printer, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import {
   UNIT_TYPE_LABELS,
   folioLabel,
@@ -108,6 +109,27 @@ type RegisteredDocument = {
 type PurchaseDocumentFilter = "" | "factura" | "guia_despacho";
 type PurchaseStatusFilter = "" | "vigente" | "anulada";
 type PurchaseOperationFilter = "" | "entrada" | "salida";
+type ServiceHistoryStatus = "por_aprobar" | "aceptado" | "ejecutado" | "anulado";
+type PurchaseOrderServiceItem = Tables<"purchase_order_items"> & {
+  service_executed_at?: string | null;
+};
+type PurchaseOrderServiceHistoryRecord = {
+  id: string;
+  description: string;
+  orderNumber: string;
+  orderDate: string | null;
+  supplierName: string;
+  status: ServiceHistoryStatus;
+  approvedAt: string | null;
+  executedAt: string | null;
+};
+
+const SERVICE_HISTORY_STATUS_LABELS: Record<ServiceHistoryStatus, string> = {
+  por_aprobar: "por aprobar",
+  aceptado: "ACEPTADO",
+  ejecutado: "EJECUTADO",
+  anulado: "anulado",
+};
 
 const emptyForm: FormState = {
   product_id: "",
@@ -140,6 +162,10 @@ function formatMoney(value: number) {
   })}`;
 }
 
+function formatServiceHistoryDate(value: string | null) {
+  return value ? new Date(value).toLocaleDateString("es-CL") : "—";
+}
+
 function getMovementErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error) return error.message;
   if (
@@ -158,6 +184,7 @@ function MovimientosPage() {
   const canCreate = hasPermission(access?.name, access?.permissions, "movements", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "movements", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "movements", "delete");
+  const canViewPurchases = hasPermission(access?.name, access?.permissions, "purchases", "view");
   const canEditPurchases = hasPermission(access?.name, access?.permissions, "purchases", "edit");
   const canDeletePurchases = hasPermission(
     access?.name,
@@ -244,6 +271,74 @@ function MovimientosPage() {
 
       if (error) throw error;
       return data;
+    },
+  });
+
+  const {
+    data: serviceHistory = [],
+    isLoading: serviceHistoryLoading,
+    isError: serviceHistoryError,
+  } = useQuery<PurchaseOrderServiceHistoryRecord[]>({
+    queryKey: ["movement-purchase-order-service-history"],
+    enabled: canViewPurchases,
+    queryFn: async () => {
+      const { data: itemData, error: itemError } = await supabase
+        .from("purchase_order_items")
+        .select("*")
+        .eq("item_type", "servicio");
+      if (itemError) throw itemError;
+
+      const items = (itemData ?? []) as PurchaseOrderServiceItem[];
+      if (items.length === 0) return [];
+
+      const orderIds = [...new Set(items.map((item) => item.purchase_order_id))];
+      const { data: orderData, error: orderError } = await supabase
+        .from("purchase_orders")
+        .select("id, order_number, order_date, supplier_id, status, approval_status, approved_at")
+        .in("id", orderIds);
+      if (orderError) throw orderError;
+
+      const orders = orderData ?? [];
+      const supplierIds = [...new Set(orders.map((order) => order.supplier_id))];
+      const { data: supplierData, error: supplierError } =
+        supplierIds.length > 0
+          ? await supabase
+              .from("supplier_directory")
+              .select("id, name")
+              .in("id", supplierIds)
+          : { data: [], error: null };
+      if (supplierError) throw supplierError;
+
+      const orderById = new Map(orders.map((order) => [order.id, order]));
+      const supplierById = new Map((supplierData ?? []).map((supplier) => [supplier.id, supplier]));
+
+      return items
+        .map((item) => {
+          const order = orderById.get(item.purchase_order_id);
+          const executedAt = item.service_executed_at ?? null;
+          const status: ServiceHistoryStatus =
+            order?.status === "anulada"
+              ? "anulado"
+              : order?.approval_status === "aprobada"
+                ? executedAt
+                  ? "ejecutado"
+                  : "aceptado"
+                : "por_aprobar";
+
+          return {
+            id: item.id,
+            description: item.description,
+            orderNumber: order?.order_number ?? "—",
+            orderDate: order?.order_date ?? null,
+            supplierName: order ? (supplierById.get(order.supplier_id)?.name ?? "—") : "—",
+            status,
+            approvedAt: order?.approved_at ?? null,
+            executedAt,
+          };
+        })
+        .sort((left, right) => {
+          return (right.orderDate ?? "").localeCompare(left.orderDate ?? "");
+        });
     },
   });
 
@@ -1677,6 +1772,81 @@ function MovimientosPage() {
           </tbody>
         </table>
       </div>
+
+      {canViewPurchases && (
+        <section className="card space-y-3 overflow-x-auto p-4">
+          <div>
+            <h2 className="text-lg font-bold">Historial de servicios en órdenes de compra</h2>
+            <p className="text-sm text-muted-foreground">
+              Registro separado de los servicios contratados. No genera movimientos ni modifica
+              existencias.
+            </p>
+          </div>
+
+          <table className="table-base min-w-[900px]">
+            <thead>
+              <tr>
+                <th>Orden de compra</th>
+                <th>Proveedor</th>
+                <th>Servicio</th>
+                <th>Estado</th>
+                <th>Fecha de aprobación</th>
+                <th>Fecha de ejecución</th>
+              </tr>
+            </thead>
+            <tbody>
+              {serviceHistoryLoading ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                    Cargando historial de servicios…
+                  </td>
+                </tr>
+              ) : serviceHistoryError ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-destructive">
+                    No se pudo cargar el historial de servicios.
+                  </td>
+                </tr>
+              ) : serviceHistory.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                    No hay servicios asociados a órdenes de compra.
+                  </td>
+                </tr>
+              ) : (
+                serviceHistory.map((service) => (
+                  <tr key={service.id}>
+                    <td className="whitespace-nowrap font-mono text-sm">{service.orderNumber}</td>
+                    <td>{service.supplierName}</td>
+                    <td>{service.description}</td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          service.status === "ejecutado"
+                            ? "badge-success"
+                            : service.status === "aceptado"
+                              ? "badge-warning"
+                              : service.status === "anulado"
+                                ? "badge-destructive"
+                                : "badge-secondary"
+                        }`}
+                      >
+                        {SERVICE_HISTORY_STATUS_LABELS[service.status]}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap">
+                      {formatServiceHistoryDate(service.approvedAt)}
+                    </td>
+                    <td className="whitespace-nowrap">
+                      {formatServiceHistoryDate(service.executedAt)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {/* Historial de compras: fuera del formulario de movimientos */}
       <div className="card space-y-3 overflow-x-auto p-4">

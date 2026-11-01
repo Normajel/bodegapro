@@ -25,6 +25,9 @@ export type CurrentAccess = {
   name: string;
   permissions: unknown;
   isPlatformOwner?: boolean;
+  companyId: string;
+  companyName: string;
+  memberships: { companyId: string; companyName: string }[];
 };
 
 export const AppAccessContext = createContext<CurrentAccess | null>(null);

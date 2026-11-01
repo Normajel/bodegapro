@@ -77,12 +77,31 @@ function ConfiguracionPage() {
   } = useQuery({
     queryKey: ["managed-profiles"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: userProfiles, error: profileError } = await supabase
         .from("profiles")
-        .select("id, full_name, email, username, role_id, created_at, app_roles(name)")
+        .select("id, full_name, email, username, created_at")
         .order("created_at");
-      if (error) throw error;
-      return data as Profile[];
+      if (profileError) throw profileError;
+      const { data: memberships, error: membershipError } = await supabase
+        .from("company_memberships")
+        .select("user_id, role_id, app_roles(name)")
+        .eq("is_active", true);
+      if (membershipError) throw membershipError;
+      const membershipByUser = new Map(
+        memberships.map((membership) => [membership.user_id, membership]),
+      );
+      return userProfiles.flatMap((profile) => {
+        const membership = membershipByUser.get(profile.id);
+        return membership
+          ? [
+              {
+                ...profile,
+                role_id: membership.role_id,
+                app_roles: membership.app_roles,
+              } as Profile,
+            ]
+          : [];
+      });
     },
   });
 
@@ -119,6 +138,10 @@ function ConfiguracionPage() {
 
   async function saveRole(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (selectedRole?.is_system) {
+      toast.error("Los perfiles predeterminados son de solo lectura");
+      return;
+    }
     const normalizedName = roleName.trim().toLocaleUpperCase("es-CL");
     if (!normalizedName) {
       toast.error("Escribe el nombre del perfil");
@@ -737,13 +760,15 @@ function ConfiguracionPage() {
                 value={roleName}
                 onChange={(event) => setRoleName(event.target.value)}
                 maxLength={60}
-                disabled={isAdminRole(selectedRole?.name)}
+                disabled={isAdminRole(selectedRole?.name) || Boolean(selectedRole?.is_system)}
                 required
               />
             </div>
-            {isAdminRole(selectedRole?.name) ? (
+            {isAdminRole(selectedRole?.name) || selectedRole?.is_system ? (
               <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-                Los perfiles ADMIN y ADMINPRO conservan acceso total y no se pueden modificar.
+                {isAdminRole(selectedRole?.name)
+                  ? "Los perfiles ADMIN y ADMINPRO conservan acceso total y no se pueden modificar."
+                  : "Los perfiles predeterminados son compartidos y de solo lectura."}
               </p>
             ) : (
               <>
@@ -775,6 +800,7 @@ function ConfiguracionPage() {
                                     type="checkbox"
                                     className="h-4 w-4 accent-primary"
                                     checked={rolePermissions[module.key]?.[action.key] === true}
+                                    disabled={Boolean(selectedRole?.is_system)}
                                     onChange={(event) =>
                                       setPermission(module.key, action.key, event.target.checked)
                                     }
@@ -800,7 +826,9 @@ function ConfiguracionPage() {
             <button
               className="btn btn-primary"
               type="submit"
-              disabled={saving || isAdminRole(selectedRole?.name)}
+              disabled={
+                saving || isAdminRole(selectedRole?.name) || Boolean(selectedRole?.is_system)
+              }
             >
               <Save className="h-4 w-4" /> {saving ? "Guardando…" : "Guardar perfil"}
             </button>

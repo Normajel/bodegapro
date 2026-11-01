@@ -31,6 +31,8 @@ function AdminProPage() {
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [newAdminPasswordConfirmation, setNewAdminPasswordConfirmation] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [creatingCompany, setCreatingCompany] = useState(false);
 
   const {
     data: menuSettings = [],
@@ -115,6 +117,25 @@ function AdminProPage() {
     }
   }
 
+  async function createCompany(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreatingCompany(true);
+    try {
+      const { error } = await supabase.rpc("create_company_with_admin", {
+        p_name: companyName.trim(),
+      });
+      if (error) throw error;
+      toast.success("Empresa creada. Esta cuenta quedó como su primer administrador.");
+      setCompanyName("");
+      queryClient.clear();
+      window.location.reload();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo crear la empresa");
+    } finally {
+      setCreatingCompany(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-5">
       <header className="flex items-start gap-3">
@@ -131,12 +152,42 @@ function AdminProPage() {
 
       <section className="card space-y-4 p-4 sm:p-6">
         <div className="flex items-start gap-3">
+          <Building2 className="mt-1 h-5 w-5 text-primary" />
+          <div>
+            <h2 className="font-semibold">Crear empresa</h2>
+            <p className="text-sm text-muted-foreground">
+              Crea un espacio independiente y asigna a esta cuenta como su primer administrador. Se
+              requiere MFA para confirmar la operación.
+            </p>
+          </div>
+        </div>
+        <form onSubmit={createCompany} className="flex flex-col gap-3 sm:flex-row">
+          <input
+            className="input flex-1"
+            value={companyName}
+            onChange={(event) => setCompanyName(event.target.value)}
+            placeholder="Nombre de la empresa"
+            maxLength={200}
+            required
+          />
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={creatingCompany || companyName.trim().length === 0}
+          >
+            <Building2 className="h-4 w-4" />
+            {creatingCompany ? "Creando…" : "Crear empresa"}
+          </button>
+        </form>
+      </section>
+
+      <section className="card space-y-4 p-4 sm:p-6">
+        <div className="flex items-start gap-3">
           <SlidersHorizontal className="mt-1 h-5 w-5 text-primary" />
           <div>
             <h2 className="font-semibold">Menús del sistema</h2>
             <p className="text-sm text-muted-foreground">
-              Activa o desactiva secciones para esta instalación. El alcance por empresa se
-              configurará cuando se incorpore la administración multiempresa.
+              Activa o desactiva secciones para esta instalación.
             </p>
           </div>
         </div>

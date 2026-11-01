@@ -8,8 +8,76 @@ export type Database = {
   };
   public: {
     Tables: {
+      companies: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          name: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name?: string;
+        };
+        Relationships: [];
+      };
+      company_memberships: {
+        Row: {
+          company_id: string;
+          created_at: string;
+          is_active: boolean;
+          role_id: string;
+          user_id: string;
+        };
+        Insert: {
+          company_id: string;
+          created_at?: string;
+          is_active?: boolean;
+          role_id: string;
+          user_id: string;
+        };
+        Update: {
+          company_id?: string;
+          created_at?: string;
+          is_active?: boolean;
+          role_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "company_memberships_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "company_memberships_role_id_fkey";
+            columns: ["role_id"];
+            isOneToOne: false;
+            referencedRelation: "app_roles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "company_memberships_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       app_roles: {
         Row: {
+          company_id: string | null;
           created_at: string;
           id: string;
           is_system: boolean;
@@ -18,6 +86,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          company_id?: string | null;
           created_at?: string;
           id?: string;
           is_system?: boolean;
@@ -26,6 +95,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          company_id?: string | null;
           created_at?: string;
           id?: string;
           is_system?: boolean;
@@ -40,6 +110,7 @@ export type Database = {
           address: string;
           billing_email: string;
           business_activity: string;
+          company_id: string;
           email: string;
           id: boolean;
           name: string;
@@ -52,6 +123,7 @@ export type Database = {
           address?: string;
           billing_email?: string;
           business_activity?: string;
+          company_id?: string;
           email?: string;
           id?: boolean;
           name?: string;
@@ -64,6 +136,7 @@ export type Database = {
           address?: string;
           billing_email?: string;
           business_activity?: string;
+          company_id?: string;
           email?: string;
           id?: boolean;
           name?: string;
@@ -76,18 +149,21 @@ export type Database = {
       };
       cubication_template_items: {
         Row: {
+          company_id: string;
           id: string;
           product_id: string;
           quantity: number;
           template_id: string;
         };
         Insert: {
+          company_id?: string;
           id?: string;
           product_id: string;
           quantity: number;
           template_id: string;
         };
         Update: {
+          company_id?: string;
           id?: string;
           product_id?: string;
           quantity?: number;
@@ -112,6 +188,7 @@ export type Database = {
       };
       cubication_templates: {
         Row: {
+          company_id: string;
           created_at: string;
           created_by: string | null;
           id: string;
@@ -119,6 +196,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           id?: string;
@@ -126,6 +204,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           id?: string;
@@ -137,6 +216,7 @@ export type Database = {
       customers: {
         Row: {
           address: string | null;
+          company_id: string;
           contact_name: string | null;
           created_at: string;
           email: string | null;
@@ -148,6 +228,7 @@ export type Database = {
         };
         Insert: {
           address?: string | null;
+          company_id?: string;
           contact_name?: string | null;
           created_at?: string;
           email?: string | null;
@@ -159,6 +240,7 @@ export type Database = {
         };
         Update: {
           address?: string | null;
+          company_id?: string;
           contact_name?: string | null;
           created_at?: string;
           email?: string | null;
@@ -172,6 +254,7 @@ export type Database = {
       };
       purchase_order_items: {
         Row: {
+          company_id: string;
           description: string;
           id: string;
           item_type: string;
@@ -184,6 +267,7 @@ export type Database = {
           unit_cost: number;
         };
         Insert: {
+          company_id?: string;
           description: string;
           id?: string;
           item_type?: string;
@@ -196,6 +280,7 @@ export type Database = {
           unit_cost: number;
         };
         Update: {
+          company_id?: string;
           description?: string;
           id?: string;
           item_type?: string;
@@ -226,16 +311,19 @@ export type Database = {
       };
       purchase_cost_centers: {
         Row: {
+          company_id: string;
           created_at: string;
           id: string;
           name: string;
         };
         Insert: {
+          company_id?: string;
           created_at?: string;
           id?: string;
           name: string;
         };
         Update: {
+          company_id?: string;
           created_at?: string;
           id?: string;
           name?: string;
@@ -247,6 +335,7 @@ export type Database = {
           approval_status: string;
           approved_at: string | null;
           approved_by: string | null;
+          company_id: string;
           cost_center_id: string | null;
           created_at: string;
           created_by: string | null;
@@ -269,6 +358,7 @@ export type Database = {
           approval_status?: string;
           approved_at?: string | null;
           approved_by?: string | null;
+          company_id?: string;
           cost_center_id?: string | null;
           created_at?: string;
           created_by?: string | null;
@@ -291,6 +381,7 @@ export type Database = {
           approval_status?: string;
           approved_at?: string | null;
           approved_by?: string | null;
+          company_id?: string;
           cost_center_id?: string | null;
           created_at?: string;
           created_by?: string | null;
@@ -331,6 +422,7 @@ export type Database = {
           active: boolean;
           barcode: string | null;
           category: string;
+          company_id: string;
           created_at: string;
           id: string;
           location: string | null;
@@ -348,6 +440,7 @@ export type Database = {
           active?: boolean;
           barcode?: string | null;
           category?: string;
+          company_id?: string;
           created_at?: string;
           id?: string;
           location?: string | null;
@@ -365,6 +458,7 @@ export type Database = {
           active?: boolean;
           barcode?: string | null;
           category?: string;
+          company_id?: string;
           created_at?: string;
           id?: string;
           location?: string | null;
@@ -390,6 +484,7 @@ export type Database = {
       };
       profiles: {
         Row: {
+          active_company_id: string | null;
           created_at: string;
           email: string | null;
           full_name: string | null;
@@ -398,6 +493,7 @@ export type Database = {
           username: string | null;
         };
         Insert: {
+          active_company_id?: string | null;
           created_at?: string;
           email?: string | null;
           full_name?: string | null;
@@ -406,6 +502,7 @@ export type Database = {
           username?: string | null;
         };
         Update: {
+          active_company_id?: string | null;
           created_at?: string;
           email?: string | null;
           full_name?: string | null;
@@ -450,6 +547,7 @@ export type Database = {
       stock_movements: {
         Row: {
           batch_id: string | null;
+          company_id: string;
           created_at: string;
           created_by: string | null;
           customer_id: string | null;
@@ -474,6 +572,7 @@ export type Database = {
         };
         Insert: {
           batch_id?: string | null;
+          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           customer_id?: string | null;
@@ -498,6 +597,7 @@ export type Database = {
         };
         Update: {
           batch_id?: string | null;
+          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           customer_id?: string | null;
@@ -558,10 +658,53 @@ export type Database = {
           },
         ];
       };
+      stock_movement_document_cancellations: {
+        Row: {
+          cancellation_id: string;
+          cancellation_reason: string | null;
+          cancelled_at: string;
+          cancelled_by: string;
+          company_id: string;
+          stock_movement_id: string;
+        };
+        Insert: {
+          cancellation_id: string;
+          cancellation_reason?: string | null;
+          cancelled_at?: string;
+          cancelled_by: string;
+          company_id?: string;
+          stock_movement_id: string;
+        };
+        Update: {
+          cancellation_id?: string;
+          cancellation_reason?: string | null;
+          cancelled_at?: string;
+          cancelled_by?: string;
+          company_id?: string;
+          stock_movement_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stock_movement_document_cancellations_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movement_document_cancellations_stock_movement_id_fkey";
+            columns: ["stock_movement_id"];
+            isOneToOne: true;
+            referencedRelation: "stock_movements";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       suppliers: {
         Row: {
           address: string | null;
           city: string | null;
+          company_id: string;
           contact_name: string | null;
           created_at: string;
           delivery_address: string | null;
@@ -575,6 +718,7 @@ export type Database = {
         Insert: {
           address?: string | null;
           city?: string | null;
+          company_id?: string;
           contact_name?: string | null;
           created_at?: string;
           delivery_address?: string | null;
@@ -588,6 +732,7 @@ export type Database = {
         Update: {
           address?: string | null;
           city?: string | null;
+          company_id?: string;
           contact_name?: string | null;
           created_at?: string;
           delivery_address?: string | null;
@@ -618,6 +763,26 @@ export type Database = {
       };
     };
     Functions: {
+      active_company_id: {
+        Args: Record<PropertyKey, never>;
+        Returns: string | null;
+      };
+      current_company_id: {
+        Args: Record<PropertyKey, never>;
+        Returns: string | null;
+      };
+      active_role_name: {
+        Args: Record<PropertyKey, never>;
+        Returns: string | null;
+      };
+      set_active_company: {
+        Args: { p_company_id: string };
+        Returns: string;
+      };
+      create_company_with_admin: {
+        Args: { p_name: string };
+        Returns: string;
+      };
       reset_business_data: {
         Args: Record<PropertyKey, never>;
         Returns: undefined;

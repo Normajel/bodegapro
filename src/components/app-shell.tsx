@@ -56,18 +56,38 @@ export function AppShell({ children }: { children: ReactNode }) {
       if (authError) throw authError;
       if (!user) throw new Error("No se encontró la sesión activa");
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("role_id, app_roles(name, permissions)")
-        .eq("id", user.id)
-        .single();
-      if (error) throw error;
-      if (!data.app_roles) throw new Error("El usuario no tiene un perfil asignado");
+      const { data: activeCompanyId, error: activeCompanyError } =
+        await supabase.rpc("current_company_id");
+      if (activeCompanyError) throw activeCompanyError;
+      if (!activeCompanyId) throw new Error("No tienes una empresa asignada");
+
+      const { data: memberships, error: membershipsError } = await supabase
+        .from("company_memberships")
+        .select("company_id, is_active, companies(name), app_roles(name, permissions)")
+        .eq("user_id", user.id);
+      if (membershipsError) throw membershipsError;
+      const activeMembership = memberships.find(
+        (membership) => membership.company_id === activeCompanyId && membership.is_active,
+      );
+      if (!activeMembership?.companies || !activeMembership.app_roles) {
+        throw new Error("No se pudo cargar el acceso de la empresa activa");
+      }
 
       const { data: isPlatformOwner, error: ownerError } = await supabase.rpc("is_platform_owner");
       if (ownerError) throw ownerError;
 
-      return { ...data.app_roles, isPlatformOwner };
+      return {
+        ...activeMembership.app_roles,
+        companyId: activeCompanyId,
+        companyName: activeMembership.companies.name,
+        memberships: memberships
+          .filter((membership) => membership.is_active)
+          .map((membership) => ({
+            companyId: membership.company_id,
+            companyName: membership.companies?.name ?? "",
+          })),
+        isPlatformOwner,
+      };
     },
   });
 
@@ -121,6 +141,37 @@ export function AppShell({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }
+
+  async function handleCompanyChange(companyId: string) {
+    if (!companyId || companyId === access?.companyId) return;
+    const { error } = await supabase.rpc("set_active_company", { p_company_id: companyId });
+    if (error) {
+      window.alert(error.message);
+      return;
+    }
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    window.location.reload();
+  }
+
+  const companySwitcher =
+    access && access.memberships.length > 1 ? (
+      <label className="block space-y-1 px-2">
+        <span className="text-xs text-muted-foreground">Empresa activa</span>
+        <select
+          className="input w-full"
+          value={access.companyId}
+          onChange={(event) => void handleCompanyChange(event.target.value)}
+          aria-label="Empresa activa"
+        >
+          {access.memberships.map((membership) => (
+            <option key={membership.companyId} value={membership.companyId}>
+              {membership.companyName}
+            </option>
+          ))}
+        </select>
+      </label>
+    ) : null;
 
   const nav = (
     <nav className="flex flex-1 flex-col gap-1">
@@ -179,6 +230,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <span className="font-display text-lg font-bold text-sidebar-foreground">BodegaPro</span>
         </Link>
+        {companySwitcher}
         {nav}
         <button
           onClick={handleSignOut}
@@ -192,7 +244,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Header móvil */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-card px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden">
-          <span className="font-display text-lg font-bold">BodegaPro</span>
+          <div className="flex items-center gap-2">
+            <span className="font-display text-lg font-bold">BodegaPro</span>
+            {companySwitcher}
+          </div>
           <button onClick={() => setOpen(!open)} className="btn btn-ghost p-2" aria-label="Menú">
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
