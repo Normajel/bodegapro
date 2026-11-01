@@ -23,8 +23,8 @@ Tener EXECUTE no equivale a poder completar la operación: se aplican comprobaci
 ## Hallazgos
 
 1. `cancel_purchase_order` es SECURITY INVOKER y no tiene comprobación interna explícita de perfil. El UPDATE está sujeto a RLS: BODEGA y GERENCIA no deberían poder completarlo por la política vigente. Falta prueba con JWT real para confirmar denegación y verificar resultado de UPDATE.
-2. `receive_purchase_order` también es SECURITY INVOKER y actualiza `purchase_order_items` y `purchase_orders`. BODEGA carece de `purchases.edit`; por tanto su recepción mediante esta RPC probablemente falla por RLS. **No** otorgar edición general de compras para solucionarlo.
-3. La solución requiere una operación de recepción de alcance restringido con comprobación explícita de permiso específico, y pruebas de stock, cantidades y estado de OC. Evaluar función protegida en esquema privado, permisos EXECUTE y RLS antes de implementar.
+2. `receive_purchase_order` era SECURITY INVOKER y actualiza `purchase_order_items` y `purchase_orders`. BODEGA carece de `purchases.edit`, por lo que su recepción falla por RLS.
+3. La migración `0034_receive_purchase_order_bodega_permissions.sql` cambia la RPC a SECURITY DEFINER y limita el acceso a BODEGA, ADMIN o ADMINPRO con sus permisos correspondientes. No concede edición general de compras a BODEGA. La migración debe aplicarse y probarse en staging antes del despliegue.
 4. `approve_purchase_order` es SECURITY DEFINER; la autorización interna ya fue inspeccionada anteriormente, pero falta prueba con roles reales.
 
 ## Pendiente de pruebas
