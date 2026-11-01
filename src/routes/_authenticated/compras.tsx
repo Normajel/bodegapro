@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Check, Eye, MoreHorizontal, Pencil, Plus, Printer, Search, Truck, X } from "lucide-react";
@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { hasPermission, useAppAccess } from "@/lib/permissions";
 import { COMPANY_QUERY_KEY } from "@/components/company-settings-form";
+import { getPurchaseDeliveryStatus } from "@/lib/purchase-delivery";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +25,12 @@ export const Route = createFileRoute("/_authenticated/compras")({
   component: ComprasPage,
 });
 
-type OrderStatus = "pendiente" | "parcial" | "completa" | "anulada";
+type OrderStatus =
+  | "pendiente"
+  | "parcial"
+  | "completa"
+  | "anulada"
+  | "cerrada_con_diferencia";
 type ApprovalStatus = "por_aprobar" | "aprobada";
 type PurchaseItemType = "producto" | "servicio";
 type PaymentTerms =
@@ -48,7 +55,17 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   parcial: "Recepción parcial",
   completa: "Completa",
   anulada: "Anulada",
+  cerrada_con_diferencia: "Cerrada con diferencia",
 };
+const DELIVERY_STATUS_LABELS = {
+  sin_envio: "Sin envío",
+  en_plazo: "Dentro del plazo",
+  por_vencer: "Próxima a vencer",
+  vencida: "Vencida",
+  completa: "Recibida",
+  cerrada: "Cerrada",
+  anulada: "Anulada",
+} as const;
 
 const PAYMENT_TERMS_LABELS: Record<PaymentTerms, string> = {
   contado: "Contado",
@@ -103,6 +120,10 @@ function ComprasPage() {
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
+  const [closureOrderId, setClosureOrderId] = useState<string | null>(null);
+  const [closureReason, setClosureReason] = useState("");
+  const [deliveryOverrideOrderId, setDeliveryOverrideOrderId] = useState<string | null>(null);
+  const [deliveryOverrideDays, setDeliveryOverrideDays] = useState("");
   const [costCentersOpen, setCostCentersOpen] = useState(false);
   const [previewOrderId, setPreviewOrderId] = useState<string | null>(null);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);

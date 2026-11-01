@@ -20,9 +20,6 @@ export const Route = createFileRoute("/_authenticated/servicios")({
   component: ServiciosPage,
 });
 
-type ServiceItem = Tables<"purchase_order_items"> & { service_executed_at?: string | null };
-type ServiceOrder = Tables<"purchase_orders">;
-
 const STATUS_LABELS = {
   por_aprobar: "POR APROBAR",
   aceptado: "ACEPTADO",
@@ -60,27 +57,40 @@ function ServiciosPage() {
     queryKey: ["purchase-order-services"],
     enabled: canView,
     queryFn: async () => {
-      const { data: rawItems, error: itemsError } = await supabase
-        .from("purchase_order_items")
-        .select("*")
-        .eq("item_type", "servicio");
-      if (itemsError) throw itemsError;
-      const items = rawItems as ServiceItem[];
+      const items: Tables<"purchase_order_items">[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await supabase
+          .from("purchase_order_items")
+          .select("*")
+          .eq("item_type", "servicio")
+          .order("purchase_order_id")
+          .range(offset, offset + 999);
+        if (error) throw error;
+        items.push(...data);
+        if (data.length < 1000) break;
+      }
       if (!items.length) return [];
 
       const orderIds = [...new Set(items.map((item) => item.purchase_order_id))];
-      const { data: rawOrders, error: ordersError } = await supabase
-        .from("purchase_orders")
-        .select("*")
-        .in("id", orderIds);
-      if (ordersError) throw ordersError;
-      const orders = rawOrders as ServiceOrder[];
+      const orders: Tables<"purchase_orders">[] = [];
+      for (let index = 0; index < orderIds.length; index += 500) {
+        const { data, error } = await supabase
+          .from("purchase_orders")
+          .select("*")
+          .in("id", orderIds.slice(index, index + 500));
+        if (error) throw error;
+        orders.push(...data);
+      }
       const supplierIds = [...new Set(orders.map((order) => order.supplier_id))];
-      const { data: supplierRows, error: suppliersError } = await supabase
-        .from("supplier_directory")
-        .select("id, name")
-        .in("id", supplierIds);
-      if (suppliersError) throw suppliersError;
+      let supplierRows: { id: string; name: string }[] = [];
+      for (let index = 0; index < supplierIds.length; index += 500) {
+        const { data, error } = await supabase
+          .from("supplier_directory")
+          .select("id, name")
+          .in("id", supplierIds.slice(index, index + 500));
+        if (error) throw error;
+        supplierRows.push(...data);
+      }
 
       const orderById = new Map(orders.map((order) => [order.id, order]));
       const supplierById = new Map(supplierRows.map((supplier) => [supplier.id, supplier]));

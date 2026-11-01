@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Bell, Check, X } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { hasPermission, useAppAccess } from "@/lib/permissions";
 import { dateKey, santiagoDateTimeIso } from "@/lib/warehouse";
+import { getPurchaseDeliveryStatus, type PurchaseDeliveryStatus } from "@/lib/purchase-delivery";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -22,8 +24,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 type ChartPeriod = "today" | "7days";
 type ChartMetric = "value" | "quantity";
-type DeliveryStatus =
-  "sin_envio" | "en_plazo" | "por_vencer" | "vencida" | "completa" | "cerrada" | "anulada";
+type DeliveryStatus = PurchaseDeliveryStatus;
 type DeliveryOrder = {
   id: string;
   order_number: string;
@@ -32,12 +33,15 @@ type DeliveryOrder = {
   first_sent_at: string | null;
   delivery_due_date: string | null;
   suppliers: { name: string } | null;
-  purchase_order_items: { item_type: string; quantity: number; received_quantity: number }[];
+  purchase_order_items: Pick<
+    Tables<"purchase_order_items">,
+    "item_type" | "quantity" | "received_quantity"
+  >[];
 };
 type DeliveryNotification = {
   id: string;
   purchase_order_id: string;
-  alert_type: "dos_dias" | "fecha_compromiso" | "vencida";
+  alert_type: string;
   delivery_due_date: string;
   purchase_orders: { order_number: string } | null;
 };
@@ -60,25 +64,6 @@ function finiteNumber(value: unknown, fallback = 0) {
   if (value === null || value === undefined || value === "") return fallback;
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
-}
-
-function getDeliveryStatus(
-  dueDate: string | null,
-  pendingQuantity: number,
-  today: string,
-  orderStatus: string,
-): DeliveryStatus {
-  if (orderStatus === "anulada") return "anulada";
-  if (orderStatus === "cerrada_con_diferencia") return "cerrada";
-  if (pendingQuantity <= 0) return "completa";
-  if (!dueDate) return "sin_envio";
-  const due = Date.parse(`${dueDate.slice(0, 10)}T00:00:00Z`);
-  const current = Date.parse(`${today}T00:00:00Z`);
-  if (!Number.isFinite(due) || !Number.isFinite(current)) return "sin_envio";
-  const days = (due - current) / 86_400_000;
-  if (days < 0) return "vencida";
-  if (days <= 2) return "por_vencer";
-  return "en_plazo";
 }
 
 function santiagoToday() {
@@ -180,7 +165,7 @@ function DashboardPage() {
     enabled: canViewPurchases && Boolean(companyId),
     queryFn: async () => {
       if (!companyId) throw new Error("No hay una empresa activa.");
-      const orders = [];
+      const orders: Tables<"purchase_orders">[] = [];
       for (let offset = 0; ; offset += 1000) {
         const { data, error } = await supabase
           .from("purchase_orders")
@@ -195,7 +180,7 @@ function DashboardPage() {
       }
 
       const orderIds = orders.map((order) => order.id);
-      const items = [];
+      const items: Tables<"purchase_order_items">[] = [];
       for (let offset = 0; orderIds.length > 0; offset += 1000) {
         const { data, error } = await supabase
           .from("purchase_order_items")
@@ -214,10 +199,27 @@ function DashboardPage() {
         orderItems.push(item);
         itemsByOrder.set(item.purchase_order_id, orderItems);
       }
+      const supplierIds = [...new Set(orders.map((order) => order.supplier_id))];
+      let supplierRows: { id: string; name: string }[] = [];
+      if (supplierIds.length > 0) {
+        const { data, error } = await supabase
+          .from("supplier_directory")
+          .select("id, name")
+          .in("id", supplierIds);
+        if (error) throw error;
+        supplierRows = data;
+      }
+      const supplierById = new Map(supplierRows.map((supplier) => [supplier.id, supplier]));
       return orders.map((order) => ({
-        ...order,
+        id: order.id,
+        order_number: order.order_number,
+        status: order.status,
+        approved_at: order.approved_at,
+        first_sent_at: order.first_sent_at,
+        delivery_due_date: order.delivery_due_date,
+        suppliers: supplierById.get(order.supplier_id) ?? null,
         purchase_order_items: itemsByOrder.get(order.id) ?? [],
-      })) as unknown as DeliveryOrder[];
+      }));
     },
   });
 
@@ -230,30 +232,32 @@ function DashboardPage() {
     enabled: canViewPurchases && Boolean(companyId),
     queryFn: async () => {
       const { error: refreshError } = await supabase.rpc(
-        "refresh_purchase_order_delivery_notifications" as never,
+        "refresh_purchase_order_delivery_notifications",
       );
       if (refreshError) throw refreshError;
       const { data, error } = await supabase
-        .from("purchase_order_delivery_notifications" as never)
+        .from("purchase_order_delivery_notifications")
         .select(
           "id, purchase_order_id, alert_type, delivery_due_date, purchase_orders(order_number)",
         )
-        .eq("company_id" as never, companyId ?? "")
-        .is("resolved_at" as never, null)
-        .is("read_at" as never, null)
-        .order("created_at" as never, { ascending: false });
+        .eq("company_id", companyId ?? "")
+        .is("resolved_at", null)
+        .is("read_at", null)
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as DeliveryNotification[];
+      return data ?? [];
     },
   });
 
   const markNotificationRead = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from("purchase_order_delivery_notifications" as never)
-        .update({ read_at: new Date().toISOString() } as never)
-        .eq("id" as never, id)
-        .is("read_at" as never, null);
+        .from("purchase_order_delivery_notifications")
+        .update({ read_at: new Date().toISOString() })
+        .eq("id", id)
+        .is("read_at", null)
+        .select("id")
+        .single();
       if (error) throw error;
     },
     onSuccess: () =>
@@ -278,12 +282,13 @@ function DashboardPage() {
           0,
         );
         const ordered = productItems.reduce((sum, item) => sum + finiteNumber(item.quantity), 0);
-        const deliveryStatus = getDeliveryStatus(
-          order.delivery_due_date,
-          order.status === "completa" ? 0 : ordered > 0 ? pending : 1,
-          deliveryToday,
-          order.status,
-        );
+        const deliveryStatus = getPurchaseDeliveryStatus({
+          dueDate: order.delivery_due_date,
+          pendingQuantity: order.status === "completa" ? 0 : ordered > 0 ? pending : 1,
+          today: deliveryToday,
+          closed: order.status === "cerrada_con_diferencia",
+          cancelled: order.status === "anulada",
+        });
         const labels: Record<DeliveryStatus, string> = {
           sin_envio: "Sin envío",
           en_plazo: "En plazo",
@@ -745,7 +750,7 @@ function DashboardPage() {
                             dos_dias: "Compromiso en dos días",
                             fecha_compromiso: "Fecha de compromiso hoy",
                             vencida: "Entrega vencida",
-                          }[notification.alert_type]
+                          }[notification.alert_type] ?? "Alerta de entrega"
                         }{" "}
                         · OC {notification.purchase_orders?.order_number ?? "—"}
                       </p>

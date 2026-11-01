@@ -280,6 +280,8 @@ export type Database = {
           purchase_order_id: string;
           quantity: number;
           received_quantity: number;
+          service_executed_at: string | null;
+          service_executed_by: string | null;
           unit_cost: number;
         };
         Insert: {
@@ -293,6 +295,8 @@ export type Database = {
           purchase_order_id: string;
           quantity: number;
           received_quantity?: number;
+          service_executed_at?: string | null;
+          service_executed_by?: string | null;
           unit_cost: number;
         };
         Update: {
@@ -306,6 +310,8 @@ export type Database = {
           purchase_order_id?: string;
           quantity?: number;
           received_quantity?: number;
+          service_executed_at?: string | null;
+          service_executed_by?: string | null;
           unit_cost?: number;
         };
         Relationships: [
@@ -353,9 +359,14 @@ export type Database = {
           approved_by: string | null;
           company_id: string;
           cost_center_id: string | null;
+          completed_at: string | null;
           created_at: string;
           created_by: string | null;
+          delivery_due_date: string | null;
+          delivery_lead_time_days: number | null;
+          delivery_lead_time_override_days: number | null;
           description: string | null;
+          first_sent_at: string | null;
           id: string;
           net_total: number;
           notes: string | null;
@@ -376,9 +387,14 @@ export type Database = {
           approved_by?: string | null;
           company_id?: string;
           cost_center_id?: string | null;
+          completed_at?: string | null;
           created_at?: string;
           created_by?: string | null;
+          delivery_due_date?: string | null;
+          delivery_lead_time_days?: number | null;
+          delivery_lead_time_override_days?: number | null;
           description?: string | null;
+          first_sent_at?: string | null;
           id?: string;
           net_total?: number;
           notes?: string | null;
@@ -399,9 +415,14 @@ export type Database = {
           approved_by?: string | null;
           company_id?: string;
           cost_center_id?: string | null;
+          completed_at?: string | null;
           created_at?: string;
           created_by?: string | null;
+          delivery_due_date?: string | null;
+          delivery_lead_time_days?: number | null;
+          delivery_lead_time_override_days?: number | null;
           description?: string | null;
+          first_sent_at?: string | null;
           id?: string;
           net_total?: number;
           notes?: string | null;
@@ -429,6 +450,217 @@ export type Database = {
             columns: ["cost_center_id"];
             isOneToOne: false;
             referencedRelation: "purchase_cost_centers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      purchase_order_dispatches: {
+        Row: {
+          company_id: string;
+          created_at: string;
+          delivery_due_date: string | null;
+          delivery_lead_time_days: number | null;
+          error_message: string | null;
+          id: string;
+          idempotency_key: string | null;
+          pdf_storage_path: string | null;
+          provider_message_id: string | null;
+          purchase_order_id: string;
+          recipient_email: string;
+          requested_by: string | null;
+          sent_at: string | null;
+          status: string;
+        };
+        Insert: {
+          company_id?: string;
+          created_at?: string;
+          delivery_due_date?: string | null;
+          delivery_lead_time_days?: number | null;
+          error_message?: string | null;
+          id?: string;
+          idempotency_key?: string | null;
+          pdf_storage_path?: string | null;
+          provider_message_id?: string | null;
+          purchase_order_id: string;
+          recipient_email: string;
+          requested_by?: string | null;
+          sent_at?: string | null;
+          status?: string;
+        };
+        Update: {
+          company_id?: string;
+          created_at?: string;
+          delivery_due_date?: string | null;
+          delivery_lead_time_days?: number | null;
+          error_message?: string | null;
+          id?: string;
+          idempotency_key?: string | null;
+          pdf_storage_path?: string | null;
+          provider_message_id?: string | null;
+          purchase_order_id?: string;
+          recipient_email?: string;
+          requested_by?: string | null;
+          sent_at?: string | null;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_dispatches_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_order_dispatches_purchase_order_id_fkey";
+            columns: ["purchase_order_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      purchase_order_closures: {
+        Row: {
+          closed_at: string;
+          closed_by: string;
+          company_id: string;
+          id: string;
+          purchase_order_id: string;
+          reason: string;
+        };
+        Insert: {
+          closed_at?: string;
+          closed_by: string;
+          company_id?: string;
+          id?: string;
+          purchase_order_id: string;
+          reason: string;
+        };
+        Update: {
+          closed_at?: string;
+          closed_by?: string;
+          company_id?: string;
+          id?: string;
+          purchase_order_id?: string;
+          reason?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_closures_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_order_closures_purchase_order_id_fkey";
+            columns: ["purchase_order_id"];
+            isOneToOne: true;
+            referencedRelation: "purchase_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      purchase_order_closure_items: {
+        Row: {
+          closure_id: string;
+          company_id: string;
+          id: string;
+          ordered_quantity: number;
+          purchase_order_item_id: string;
+          received_quantity: number;
+          waived_quantity: number;
+        };
+        Insert: {
+          closure_id: string;
+          company_id?: string;
+          id?: string;
+          ordered_quantity: number;
+          purchase_order_item_id: string;
+          received_quantity: number;
+          waived_quantity: number;
+        };
+        Update: {
+          closure_id?: string;
+          company_id?: string;
+          id?: string;
+          ordered_quantity?: number;
+          purchase_order_item_id?: string;
+          received_quantity?: number;
+          waived_quantity?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_closure_items_closure_id_fkey";
+            columns: ["closure_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_order_closures";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_order_closure_items_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_order_closure_items_purchase_order_item_id_fkey";
+            columns: ["purchase_order_item_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_order_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      purchase_order_delivery_notifications: {
+        Row: {
+          alert_type: string;
+          company_id: string;
+          created_at: string;
+          delivery_due_date: string;
+          id: string;
+          purchase_order_id: string;
+          read_at: string | null;
+          resolved_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          alert_type: string;
+          company_id?: string;
+          created_at?: string;
+          delivery_due_date: string;
+          id?: string;
+          purchase_order_id: string;
+          read_at?: string | null;
+          resolved_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          alert_type?: string;
+          company_id?: string;
+          created_at?: string;
+          delivery_due_date?: string;
+          id?: string;
+          purchase_order_id?: string;
+          read_at?: string | null;
+          resolved_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_delivery_notifications_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_order_delivery_notifications_purchase_order_id_fkey";
+            columns: ["purchase_order_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_orders";
             referencedColumns: ["id"];
           },
         ];
@@ -696,12 +928,14 @@ export type Database = {
           contact_name: string | null;
           created_at: string;
           delivery_address: string | null;
+          delivery_lead_time_days: number | null;
           email: string | null;
           id: string;
           name: string;
           notes: string | null;
           phone: string | null;
           rut: string | null;
+          supplier_type: string;
         };
         Insert: {
           address?: string | null;
@@ -710,12 +944,14 @@ export type Database = {
           contact_name?: string | null;
           created_at?: string;
           delivery_address?: string | null;
+          delivery_lead_time_days?: number | null;
           email?: string | null;
           id?: string;
           name: string;
           notes?: string | null;
           phone?: string | null;
           rut?: string | null;
+          supplier_type?: string;
         };
         Update: {
           address?: string | null;
@@ -724,12 +960,14 @@ export type Database = {
           contact_name?: string | null;
           created_at?: string;
           delivery_address?: string | null;
+          delivery_lead_time_days?: number | null;
           email?: string | null;
           id?: string;
           name?: string;
           notes?: string | null;
           phone?: string | null;
           rut?: string | null;
+          supplier_type?: string;
         };
         Relationships: [
           {
@@ -799,6 +1037,29 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      purchase_order_services: {
+        Row: {
+          approved_at: string | null;
+          company_id: string;
+          created_at: string;
+          description: string;
+          id: string;
+          line_total: number;
+          measure_unit: string;
+          payment_terms: string;
+          payment_terms_other: string | null;
+          purchase_order_id: string;
+          quantity: number;
+          service_executed_at: string | null;
+          service_executed_by: string | null;
+          service_status: string;
+          supplier_id: string;
+          supplier_name: string;
+          unit_cost: number;
+          order_number: string;
+        };
+        Relationships: [];
       };
       stock_movement_document_cancellations: {
         Row: {
@@ -941,8 +1202,24 @@ export type Database = {
         };
         Returns: string;
       };
+      can_approve_purchase_orders: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
       approve_purchase_order: {
         Args: { p_order_id: string };
+        Returns: undefined;
+      };
+      close_purchase_order_with_difference: {
+        Args: { p_order_id: string; p_reason: string };
+        Returns: string;
+      };
+      mark_purchase_order_service_executed: {
+        Args: { p_item_id: string };
+        Returns: undefined;
+      };
+      refresh_purchase_order_delivery_notifications: {
+        Args: Record<PropertyKey, never>;
         Returns: undefined;
       };
       get_supplier_order_info: {
