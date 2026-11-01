@@ -19,6 +19,16 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { AppAccessContext, hasPermission } from "@/lib/permissions";
 
+const PROFILE_LABELS: Record<string, string> = {
+  ADMIN: "Admin",
+  ADMINPRO: "AdminPro",
+  BODEGA: "Bodega",
+  GERENCIA: "Gerencia",
+  GERENTE: "Gerencia",
+  VENTA: "Ventas",
+  VENTAS: "Ventas",
+};
+
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Panel", icon: LayoutDashboard, module: "dashboard" },
   { to: "/productos", label: "Inventario", icon: Package, module: "inventory" },
@@ -170,6 +180,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
 
+  const profileName =
+    PROFILE_LABELS[access.name.trim().toUpperCase()] || access.name.trim() || "Usuario";
+
   return (
     <div className="flex min-h-screen bg-background">
       {/* Sidebar desktop */}
@@ -190,11 +203,21 @@ export function AppShell({ children }: { children: ReactNode }) {
         </button>
       </aside>
 
-      {/* Header móvil */}
+      {/* Saludo de sesión y navegación móvil */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-card px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden">
-          <span className="font-display text-lg font-bold">BodegaPro</span>
-          <button onClick={() => setOpen(!open)} className="btn btn-ghost p-2" aria-label="Menú">
+        <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-8">
+          <span className="font-display text-lg font-bold md:hidden">BodegaPro</span>
+          <p
+            className="min-w-0 flex-1 break-words text-right text-sm font-semibold md:text-left md:text-base"
+            aria-label="Perfil de la sesión actual"
+          >
+            Hola {profileName}
+          </p>
+          <button
+            onClick={() => setOpen(!open)}
+            className="btn btn-ghost p-2 md:hidden"
+            aria-label="Menú"
+          >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </header>
