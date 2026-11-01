@@ -19,6 +19,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { AppAccessContext, hasPermission } from "@/lib/permissions";
 
+import { PanelIdentity } from "@/components/panel-identity";
+import { usePanelBranding, usePanelLogoUrl } from "@/hooks/use-panel-branding";
+
 const PROFILE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
   ADMINPRO: "AdminPro",
@@ -126,6 +129,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             activeNavItem.module === "settings" ? "manage" : "view",
           ));
 
+  const isHome = pathname.replace(/\/$/, "") === "/dashboard";
+  const { data: branding } = usePanelBranding(isHome && !!canViewCurrentPage && !!access);
+  const { data: panelLogoUrl } = usePanelLogoUrl(isHome ? branding?.panel_logo_path : null);
+
   async function handleSignOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
@@ -188,10 +195,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Sidebar desktop */}
       <aside className="hidden w-60 flex-col gap-6 border-r border-sidebar-border bg-sidebar p-4 md:flex">
         <Link to="/dashboard" className="flex items-center gap-2 px-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary font-display text-sm font-bold text-sidebar-primary-foreground">
-            B
-          </div>
-          <span className="font-display text-lg font-bold text-sidebar-foreground">BodegaPro</span>
+          <PanelIdentity
+            name={isHome ? branding?.panel_name : undefined}
+            logoUrl={isHome ? panelLogoUrl : undefined}
+          />
         </Link>
         {nav}
         <button
@@ -206,7 +213,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Saludo de sesión y navegación móvil */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-8">
-          <span className="font-display text-lg font-bold md:hidden">BodegaPro</span>
+          <span className="min-w-0 max-w-[55%] md:hidden">
+            <PanelIdentity
+              name={isHome ? branding?.panel_name : undefined}
+              logoUrl={isHome ? panelLogoUrl : undefined}
+            />
+          </span>
           <p
             className="min-w-0 flex-1 break-words text-right text-sm font-semibold md:text-left md:text-base"
             aria-label="Perfil de la sesión actual"

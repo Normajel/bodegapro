@@ -77,6 +77,8 @@ export type Database = {
       };
       company_settings: {
         Row: {
+          panel_name: string;
+          panel_logo_path: string | null;
           address: string;
           billing_email: string;
           business_activity: string;
@@ -89,6 +91,8 @@ export type Database = {
           updated_by: string | null;
         };
         Insert: {
+          panel_name?: string;
+          panel_logo_path?: string | null;
           address?: string;
           billing_email?: string;
           business_activity?: string;
@@ -101,6 +105,8 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
+          panel_name?: string;
+          panel_logo_path?: string | null;
           address?: string;
           billing_email?: string;
           business_activity?: string;
@@ -698,6 +704,10 @@ export type Database = {
       };
     };
     Functions: {
+      get_panel_branding: {
+        Args: Record<PropertyKey, never>;
+        Returns: { panel_name: string; panel_logo_path: string | null }[];
+      };
       begin_purchase_order_email: {
         Args: { p_order_id: string; p_request_id: string };
         Returns: Json;
