@@ -1375,12 +1375,17 @@ function MovimientosPage() {
     // Protección adicional para movimientos compensatorios de anulaciones.
     const { data: movement, error: movementError } = await db
       .from("stock_movements")
-      .select("reference, document_number")
+      .select("reference, document_number, purchase_order_item_id")
       .eq("id", id)
       .maybeSingle();
 
     if (movementError) {
       toast.error(movementError.message);
+      return;
+    }
+
+    if (movement?.purchase_order_item_id) {
+      toast.error("Este movimiento corresponde a una recepción de OC y no se puede eliminar individualmente.");
       return;
     }
 
