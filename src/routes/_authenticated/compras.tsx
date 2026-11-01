@@ -468,6 +468,57 @@ function ComprasPage() {
     }
   }
 
+  async function saveDeliveryOverride(event: React.FormEvent) {
+    event.preventDefault();
+    if (!deliveryOverrideOrderId) return;
+    const rawDays = deliveryOverrideDays.trim();
+    const days = rawDays === "" ? null : Number(rawDays);
+    if (days !== null && (!Number.isInteger(days) || days < 0)) {
+      toast.error("El plazo debe ser un número entero igual o mayor que cero");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("purchase_orders")
+        .update({ delivery_lead_time_override_days: days })
+        .eq("id", deliveryOverrideOrderId)
+        .select("id")
+        .single();
+      if (error) throw error;
+      toast.success("Plazo especial actualizado");
+      setDeliveryOverrideOrderId(null);
+      setDeliveryOverrideDays("");
+      await invalidateOrders();
+    } catch (error) {
+      toast.error(errorMessage(error, "No se pudo actualizar el plazo"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function closeOrderWithDifference(event: React.FormEvent) {
+    event.preventDefault();
+    if (!closureOrderId) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.rpc("close_purchase_order_with_difference", {
+        p_order_id: closureOrderId,
+        p_reason: closureReason.trim(),
+      });
+      if (error) throw error;
+      toast.success("Orden cerrada con diferencias autorizadas");
+      setClosureOrderId(null);
+      setClosureReason("");
+      await invalidateOrders();
+    } catch (error) {
+      toast.error(errorMessage(error, "No se pudo cerrar la orden con diferencias"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function saveCostCenter(event: React.FormEvent) {
     event.preventDefault();
     const name = costCenterName.trim();
@@ -555,8 +606,12 @@ function ComprasPage() {
             Órdenes de compra, recepciones y saldos pendientes.
           </p>
         </div>
-        {(canCreate || canEdit) && (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
+          {hasPermission(access?.name, access?.permissions, "purchases", "view") && (
+            <Link to="/servicios" className="btn btn-secondary">
+              Servicios contratados
+            </Link>
+          )}
             {canEdit && (
               <button
                 className="btn btn-secondary"
@@ -575,8 +630,7 @@ function ComprasPage() {
                 Nueva orden de compra
               </button>
             )}
-          </div>
-        )}
+        </div>
       </div>
 
       <div className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[minmax(16rem,2fr)_minmax(12rem,1fr)_minmax(12rem,1fr)_auto]">
@@ -610,6 +664,8 @@ function ComprasPage() {
             <option value="pendiente">Pendiente</option>
             <option value="parcial">Recepción parcial</option>
             <option value="completa">Completa</option>
+            <option value="cerrada_con_diferencia">Cerrada con diferencia</option>
+            <option value="anulada">Anulada</option>
           </select>
         </div>
         <div>
@@ -644,15 +700,18 @@ function ComprasPage() {
       </div>
 
       <div className="card overflow-x-auto">
-        <table className="table-base min-w-[1080px]">
+        <table className="table-base min-w-[1380px]">
           <thead>
             <tr>
               <th>N° OC</th>
               <th>Fecha</th>
+              <th>Aprobada el</th>
               <th>Proveedor</th>
               <th>Total OC</th>
               <th>Centro de costo</th>
               <th>Recepción</th>
+              <th>Servicios</th>
+              <th>Entrega</th>
               <th>Estado</th>
               <th className="text-right">Acciones</th>
             </tr>
@@ -660,25 +719,25 @@ function ComprasPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                <td colSpan={11} className="py-8 text-center text-muted-foreground">
                   Cargando órdenes…
                 </td>
               </tr>
             ) : isError ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-destructive">
+                <td colSpan={11} className="py-8 text-center text-destructive">
                   No se pudieron cargar las órdenes de compra.
                 </td>
               </tr>
             ) : orders.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                <td colSpan={11} className="py-8 text-center text-muted-foreground">
                   No hay órdenes de compra. Crea una para comenzar.
                 </td>
               </tr>
             ) : filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                <td colSpan={11} className="py-8 text-center text-muted-foreground">
                   No se encontraron órdenes con esos criterios.
                 </td>
               </tr>
@@ -688,11 +747,39 @@ function ComprasPage() {
                 const approvalStatus = order.approval_status as ApprovalStatus;
                 const supplier = suppliers.find((item) => item.id === order.supplier_id);
                 const costCenter = costCenters.find((item) => item.id === order.cost_center_id);
+                const productItems = orderItems.filter(
+                  (item) => item.purchase_order_id === order.id && item.item_type === "producto",
+                );
+                const serviceItems = orderItems.filter(
+                  (item) => item.purchase_order_id === order.id && item.item_type === "servicio",
+                );
+                const pendingQuantity = productItems.reduce(
+                  (sum, item) => sum + Math.max(0, item.quantity - item.received_quantity),
+                  0,
+                );
+                const executedServices = serviceItems.filter(
+                  (item) => item.service_executed_at,
+                ).length;
+                const deliveryStatus =
+                  productItems.length === 0
+                    ? "sin_envio"
+                    : getPurchaseDeliveryStatus({
+                        dueDate: order.delivery_due_date,
+                        pendingQuantity,
+                        today: new Intl.DateTimeFormat("en-CA", {
+                          timeZone: "America/Santiago",
+                        }).format(new Date()),
+                        closed: status === "cerrada_con_diferencia",
+                        cancelled: status === "anulada",
+                      });
                 return (
                   <tr key={order.id}>
                     <td className="font-mono text-sm">{order.order_number}</td>
                     <td className="whitespace-nowrap text-muted-foreground">
                       {new Date(`${order.order_date}T00:00:00`).toLocaleDateString("es-CL")}
+                    </td>
+                    <td className="whitespace-nowrap text-muted-foreground">
+                      {order.approved_at ? new Date(order.approved_at).toLocaleString("es-CL") : "—"}
                     </td>
                     <td>{supplier?.name ?? "—"}</td>
                     <td className="whitespace-nowrap font-medium">{money(orderTotal(order.id))}</td>
