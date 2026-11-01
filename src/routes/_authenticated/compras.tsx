@@ -9,7 +9,12 @@ import { useMemo, useState } from "react";
 import { Check, Eye, MoreHorizontal, Pencil, Plus, Printer, Search, Truck, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { hasPermission, useAppAccess } from "@/lib/permissions";
+import {
+  canReceivePurchaseOrder,
+  canApprovePurchaseOrder,
+  hasPermission,
+  useAppAccess,
+} from "@/lib/permissions";
 import { COMPANY_QUERY_KEY } from "@/components/company-settings-form";
 import {
   DropdownMenu,
@@ -104,15 +109,8 @@ function ComprasPage() {
   const canCreate = hasPermission(access?.name, access?.permissions, "purchases", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
-  const roleName = (access?.name ?? "").trim().toUpperCase();
-  const canReceive =
-    ["BODEGA", "ADMIN", "ADMINPRO"].includes(roleName) &&
-    hasPermission(roleName, access?.permissions, "purchases", "view") &&
-    hasPermission(roleName, access?.permissions, "movements", "create") &&
-    (roleName === "BODEGA" || canEdit);
-  const canApprove = ["ADMINPRO", "ADMIN", "GERENCIA"].includes(
-    (access?.name ?? "").trim().toUpperCase(),
-  );
+  const canReceive = canReceivePurchaseOrder(access?.name, access?.permissions);
+  const canApprove = canApprovePurchaseOrder(access?.name, access?.permissions);
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
@@ -882,13 +880,11 @@ function ComprasPage() {
                             <DropdownMenuItem onSelect={() => setTrackingOrderId(order.id)}>
                               Historial / plazo de entrega
                             </DropdownMenuItem>
-                            {(canEdit || canApprove) &&
-                              approvalStatus === "aprobada" &&
-                              status !== "anulada" && (
-                                <DropdownMenuItem onSelect={() => setTrackingOrderId(order.id)}>
-                                  Enviar PDF por correo
-                                </DropdownMenuItem>
-                              )}
+                            {canEdit && approvalStatus === "aprobada" && status !== "anulada" && (
+                              <DropdownMenuItem onSelect={() => setTrackingOrderId(order.id)}>
+                                Enviar PDF por correo
+                              </DropdownMenuItem>
+                            )}
                             {canEdit &&
                               status === "pendiente" &&
                               approvalStatus === "por_aprobar" && (
@@ -934,7 +930,7 @@ function ComprasPage() {
         <PurchaseOrderTracking
           key={trackingOrder.id}
           order={trackingOrder}
-          canSend={canEdit || canApprove}
+          canSend={canEdit}
           canEdit={canEdit}
           onClose={() => setTrackingOrderId(null)}
         />

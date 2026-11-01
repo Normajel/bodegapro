@@ -60,3 +60,21 @@ export function hasPermission(
   if (isAdminRole(roleName)) return true;
   return parseRolePermissions(permissions)[module]?.[action] === true;
 }
+
+export function canReceivePurchaseOrder(roleName: string | null | undefined, permissions: unknown) {
+  const role = roleName?.trim().toUpperCase() ?? "";
+  return (
+    ["BODEGA", "ADMIN", "ADMINPRO"].includes(role) &&
+    hasPermission(role, permissions, "purchases", "view") &&
+    hasPermission(role, permissions, "movements", "create") &&
+    (role === "BODEGA" || hasPermission(role, permissions, "purchases", "edit"))
+  );
+}
+
+export function canApprovePurchaseOrder(roleName: string | null | undefined, permissions: unknown) {
+  const role = roleName?.trim().toUpperCase() ?? "";
+  return (
+    ["GERENCIA", "ADMIN", "ADMINPRO"].includes(role) &&
+    hasPermission(role, permissions, "purchases", "view")
+  );
+}
