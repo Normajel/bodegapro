@@ -1,7 +1,7 @@
 -- PROPUESTA PARA REVISIÓN / NO EJECUTAR EN PRODUCCIÓN.
 -- Dependencia: public.receive_purchase_order(uuid,text,text,jsonb) existente.
 -- Objetivo: permitir recepción a BODEGA sin purchases.edit.
--- La función privilegiada vive en private; el endpoint público es SECURITY INVOKER.
+-- Función interna solo como referencia de diseño; sin permisos EXECUTE ni endpoint público.
 -- Requiere pruebas con roles reales y revisión de triggers antes de desplegar.
 
 CREATE OR REPLACE FUNCTION private.receive_purchase_order_authorized_internal(
@@ -80,23 +80,14 @@ BEGIN
 END;
 $$;
 
--- Exponer solamente un wrapper de privilegios del invocador.
-CREATE OR REPLACE FUNCTION public.receive_purchase_order_authorized(
-  p_order_id uuid, p_document_type text, p_document_number text, p_lines jsonb
-)
-RETURNS SETOF public.stock_movements
-LANGUAGE sql SECURITY INVOKER SET search_path = ''
-AS $$
-  SELECT * FROM private.receive_purchase_order_authorized_internal(
-    p_order_id, p_document_type, p_document_number, p_lines
-  );
-$$;
-
-REVOKE ALL ON FUNCTION private.receive_purchase_order_authorized_internal(uuid,text,text,jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.receive_purchase_order_authorized(uuid,text,text,jsonb) FROM PUBLIC;
-GRANT USAGE ON SCHEMA private TO authenticated;
-GRANT EXECUTE ON FUNCTION private.receive_purchase_order_authorized_internal(uuid,text,text,jsonb) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.receive_purchase_order_authorized(uuid,text,text,jsonb) TO authenticated;
+-- NO CREAR WRAPPER NI GRANT EN ESTA ETAPA.
+-- Para evitar exposición directa de una función SECURITY DEFINER,
+-- integrar la lógica autorizada en una RPC pública única con control de
+-- auth.uid(), perfil y permisos; su implementación deberá probarse en staging.
+-- No conceder EXECUTE de una función privilegiada interna a authenticated.
+-- Mantener el esquema private fuera de los esquemas expuestos por Data API.
+-- Antes de activar: revisar propietario, permisos por defecto y los triggers
+-- que actualizan stock, además de los consumidores de la RPC original.
 
 -- ANTES DE ACTIVAR: retirar EXECUTE de la RPC antigua para roles cliente
 -- únicamente después de actualizar y probar TODOS sus consumidores.
