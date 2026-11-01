@@ -760,6 +760,16 @@ function ComprasPage() {
                 const executedServices = serviceItems.filter(
                   (item) => item.service_executed_at,
                 ).length;
+                const serviceStatusLabel =
+                  status === "anulada"
+                    ? "ANULADO"
+                    : approvalStatus !== "aprobada"
+                      ? "POR APROBAR"
+                      : executedServices === serviceItems.length
+                        ? "EJECUTADO"
+                        : executedServices > 0
+                          ? `EJECUCIÓN ${executedServices}/${serviceItems.length}`
+                          : "ACEPTADO";
                 const deliveryStatus =
                   productItems.length === 0
                     ? "sin_envio"
@@ -785,7 +795,11 @@ function ComprasPage() {
                     <td className="whitespace-nowrap font-medium">{money(orderTotal(order.id))}</td>
                     <td>
                       {costCenter?.name ??
-                        (canEdit && status !== "anulada" && costCenters.length > 0 ? (
+                        (canEdit &&
+                        status === "pendiente" &&
+                        approvalStatus === "por_aprobar" &&
+                        !order.first_sent_at &&
+                        costCenters.length > 0 ? (
                           <select
                             className="input min-w-40"
                             aria-label={`Asignar centro de costo a ${order.order_number}`}
@@ -817,6 +831,41 @@ function ComprasPage() {
                         }`}
                       >
                         {STATUS_LABELS[status] ?? status}
+                      </span>
+                    </td>
+                    <td>
+                      {serviceItems.length === 0 ? (
+                        "—"
+                      ) : (
+                        <span
+                          className={`badge ${
+                            serviceStatusLabel === "EJECUTADO"
+                              ? "badge-success"
+                              : status === "anulada"
+                                ? "badge-destructive"
+                                : "badge-warning"
+                          }`}
+                        >
+                          {serviceStatusLabel}
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          deliveryStatus === "en_plazo"
+                            ? "badge-success"
+                            : deliveryStatus === "por_vencer"
+                              ? "badge-warning"
+                              : deliveryStatus === "vencida"
+                                ? "badge-destructive"
+                                : "badge-secondary"
+                        }`}
+                      >
+                        {DELIVERY_STATUS_LABELS[deliveryStatus]}
+                        {order.delivery_due_date
+                          ? ` · ${new Date(`${order.delivery_due_date}T00:00:00`).toLocaleDateString("es-CL")}`
+                          : ""}
                       </span>
                     </td>
                     <td>
@@ -867,7 +916,10 @@ function ComprasPage() {
                               <Printer className="h-4 w-4" />
                               Imprimir
                             </DropdownMenuItem>
-                            {canEdit && status === "pendiente" && (
+                            {canEdit &&
+                              status === "pendiente" &&
+                              approvalStatus === "por_aprobar" &&
+                              !order.first_sent_at && (
                               <DropdownMenuItem onSelect={() => openEditOrder(order.id)}>
                                 <Pencil className="h-4 w-4" />
                                 Editar
@@ -881,6 +933,29 @@ function ComprasPage() {
                                 Anular
                               </DropdownMenuItem>
                             )}
+                            {canEdit &&
+                              !order.first_sent_at &&
+                              (status === "pendiente" || status === "parcial") &&
+                              productItems.length > 0 && (
+                                <DropdownMenuItem
+                                  onSelect={() => {
+                                    setDeliveryOverrideOrderId(order.id);
+                                    setDeliveryOverrideDays(
+                                      order.delivery_lead_time_override_days?.toString() ?? "",
+                                    );
+                                  }}
+                                >
+                                  Configurar plazo de entrega
+                                </DropdownMenuItem>
+                              )}
+                            {canApprove &&
+                              approvalStatus === "aprobada" &&
+                              (status === "pendiente" || status === "parcial") &&
+                              productItems.some((item) => item.received_quantity < item.quantity) && (
+                                <DropdownMenuItem onSelect={() => setClosureOrderId(order.id)}>
+                                  Cerrar con diferencia
+                                </DropdownMenuItem>
+                              )}
                             {canEdit &&
                               approvalStatus === "aprobada" &&
                               (status === "pendiente" || status === "parcial") &&
@@ -1218,6 +1293,94 @@ function ComprasPage() {
                 <button type="submit" className="btn btn-primary" disabled={saving}>
                   {saving ? "Guardando…" : "Guardar orden"}
                 </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {deliveryOverrideOrderId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4">
+          <section className="card w-full max-w-lg space-y-4 p-6" role="dialog" aria-modal="true">
+            <div>
+              <h2 className="font-display text-lg font-bold">Plazo especial de entrega</h2>
+              <p className="text-sm text-muted-foreground">
+                Se calculará desde el primer envío confirmado. Déjalo vacío para usar el plazo
+                habitual del proveedor.
+              </p>
+            </div>
+            <form onSubmit={saveDeliveryOverride} className="space-y-4">
+              <label
+                htmlFor="delivery-override-days"
+                className="block space-y-2 text-sm font-medium"
+              >
+                Plazo en días corridos
+                <input
+                  id="delivery-override-days"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={deliveryOverrideDays}
+                  onChange={(event) => setDeliveryOverrideDays(event.target.value)}
+                  className="input w-full"
+                />
+              </label>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setDeliveryOverrideOrderId(null);
+                    setDeliveryOverrideDays("");
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  {saving ? "Guardando..." : "Guardar plazo"}
+                </Button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {closureOrderId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4">
+          <section className="card w-full max-w-lg space-y-4 p-6" role="dialog" aria-modal="true">
+            <div>
+              <h2 className="font-display text-lg font-bold">Cerrar orden con diferencia</h2>
+              <p className="text-sm text-muted-foreground">
+                Registra el motivo para cerrar la orden aunque existan productos pendientes.
+              </p>
+            </div>
+            <form onSubmit={closeOrderWithDifference} className="space-y-4">
+              <label htmlFor="closure-reason" className="block space-y-2 text-sm font-medium">
+                Motivo del cierre
+                <textarea
+                  id="closure-reason"
+                  value={closureReason}
+                  onChange={(event) => setClosureReason(event.target.value)}
+                  minLength={5}
+                  maxLength={1000}
+                  required
+                  className="input min-h-24 w-full"
+                />
+              </label>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setClosureOrderId(null);
+                    setClosureReason("");
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={saving || closureReason.trim().length < 5}>
+                  {saving ? "Cerrando..." : "Confirmar cierre"}
+                </Button>
               </div>
             </form>
           </section>
