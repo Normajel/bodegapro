@@ -1,3 +1,4 @@
+import { ServiceLedger } from "@/components/service-ledger";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -1465,10 +1466,21 @@ function MovimientosPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
+      <details className="card p-4">
+        <summary className="cursor-pointer font-semibold">
+          Servicios de órdenes de compra · ACEPTADOS
+        </summary>
+        <div className="pt-4">
+          <ServiceLedger />
+        </div>
+      </details>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Movimientos</h1>
-          <p className="text-sm text-muted-foreground">Historial de entradas y salidas. La recepción de productos se realiza desde Órdenes de compra aprobadas.</p>
+          <p className="text-sm text-muted-foreground">
+            Historial de entradas y salidas. La recepción de productos se realiza desde Órdenes de
+            compra aprobadas.
+          </p>
         </div>
 
         <div className="flex flex-wrap items-end gap-2">
@@ -1850,19 +1862,18 @@ function MovimientosPage() {
 
                   <td>
                     <div className="flex flex-wrap gap-1">
-                      {!purchase.cancelled_at &&
-                        (purchase.type === "salida" && canEdit) && (
-                          <button
-                            type="button"
-                            className="btn btn-ghost"
-                            disabled={saving}
-                            onClick={() => openEditRegisteredDocument(purchase)}
-                            title="Editar documento y sus líneas"
-                          >
-                            <Pencil className="h-4 w-4" />
-                            Editar
-                          </button>
-                        )}
+                      {!purchase.cancelled_at && purchase.type === "salida" && canEdit && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          disabled={saving}
+                          onClick={() => openEditRegisteredDocument(purchase)}
+                          title="Editar documento y sus líneas"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Editar
+                        </button>
+                      )}
                       {!purchase.cancelled_at &&
                         ((purchase.type === "entrada" && canDeletePurchases) ||
                           (purchase.type === "salida" && canDelete)) && (
@@ -1919,7 +1930,6 @@ function MovimientosPage() {
               className="flex min-h-0 flex-1 flex-col gap-3"
             >
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-
                 {isPurchaseForm ? (
                   <>
                     <div className="grid gap-2 md:grid-cols-2">

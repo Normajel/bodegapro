@@ -1,3 +1,5 @@
+import { PurchaseOrderTracking } from "@/components/purchase-order-tracking";
+import { deliveryState, displayDate } from "@/lib/purchase-delivery";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -104,10 +106,12 @@ function ComprasPage() {
     hasPermission(roleName, access?.permissions, "purchases", "view") &&
     hasPermission(roleName, access?.permissions, "movements", "create") &&
     (roleName === "BODEGA" || canEdit);
-  const canApprove =
-        ["ADMINPRO", "ADMIN", "GERENCIA"].includes((access?.name ?? "").trim().toUpperCase());
+  const canApprove = ["ADMINPRO", "ADMIN", "GERENCIA"].includes(
+    (access?.name ?? "").trim().toUpperCase(),
+  );
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
+  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [costCentersOpen, setCostCentersOpen] = useState(false);
   const [previewOrderId, setPreviewOrderId] = useState<string | null>(null);
@@ -161,7 +165,7 @@ function ComprasPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("supplier_directory")
-        .select("id, name")
+        .select("id, name, supplier_kind, delivery_days")
         .order("name");
       if (error) throw error;
       return data;
@@ -205,6 +209,23 @@ function ComprasPage() {
     },
   });
 
+  const { data: deliveryRows = [] } = useQuery({
+    queryKey: ["purchase-delivery-summary"],
+    queryFn: async () => {
+      const all = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await supabase
+          .from("purchase_delivery_summary")
+          .select("*")
+          .order("order_number")
+          .range(offset, offset + 999);
+        if (error) throw error;
+        all.push(...data);
+        if (data.length < 1000) return all;
+      }
+    },
+  });
+  const trackingOrder = orders.find((o) => o.id === trackingOrderId);
   const activeOrder = orders.find((order) => order.id === activeOrderId) ?? null;
   const previewOrder = orders.find((order) => order.id === previewOrderId) ?? null;
   const previewSupplierId = previewOrder?.supplier_id ?? null;
@@ -260,6 +281,9 @@ function ComprasPage() {
   function invalidateOrders() {
     return Promise.all([
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }),
+      queryClient.invalidateQueries({ queryKey: ["purchase-delivery-summary"] }),
+      queryClient.invalidateQueries({ queryKey: ["accepted-services"] }),
+      queryClient.invalidateQueries({ queryKey: ["service-providers"] }),
       queryClient.invalidateQueries({ queryKey: ["purchase-order-items"] }),
       queryClient.invalidateQueries({ queryKey: ["movements"] }),
       queryClient.invalidateQueries({ queryKey: ["products"] }),
@@ -421,6 +445,18 @@ function ComprasPage() {
       item_id: item.id,
       quantity: receivedQuantities[item.id] ?? 0,
     }));
+    if (
+      linesToReceive.some(
+        (line, index) =>
+          !Number.isInteger(line.quantity) ||
+          line.quantity < 0 ||
+          line.quantity >
+            activeOrderItems[index]!.quantity - activeOrderItems[index]!.received_quantity,
+      )
+    ) {
+      toast.error("Ingresa cantidades enteras entre cero y lo pendiente de cada producto");
+      return;
+    }
     if (!linesToReceive.some((line) => line.quantity > 0)) {
       toast.error("Ingresa al menos una cantidad recibida");
       return;
@@ -693,6 +729,14 @@ function ComprasPage() {
               filteredOrders.map((order) => {
                 const status = order.status as OrderStatus;
                 const approvalStatus = order.approval_status as ApprovalStatus;
+                const productItems = orderItems.filter(
+                  (i) => i.purchase_order_id === order.id && i.item_type === "producto",
+                );
+                const serviceItems = orderItems.filter(
+                  (i) => i.purchase_order_id === order.id && i.item_type === "servicio",
+                );
+                const deliveryRow = deliveryRows.find((r) => r.id === order.id);
+                const delivery = deliveryRow ? deliveryState(deliveryRow) : null;
                 const supplier = suppliers.find((item) => item.id === order.supplier_id);
                 const costCenter = costCenters.find((item) => item.id === order.cost_center_id);
                 return (
@@ -725,19 +769,52 @@ function ComprasPage() {
                         ))}
                     </td>
                     <td>
-                      <span
-                        className={`badge ${
-                          status === "completa"
-                            ? "badge-success"
-                            : status === "anulada"
-                              ? "badge-destructive"
-                              : status === "parcial"
-                                ? "badge-warning"
-                                : "badge-secondary"
-                        }`}
-                      >
-                        {STATUS_LABELS[status] ?? status}
-                      </span>
+                      {productItems.length === 0 && serviceItems.length > 0 ? (
+                        <span
+                          className={`badge ${status === "anulada" ? "badge-destructive" : approvalStatus === "aprobada" ? "badge-success" : "badge-warning"}`}
+                        >
+                          {status === "anulada"
+                            ? "ANULADO"
+                            : approvalStatus === "aprobada"
+                              ? "ACEPTADO"
+                              : "Por aprobar"}
+                        </span>
+                      ) : (
+                        <span
+                          className={`badge ${
+                            status === "completa"
+                              ? "badge-success"
+                              : status === "anulada"
+                                ? "badge-destructive"
+                                : status === "parcial"
+                                  ? "badge-warning"
+                                  : "badge-secondary"
+                          }`}
+                        >
+                          {STATUS_LABELS[status] ?? status}
+                        </span>
+                      )}
+                      {productItems.length > 0 && serviceItems.length > 0 && (
+                        <small className="block">
+                          Servicios:{" "}
+                          {status === "anulada"
+                            ? "ANULADO"
+                            : approvalStatus === "aprobada"
+                              ? "ACEPTADO"
+                              : "Por aprobar"}
+                        </small>
+                      )}
+                      {productItems.length > 0 && delivery && (
+                        <small
+                          className={`block ${delivery.late ? "font-semibold text-destructive" : "text-muted-foreground"}`}
+                        >
+                          {delivery.label}
+                          {deliveryRow?.due_date ? " · " + displayDate(deliveryRow.due_date) : ""}
+                        </small>
+                      )}
+                      <small className="block text-muted-foreground">
+                        Aprobación: {displayDate(order.approved_at)}
+                      </small>
                     </td>
                     <td>
                       {status === "anulada" ? (
@@ -761,7 +838,11 @@ function ComprasPage() {
                             approvalStatus === "aprobada" ? "badge-success" : "badge-warning"
                           }`}
                         >
-                          {approvalStatus === "aprobada" ? "Aprobada" : "Por aprobar"}
+                          {approvalStatus === "aprobada"
+                            ? productItems.length === 0 && serviceItems.length > 0
+                              ? "ACEPTADO"
+                              : "Aprobada"
+                            : "Por aprobar"}
                         </span>
                       )}
                     </td>
@@ -787,12 +868,24 @@ function ComprasPage() {
                               <Printer className="h-4 w-4" />
                               Imprimir
                             </DropdownMenuItem>
-                            {canEdit && status === "pendiente" && (
-                              <DropdownMenuItem onSelect={() => openEditOrder(order.id)}>
-                                <Pencil className="h-4 w-4" />
-                                Editar
-                              </DropdownMenuItem>
-                            )}
+                            <DropdownMenuItem onSelect={() => setTrackingOrderId(order.id)}>
+                              Historial / plazo de entrega
+                            </DropdownMenuItem>
+                            {(canEdit || canApprove) &&
+                              approvalStatus === "aprobada" &&
+                              status !== "anulada" && (
+                                <DropdownMenuItem onSelect={() => setTrackingOrderId(order.id)}>
+                                  Enviar PDF por correo
+                                </DropdownMenuItem>
+                              )}
+                            {canEdit &&
+                              status === "pendiente" &&
+                              approvalStatus === "por_aprobar" && (
+                                <DropdownMenuItem onSelect={() => openEditOrder(order.id)}>
+                                  <Pencil className="h-4 w-4" />
+                                  Editar
+                                </DropdownMenuItem>
+                              )}
                             {canDelete && status === "pendiente" && (
                               <DropdownMenuItem
                                 className="text-destructive"
@@ -826,6 +919,15 @@ function ComprasPage() {
         </table>
       </div>
 
+      {trackingOrder && (
+        <PurchaseOrderTracking
+          key={trackingOrder.id}
+          order={trackingOrder}
+          canSend={canEdit || canApprove}
+          canEdit={canEdit}
+          onClose={() => setTrackingOrderId(null)}
+        />
+      )}
       {formOpen && (editingOrderId ? canEdit : canCreate) && (
         <div
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4"
@@ -878,7 +980,7 @@ function ComprasPage() {
                       <option value="">Selecciona proveedor…</option>
                       {suppliers.map((supplier) => (
                         <option key={supplier.id} value={supplier.id}>
-                          {supplier.name}
+                          {supplier.name} ({supplier.supplier_kind})
                         </option>
                       ))}
                     </select>
@@ -1473,7 +1575,8 @@ function ComprasPage() {
                       <div>
                         <p className="font-medium">{product?.name ?? "Producto"}</p>
                         <p className="text-xs text-muted-foreground">
-                          Pendiente: {remaining} {item.measure_unit} de {item.quantity}
+                          Pedidas: {item.quantity} · Recibidas: {item.received_quantity} ·
+                          Pendientes: {remaining} {item.measure_unit}
                         </p>
                       </div>
                       <label className="text-sm text-muted-foreground">Recibir ahora</label>
@@ -1482,7 +1585,7 @@ function ComprasPage() {
                         type="number"
                         min="0"
                         max={remaining}
-                        step="0.001"
+                        step="1"
                         value={receivedQuantities[item.id] ?? 0}
                         onChange={(event) =>
                           setReceivedQuantities((current) => ({

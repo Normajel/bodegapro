@@ -38,6 +38,8 @@ const EMPTY_FORM = {
   city: "",
   delivery_address: "",
   notes: "",
+  supplier_kind: "productos",
+  delivery_days: "",
 };
 
 type Kind = "suppliers" | "customers";
@@ -50,6 +52,7 @@ function ContactosPage() {
   const canDelete = hasPermission(access?.name, access?.permissions, "contacts", "delete");
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Kind>("suppliers");
+  const [supplierFilter, setSupplierFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -88,6 +91,8 @@ function ContactosPage() {
     city?: string | null;
     delivery_address?: string | null;
     notes: string | null;
+    supplier_kind?: string;
+    delivery_days?: number | null;
   }) {
     setEditingId(row.id);
     setForm({
@@ -101,6 +106,8 @@ function ContactosPage() {
       city: row.city ?? "",
       delivery_address: row.delivery_address ?? "",
       notes: row.notes ?? "",
+      supplier_kind: row.supplier_kind ?? "productos",
+      delivery_days: row.delivery_days == null ? "" : String(row.delivery_days),
     });
     setFormOpen(true);
   }
@@ -132,8 +139,13 @@ function ContactosPage() {
           contact_name: form.contact_name || null,
           email: form.email || null,
           phone: form.phone || null,
-          address: form.address || null,
+          address: form.address.trim(),
           notes: form.notes || null,
+          supplier_kind: form.supplier_kind,
+          delivery_days:
+            form.supplier_kind === "servicios" || form.delivery_days === ""
+              ? null
+              : Number(form.delivery_days),
         };
         const result = editingId
           ? await supabase.from("suppliers").update(payload).eq("id", editingId)
@@ -389,6 +401,20 @@ function ContactosPage() {
         </section>
       )}
 
+      {tab === "suppliers" && (
+        <label className="label">
+          Tipo de proveedor
+          <select
+            className="input max-w-xs"
+            value={supplierFilter}
+            onChange={(e) => setSupplierFilter(e.target.value)}
+          >
+            <option value="">Todos</option>
+            <option value="productos">Productos (incluye ambos)</option>
+            <option value="servicios">Servicios (incluye ambos)</option>
+          </select>
+        </label>
+      )}
       <div className="card overflow-x-auto">
         <table className="table-base">
           <thead>
@@ -396,6 +422,7 @@ function ContactosPage() {
               <th>{tab === "suppliers" ? "Nombre" : "Nombre maestro"}</th>
               {tab === "suppliers" ? (
                 <>
+                  <th>Tipo / plazo</th>
                   <th>RUT</th>
                   <th>Ciudad</th>
                   <th>Contacto</th>
@@ -412,7 +439,7 @@ function ContactosPage() {
             {isLoading ? (
               <tr>
                 <td
-                  colSpan={tab === "suppliers" ? 7 : 3}
+                  colSpan={tab === "suppliers" ? 8 : 3}
                   className="py-8 text-center text-muted-foreground"
                 >
                   Cargando…
@@ -421,53 +448,75 @@ function ContactosPage() {
             ) : rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={tab === "suppliers" ? 7 : 3}
+                  colSpan={tab === "suppliers" ? 8 : 3}
                   className="py-8 text-center text-muted-foreground"
                 >
                   No hay {tab === "suppliers" ? "proveedores" : "nombres maestros"} registrados.
                 </td>
               </tr>
             ) : (
-              rows.map((r) => (
-                <tr key={r.id}>
-                  <td className="font-medium">{r.name}</td>
-                  {tab === "suppliers" ? (
-                    <>
-                      <td className="text-muted-foreground">{("rut" in r && r.rut) || "—"}</td>
-                      <td className="text-muted-foreground">{("city" in r && r.city) || "—"}</td>
-                      <td className="text-muted-foreground">{r.contact_name ?? "—"}</td>
-                      <td className="text-muted-foreground">{r.email ?? "—"}</td>
-                      <td className="text-muted-foreground">{r.phone ?? "—"}</td>
-                    </>
-                  ) : (
-                    <td className="text-muted-foreground">
-                      {("work_area" in r && r.work_area) || "—"}
+              rows
+                .filter(
+                  (r) =>
+                    tab !== "suppliers" ||
+                    !supplierFilter ||
+                    ("supplier_kind" in r &&
+                      (r.supplier_kind === supplierFilter || r.supplier_kind === "ambos")),
+                )
+                .map((r) => (
+                  <tr key={r.id}>
+                    <td className="font-medium">{r.name}</td>
+                    {tab === "suppliers" ? (
+                      <>
+                        <td>
+                          {"supplier_kind" in r
+                            ? ({
+                                productos: "Productos",
+                                servicios: "Servicios",
+                                ambos: "Productos y servicios",
+                              }[r.supplier_kind] ?? r.supplier_kind)
+                            : "—"}
+                          {"delivery_days" in r && r.delivery_days != null && (
+                            <small className="block text-muted-foreground">
+                              {r.delivery_days} días corridos
+                            </small>
+                          )}
+                        </td>
+                        <td className="text-muted-foreground">{("rut" in r && r.rut) || "—"}</td>
+                        <td className="text-muted-foreground">{("city" in r && r.city) || "—"}</td>
+                        <td className="text-muted-foreground">{r.contact_name ?? "—"}</td>
+                        <td className="text-muted-foreground">{r.email ?? "—"}</td>
+                        <td className="text-muted-foreground">{r.phone ?? "—"}</td>
+                      </>
+                    ) : (
+                      <td className="text-muted-foreground">
+                        {("work_area" in r && r.work_area) || "—"}
+                      </td>
+                    )}
+                    <td>
+                      <div className="flex gap-1">
+                        {canEdit && (
+                          <button
+                            className="btn btn-ghost p-1.5"
+                            onClick={() => openEdit(r)}
+                            aria-label="Editar"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            className="btn btn-ghost p-1.5 text-destructive"
+                            onClick={() => handleDelete(r.id, r.name)}
+                            aria-label="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
-                  )}
-                  <td>
-                    <div className="flex gap-1">
-                      {canEdit && (
-                        <button
-                          className="btn btn-ghost p-1.5"
-                          onClick={() => openEdit(r)}
-                          aria-label="Editar"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          className="btn btn-ghost p-1.5 text-destructive"
-                          onClick={() => handleDelete(r.id, r.name)}
-                          aria-label="Eliminar"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
+                  </tr>
+                ))
             )}
           </tbody>
         </table>
@@ -523,6 +572,35 @@ function ContactosPage() {
                 </div>
               ) : (
                 <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="label">
+                      Tipo de proveedor
+                      <select
+                        className="input"
+                        value={form.supplier_kind}
+                        onChange={(e) => setForm({ ...form, supplier_kind: e.target.value })}
+                      >
+                        <option value="productos">Productos</option>
+                        <option value="servicios">Servicios</option>
+                        <option value="ambos">Productos y servicios</option>
+                      </select>
+                    </label>
+                    {form.supplier_kind !== "servicios" && (
+                      <label className="label">
+                        Plazo de entrega (días corridos)
+                        <input
+                          className="input"
+                          type="number"
+                          min="0"
+                          max="3650"
+                          step="1"
+                          value={form.delivery_days}
+                          onChange={(e) => setForm({ ...form, delivery_days: e.target.value })}
+                          placeholder="Sin configurar"
+                        />
+                      </label>
+                    )}
+                  </div>
                   <div>
                     <label className="label">Persona de contacto</label>
                     <input

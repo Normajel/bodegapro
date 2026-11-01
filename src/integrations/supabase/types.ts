@@ -8,6 +8,46 @@ export type Database = {
   };
   public: {
     Tables: {
+      purchase_order_email_events: {
+        Row: {
+          id: string;
+          purchase_order_id: string;
+          recipient: string;
+          subject: string;
+          created_by: string;
+          created_at: string;
+          sent_at: string | null;
+          status: string;
+          provider_id: string | null;
+          error_message: string | null;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      accepted_services: {
+        Row: {
+          id: string;
+          purchase_order_id: string;
+          purchase_order_item_id: string;
+          supplier_id: string;
+          supplier_name: string;
+          order_number: string;
+          description: string;
+          entered_at: string;
+          approved_at: string | null;
+          approved_by: string | null;
+          payment_terms: string;
+          quantity: number;
+          measure_unit: string;
+          net_total: number;
+          total: number;
+          status: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       app_roles: {
         Row: {
           created_at: string;
@@ -244,6 +284,10 @@ export type Database = {
       };
       purchase_orders: {
         Row: {
+          delivery_days: number | null;
+          sent_at: string | null;
+          sent_to: string | null;
+          completed_at: string | null;
           approval_status: string;
           approved_at: string | null;
           approved_by: string | null;
@@ -266,6 +310,10 @@ export type Database = {
           vat_rate: number;
         };
         Insert: {
+          delivery_days?: number | null;
+          sent_at?: string | null;
+          sent_to?: string | null;
+          completed_at?: string | null;
           approval_status?: string;
           approved_at?: string | null;
           approved_by?: string | null;
@@ -288,6 +336,10 @@ export type Database = {
           vat_rate?: number;
         };
         Update: {
+          delivery_days?: number | null;
+          sent_at?: string | null;
+          sent_to?: string | null;
+          completed_at?: string | null;
           approval_status?: string;
           approved_at?: string | null;
           approved_by?: string | null;
@@ -560,6 +612,8 @@ export type Database = {
       };
       suppliers: {
         Row: {
+          supplier_kind: string;
+          delivery_days: number | null;
           address: string | null;
           city: string | null;
           contact_name: string | null;
@@ -573,6 +627,8 @@ export type Database = {
           rut: string | null;
         };
         Insert: {
+          supplier_kind?: string;
+          delivery_days?: number | null;
           address?: string | null;
           city?: string | null;
           contact_name?: string | null;
@@ -586,6 +642,8 @@ export type Database = {
           rut?: string | null;
         };
         Update: {
+          supplier_kind?: string;
+          delivery_days?: number | null;
           address?: string | null;
           city?: string | null;
           contact_name?: string | null;
@@ -602,6 +660,26 @@ export type Database = {
       };
     };
     Views: {
+      purchase_delivery_summary: {
+        Row: {
+          id: string;
+          order_number: string;
+          supplier_id: string;
+          status: string;
+          approval_status: string;
+          approved_at: string | null;
+          sent_at: string | null;
+          sent_to: string | null;
+          delivery_days: number | null;
+          completed_at: string | null;
+          due_date: string | null;
+          product_lines: number;
+          ordered_quantity: number;
+          received_quantity: number;
+          pending_quantity: number;
+        };
+        Relationships: [];
+      };
       customer_directory: {
         Row: {
           id: string;
@@ -611,6 +689,8 @@ export type Database = {
       };
       supplier_directory: {
         Row: {
+          supplier_kind: string;
+          delivery_days: number | null;
           id: string;
           name: string;
         };
@@ -618,6 +698,10 @@ export type Database = {
       };
     };
     Functions: {
+      begin_purchase_order_email: {
+        Args: { p_order_id: string; p_request_id: string };
+        Returns: Json;
+      };
       reset_business_data: {
         Args: Record<PropertyKey, never>;
         Returns: undefined;

@@ -23,6 +23,7 @@ import { Route as AuthenticatedDocumentoCubicacionRouteImport } from './routes/_
 import { Route as AuthenticatedInformesRouteImport } from './routes/_authenticated/informes'
 import { Route as AuthenticatedMovimientosRouteImport } from './routes/_authenticated/movimientos'
 import { Route as AuthenticatedProductosRouteImport } from './routes/_authenticated/productos'
+import { Route as AuthenticatedServiciosRouteImport } from './routes/_authenticated/servicios'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -96,6 +97,11 @@ const AuthenticatedProductosRoute = AuthenticatedProductosRouteImport.update({
   path: '/productos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedServiciosRoute = AuthenticatedServiciosRouteImport.update({
+  id: '/servicios',
+  path: '/servicios',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/informes': typeof AuthenticatedInformesRoute
   '/movimientos': typeof AuthenticatedMovimientosRoute
   '/productos': typeof AuthenticatedProductosRoute
+  '/servicios': typeof AuthenticatedServiciosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/informes': typeof AuthenticatedInformesRoute
   '/movimientos': typeof AuthenticatedMovimientosRoute
   '/productos': typeof AuthenticatedProductosRoute
+  '/servicios': typeof AuthenticatedServiciosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/_authenticated/informes': typeof AuthenticatedInformesRoute
   '/_authenticated/movimientos': typeof AuthenticatedMovimientosRoute
   '/_authenticated/productos': typeof AuthenticatedProductosRoute
+  '/_authenticated/servicios': typeof AuthenticatedServiciosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/informes'
     | '/movimientos'
     | '/productos'
+    | '/servicios'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/informes'
     | '/movimientos'
     | '/productos'
+    | '/servicios'
   id:
     | '__root__'
     | '/'
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/_authenticated/informes'
     | '/_authenticated/movimientos'
     | '/_authenticated/productos'
+    | '/_authenticated/servicios'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -300,6 +312,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProductosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/servicios': {
+      id: '/_authenticated/servicios'
+      path: '/servicios'
+      fullPath: '/servicios'
+      preLoaderRoute: typeof AuthenticatedServiciosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -314,6 +333,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedInformesRoute: typeof AuthenticatedInformesRoute
   AuthenticatedMovimientosRoute: typeof AuthenticatedMovimientosRoute
   AuthenticatedProductosRoute: typeof AuthenticatedProductosRoute
+  AuthenticatedServiciosRoute: typeof AuthenticatedServiciosRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -327,6 +347,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInformesRoute: AuthenticatedInformesRoute,
   AuthenticatedMovimientosRoute: AuthenticatedMovimientosRoute,
   AuthenticatedProductosRoute: AuthenticatedProductosRoute,
+  AuthenticatedServiciosRoute: AuthenticatedServiciosRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
