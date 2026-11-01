@@ -134,10 +134,14 @@ export const createManagedUser = createServerFn({ method: "POST" })
       .single();
 
     if (roleError) throw new Error(`No se pudo validar el perfil: ${roleError.message}`);
-    if (role.name === "ADMIN" || role.name === "ADMINPRO")
-      throw new Error(
-        "No se pueden asignar los perfiles ADMIN o ADMINPRO desde el alta de usuarios",
-      );
+    if (role.name === "ADMINPRO")
+      throw new Error("ADMINPRO está reservado al propietario de la plataforma");
+    if (role.name === "ADMIN") {
+      const { data: owner, error: ownerError } = await context.supabase.rpc("is_platform_owner");
+      if (ownerError || !owner || currentProfile.app_roles?.name !== "ADMINPRO") {
+        throw new Error("Solo el propietario ADMINPRO puede crear administradores adicionales");
+      }
+    }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: takenUsername } = await supabaseAdmin
@@ -205,6 +209,17 @@ export const updateManagedUser = createServerFn({ method: "POST" })
 
     if (targetError) throw new Error(`No se pudo encontrar el usuario: ${targetError.message}`);
 
+    if (profile.app_roles?.name === "ADMINPRO") {
+      const { data: owner, error: ownerError } = await context.supabase.rpc("is_platform_owner");
+      if (
+        ownerError ||
+        !owner ||
+        context.userId !== data.userId ||
+        currentProfile.app_roles?.name !== "ADMINPRO"
+      ) {
+        throw new Error("Solo el propietario puede modificar su cuenta ADMINPRO");
+      }
+    }
     const isAdminAccount = ["ADMIN", "ADMINPRO"].includes(profile.app_roles?.name ?? "");
     if (isAdminAccount && data.roleId && data.roleId !== profile.role_id) {
       throw new Error("No se puede cambiar el perfil de una cuenta administradora");
