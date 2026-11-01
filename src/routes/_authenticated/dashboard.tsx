@@ -1,6 +1,5 @@
 import { TablePagination } from "@/components/table-pagination";
 import { pageWindow, type TablePageSize } from "@/lib/table-pagination";
-import { DeliveryPanel } from "@/components/delivery-panel";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -250,7 +249,6 @@ function DashboardPage() {
         </p>
       </div>
 
-      <DeliveryPanel />
       <section aria-label="Resumen de hoy" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="card p-4">
           <span className="text-xs font-medium text-success">Entradas de hoy</span>

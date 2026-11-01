@@ -1,3 +1,4 @@
+import { DeliveryPanel } from "@/components/delivery-panel";
 import { PriceTrend } from "@/components/price-trend";
 import { usePurchasePrices } from "@/hooks/use-purchase-prices";
 import { formatPurchaseUnitPrice, previousPurchase } from "@/lib/purchase-prices";
@@ -927,6 +928,8 @@ function ComprasPage() {
           </tbody>
         </table>
       </div>
+
+      <DeliveryPanel />
 
       {trackingOrder && (
         <PurchaseOrderTracking
