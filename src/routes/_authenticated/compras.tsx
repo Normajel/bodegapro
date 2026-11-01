@@ -98,6 +98,12 @@ function ComprasPage() {
   const canCreate = hasPermission(access?.name, access?.permissions, "purchases", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
+  const roleName = (access?.name ?? "").trim().toUpperCase();
+  const canReceive =
+    ["BODEGA", "ADMIN", "ADMINPRO"].includes(roleName) &&
+    hasPermission(roleName, access?.permissions, "purchases", "view") &&
+    hasPermission(roleName, access?.permissions, "movements", "create") &&
+    (roleName === "BODEGA" || canEdit);
   const canApprove =
         ["ADMINPRO", "ADMIN", "GERENCIA"].includes((access?.name ?? "").trim().toUpperCase());
   const queryClient = useQueryClient();
@@ -322,6 +328,7 @@ function ComprasPage() {
   }
 
   function openReceive(orderId: string) {
+    if (!canReceive) return;
     const items = orderItems.filter(
       (item) => item.purchase_order_id === orderId && item.item_type === "producto",
     );
@@ -405,7 +412,7 @@ function ComprasPage() {
 
   async function receiveOrder(event: React.FormEvent) {
     event.preventDefault();
-    if (!activeOrder) return;
+    if (!canReceive || !activeOrder) return;
     if (!documentNumber.trim()) {
       toast.error("Ingresa el número de factura o guía de despacho");
       return;
@@ -794,7 +801,7 @@ function ComprasPage() {
                                 Anular
                               </DropdownMenuItem>
                             )}
-                            {canEdit &&
+                            {canReceive &&
                               approvalStatus === "aprobada" &&
                               (status === "pendiente" || status === "parcial") &&
                               orderItems.some(
@@ -1408,7 +1415,7 @@ function ComprasPage() {
         </>
       )}
 
-      {receiveOpen && activeOrder && canEdit && (
+      {receiveOpen && activeOrder && canReceive && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
           <div className="card my-2 w-full max-w-3xl space-y-4 p-4 sm:my-4 sm:p-6">
             <div className="flex items-center justify-between">
