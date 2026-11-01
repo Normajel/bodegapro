@@ -1,3 +1,5 @@
+import { TablePagination } from "@/components/table-pagination";
+import { fetchAllTableRows, pageWindow, type TablePageSize } from "@/lib/table-pagination";
 import { PriceTrend } from "@/components/price-trend";
 import { usePurchasePrices } from "@/hooks/use-purchase-prices";
 import { formatPurchaseUnitPrice, previousPurchase, productPurchases } from "@/lib/purchase-prices";
@@ -179,6 +181,10 @@ function MovimientosPage() {
   const [selectedPurchaseOrderId, setSelectedPurchaseOrderId] = useState("");
   const [documentType, setDocumentType] = useState<"factura" | "guia_despacho">("factura");
   const [documentNumber, setDocumentNumber] = useState("");
+  const [movementPage, setMovementPage] = useState(0);
+  const [movementPageSize, setMovementPageSize] = useState<TablePageSize>(10);
+  const [documentPage, setDocumentPage] = useState(0);
+  const [documentPageSize, setDocumentPageSize] = useState<TablePageSize>(10);
   const [filterType, setFilterType] = useState<"" | "entrada" | "salida">("");
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
@@ -187,6 +193,13 @@ function MovimientosPage() {
     useState<PurchaseOperationFilter>("");
   const [purchaseDocumentFilter, setPurchaseDocumentFilter] = useState<PurchaseDocumentFilter>("");
   const [purchaseStatusFilter, setPurchaseStatusFilter] = useState<PurchaseStatusFilter>("");
+
+  useEffect(() => {
+    setMovementPage(0);
+  }, [filterType, filterFrom, filterTo]);
+  useEffect(() => {
+    setDocumentPage(0);
+  }, [purchaseSearch, purchaseOperationFilter, purchaseDocumentFilter, purchaseStatusFilter]);
 
   useEffect(() => {
     const channel = supabase
@@ -203,18 +216,21 @@ function MovimientosPage() {
     };
   }, [queryClient]);
 
-  const { data: movements = [], isLoading } = useQuery({
+  const {
+    data: movements = [],
+    isLoading,
+    isError: movementsError,
+  } = useQuery({
     queryKey: ["movements"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("stock_movements")
-        .select("*, products(name, sku, unit, unit_cost)")
-        .order("created_at", { ascending: false })
-        .limit(500);
-
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () =>
+      fetchAllTableRows((start, end) =>
+        supabase
+          .from("stock_movements")
+          .select("*, products(name, sku, unit, unit_cost)")
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(start, end),
+      ),
   });
 
   const { data: products = [] } = useQuery({
@@ -281,14 +297,14 @@ function MovimientosPage() {
     isError: purchaseEntriesError,
   } = useQuery<PurchaseEntry[]>({
     queryKey: ["purchase-entries"],
-    queryFn: async () => {
-      const { data, error } = await db
-        .from("purchase_entries")
-        .select("id, cancelled_at, cancellation_reason");
-
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: () =>
+      fetchAllTableRows<PurchaseEntry>((start, end) =>
+        db
+          .from("purchase_entries")
+          .select("id, cancelled_at, cancellation_reason")
+          .order("id")
+          .range(start, end),
+      ),
   });
 
   const {
@@ -297,15 +313,15 @@ function MovimientosPage() {
     isError: purchaseEntryLinksError,
   } = useQuery<PurchaseEntryLink[]>({
     queryKey: ["purchase-entry-movement-links"],
-    queryFn: async () => {
-      const { data, error } = await db
-        .from("purchase_entry_items")
-        .select("purchase_entry_id, stock_movement_id")
-        .not("stock_movement_id", "is", null);
-
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: () =>
+      fetchAllTableRows<PurchaseEntryLink>((start, end) =>
+        db
+          .from("purchase_entry_items")
+          .select("purchase_entry_id, stock_movement_id")
+          .not("stock_movement_id", "is", null)
+          .order("id")
+          .range(start, end),
+      ),
   });
 
   const {
@@ -314,14 +330,14 @@ function MovimientosPage() {
     isError: saleCancellationsError,
   } = useQuery<SaleCancellation[]>({
     queryKey: ["sale-document-cancellations"],
-    queryFn: async () => {
-      const { data, error } = await db
-        .from("stock_movement_document_cancellations")
-        .select("stock_movement_id, cancelled_at, cancellation_reason");
-
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: () =>
+      fetchAllTableRows<SaleCancellation>((start, end) =>
+        db
+          .from("stock_movement_document_cancellations")
+          .select("stock_movement_id, cancelled_at, cancellation_reason")
+          .order("stock_movement_id")
+          .range(start, end),
+      ),
   });
 
   const {
@@ -330,19 +346,18 @@ function MovimientosPage() {
     isError: registeredDocumentMovementsError,
   } = useQuery<RegisteredDocumentMovement[]>({
     queryKey: ["registered-document-movements"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("stock_movements")
-        .select(
-          "id, created_at, type, batch_id, supplier_id, customer_id, document_type, document_number, purchase_order, notes",
-        )
-        .not("document_number", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(2000);
-
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: () =>
+      fetchAllTableRows<RegisteredDocumentMovement>((start, end) =>
+        supabase
+          .from("stock_movements")
+          .select(
+            "id, created_at, type, batch_id, supplier_id, customer_id, document_type, document_number, purchase_order, notes",
+          )
+          .not("document_number", "is", null)
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(start, end),
+      ),
   });
 
   const purchasesLoading =
@@ -470,6 +485,11 @@ function MovimientosPage() {
       return true;
     });
   }, [movements, filterType, filterFrom, filterTo]);
+
+  const movementWindow = pageWindow(filtered.length, movementPageSize, movementPage);
+  const documentWindow = pageWindow(filteredPurchases.length, documentPageSize, documentPage);
+  const pagedMovements = filtered.slice(movementWindow.start, movementWindow.end);
+  const pagedDocuments = filteredPurchases.slice(documentWindow.start, documentWindow.end);
 
   type Movement = (typeof movements)[number];
 
@@ -1533,6 +1553,12 @@ function MovimientosPage() {
                   Cargando…
                 </td>
               </tr>
+            ) : movementsError ? (
+              <tr>
+                <td colSpan={10} role="alert" className="py-8 text-center text-destructive">
+                  No se pudieron cargar los movimientos. Actualiza la página para reintentar.
+                </td>
+              </tr>
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={10} className="py-8 text-center text-muted-foreground">
@@ -1542,7 +1568,7 @@ function MovimientosPage() {
                 </td>
               </tr>
             ) : (
-              filtered.map((m) => (
+              pagedMovements.map((m) => (
                 <tr key={m.id}>
                   <td className="whitespace-nowrap font-mono text-xs">
                     {folioLabel(m.type, m.folio)}
@@ -1673,6 +1699,19 @@ function MovimientosPage() {
             )}
           </tbody>
         </table>
+        <TablePagination
+          id="movements"
+          label="Movimientos"
+          total={filtered.length}
+          page={movementWindow.page}
+          pageSize={movementPageSize}
+          onPageChange={setMovementPage}
+          onPageSizeChange={(size) => {
+            setMovementPageSize(size);
+            setMovementPage(0);
+          }}
+          disabled={isLoading}
+        />
       </div>
 
       {/* Historial de compras: fuera del formulario de movimientos */}
@@ -1812,7 +1851,7 @@ function MovimientosPage() {
                 </td>
               </tr>
             ) : (
-              filteredPurchases.map((purchase) => (
+              pagedDocuments.map((purchase) => (
                 <tr key={purchase.id}>
                   <td className="whitespace-nowrap">
                     {new Date(purchase.created_at).toLocaleDateString("es-CL")}
@@ -1888,6 +1927,19 @@ function MovimientosPage() {
             )}
           </tbody>
         </table>
+        <TablePagination
+          id="registered-documents"
+          label="Compras y Ventas registradas"
+          total={filteredPurchases.length}
+          page={documentWindow.page}
+          pageSize={documentPageSize}
+          onPageChange={setDocumentPage}
+          onPageSizeChange={(size) => {
+            setDocumentPageSize(size);
+            setDocumentPage(0);
+          }}
+          disabled={purchasesLoading}
+        />
       </div>
 
       {/* Formulario de movimiento */}
