@@ -1,10 +1,10 @@
+import { PriceTrend } from "@/components/price-trend";
+import { usePurchasePrices } from "@/hooks/use-purchase-prices";
+import { productPurchases } from "@/lib/purchase-prices";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowDown,
-  ArrowRight,
-  ArrowUp,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -175,70 +175,7 @@ function ProductosPage() {
     },
   });
 
-  const { data: priceHistory = { fromItems: [], fromMovements: [] } } = useQuery<{
-    fromItems: Array<{ product_id: string; unit_price: number }>;
-    fromMovements: Array<{ product_id: string; unit_price: number }>;
-  }>({
-    queryKey: ["inventory-cost-trends"],
-    queryFn: async () => {
-      const [items, movements] = await Promise.all([
-        (supabase as any)
-          .from("purchase_entry_items")
-          .select("product_id, unit_price, created_at")
-          .order("created_at", { ascending: false })
-          .limit(5000),
-        (supabase as any)
-          .from("stock_movements")
-          .select("product_id, unit_cost, created_at, reference")
-          .eq("type", "entrada")
-          .gt("unit_cost", 0)
-          .order("created_at", { ascending: false })
-          .limit(5000),
-      ]);
-      if (items.error) throw items.error;
-      const fromItems = (items.data ?? []).map((row: any) => ({
-        product_id: row.product_id as string,
-        unit_price: Number(row.unit_price),
-      }));
-      const fromMovements = (movements.data ?? [])
-        .filter((row: any) => !String(row.reference ?? "").startsWith("Anulación"))
-        .map((row: any) => ({
-          product_id: row.product_id as string,
-          unit_price: Number(row.unit_cost),
-        }));
-      return { fromItems, fromMovements };
-    },
-  });
-
-  // Hasta 3 precios más recientes por producto; el primero es el más nuevo.
-  const costTrends = new Map<string, "up" | "same" | "down">();
-  {
-    const collect = (rows: Array<{ product_id: string; unit_price: number }>) => {
-      const recent = new Map<string, number[]>();
-      for (const row of rows) {
-        const prices = recent.get(row.product_id) ?? [];
-        if (prices.length < 3) {
-          prices.push(row.unit_price);
-          recent.set(row.product_id, prices);
-        }
-      }
-      return recent;
-    };
-    const fromItems = collect(priceHistory.fromItems ?? []);
-    const fromMovements = collect(priceHistory.fromMovements ?? []);
-    for (const productId of new Set([...fromItems.keys(), ...fromMovements.keys()])) {
-      const a = fromItems.get(productId) ?? [];
-      const b = fromMovements.get(productId) ?? [];
-      const prices = a.length >= b.length ? a : b;
-      const [latest, ...previous] = prices;
-      if (latest === undefined || previous.length === 0) continue;
-      const average = previous.reduce((sum, price) => sum + price, 0) / previous.length;
-      costTrends.set(
-        productId,
-        latest > average + 0.5 ? "up" : latest < average - 0.5 ? "down" : "same",
-      );
-    }
-  }
+  const { data: purchasePrices = [], isError: priceHistoryError } = usePurchasePrices();
 
   const filtered = products.filter((p) => {
     if (p.active === showArchived) return false;
@@ -623,6 +560,11 @@ function ProductosPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl space-y-4 px-2 py-4 sm:px-4">
+      {priceHistoryError && (
+        <p role="status" className="text-sm text-muted-foreground">
+          No se pudo consultar el historial; los indicadores de precios no están disponibles.
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Inventario</h1>
@@ -788,27 +730,22 @@ function ProductosPage() {
                           currency: "CLP",
                           maximumFractionDigits: 0,
                         })}
-                        {(() => {
-                          const trend = costTrends.get(p.id);
-                          if (!trend) return null;
-                          const label =
-                            trend === "up"
-                              ? "El costo subió respecto de las compras anteriores"
-                              : trend === "down"
-                                ? "El costo bajó respecto de las compras anteriores"
-                                : "El costo se mantiene";
-                          const Icon =
-                            trend === "up" ? ArrowUp : trend === "down" ? ArrowDown : ArrowRight;
-                          return (
-                            <Icon
-                              className={`h-3.5 w-3.5 ${trend === "up" ? "text-destructive" : "text-success"}`}
-                              aria-label={label}
-                            >
-                              <title>{label}</title>
-                            </Icon>
-                          );
-                        })()}
                       </span>
+                      {(() => {
+                        const recent = productPurchases(purchasePrices, p.id, p.unit);
+                        return recent[0] ? (
+                          <small className="block whitespace-nowrap text-muted-foreground">
+                            Últ. compra: $
+                            {recent[0].unit_price.toLocaleString("es-CL", {
+                              maximumFractionDigits: 2,
+                            })}
+                            <PriceTrend
+                              current={recent[0].unit_price}
+                              previous={recent[1]?.unit_price}
+                            />
+                          </small>
+                        ) : null;
+                      })()}
                     </td>
                     <td className="hidden lg:table-cell">
                       {(stock * unitCost).toLocaleString("es-CL", {

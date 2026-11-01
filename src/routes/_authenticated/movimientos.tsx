@@ -1,3 +1,6 @@
+import { PriceTrend } from "@/components/price-trend";
+import { usePurchasePrices } from "@/hooks/use-purchase-prices";
+import { formatPurchaseUnitPrice, previousPurchase, productPurchases } from "@/lib/purchase-prices";
 import { ServiceLedger } from "@/components/service-ledger";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -50,13 +53,6 @@ type PurchaseItem = {
   unit: string;
   unitIsOther?: boolean;
   unit_price: number;
-};
-
-type PriceRecord = {
-  product_id: string;
-  unit_price: number;
-  unit: string;
-  created_at: string;
 };
 
 type PurchaseEntry = {
@@ -199,6 +195,7 @@ function MovimientosPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "stock_movements" }, () => {
         queryClient.invalidateQueries({ queryKey: ["movements"] });
         queryClient.invalidateQueries({ queryKey: ["products"] });
+        queryClient.invalidateQueries({ queryKey: ["purchase-price-history"] });
       })
       .subscribe();
 
@@ -360,34 +357,7 @@ function MovimientosPage() {
     saleCancellationsError ||
     registeredDocumentMovementsError;
 
-  const { data: priceHistory = [] } = useQuery<PriceRecord[]>({
-    queryKey: ["purchase-price-history"],
-    queryFn: async () => {
-      const { data, error } = await db
-        .from("purchase_entry_items")
-        .select("product_id, unit_price, unit, created_at")
-        .order("created_at", { ascending: false })
-        .limit(5000);
-
-      if (error) throw error;
-      return (data ?? []) as PriceRecord[];
-    },
-  });
-
-  const pricesByProduct = useMemo(() => {
-    const grouped: Record<string, PriceRecord[]> = {};
-
-    for (const record of priceHistory) {
-      const productPrices = grouped[record.product_id] ?? [];
-
-      if (productPrices.length < 3) {
-        productPrices.push(record);
-        grouped[record.product_id] = productPrices;
-      }
-    }
-
-    return grouped;
-  }, [priceHistory]);
+  const { data: purchasePrices = [], isError: priceHistoryError } = usePurchasePrices();
 
   const filteredPurchases = useMemo(() => {
     const term = purchaseSearch.trim().toLocaleLowerCase("es-CL");
@@ -778,15 +748,15 @@ function MovimientosPage() {
     const product = products.find((p) => p.id === productId);
     if (!product) return;
 
-    const previousPrices = pricesByProduct[productId] ?? [];
-    const lastPrice = previousPrices[0]?.unit_price ?? 0;
+    const previousPrices = productPurchases(purchasePrices, productId, product.unit || "unidad");
+    const lastPrice = previousPrices[0]?.unit_price;
 
     updatePurchaseItem(key, {
       product_id: product.id,
       search: product.name,
       unit: product.unit || "unidad",
       unitIsOther: !UNITS.includes((product.unit || "unidad") as (typeof UNITS)[number]),
-      unit_price: lastPrice || product.unit_cost || 0,
+      unit_price: lastPrice ?? product.unit_cost ?? 0,
     });
   }
 
@@ -1431,6 +1401,8 @@ function MovimientosPage() {
             const product = products.find((current) => current.id === item.product_id);
             return {
               key: item.key,
+              productId: item.product_id,
+              movementId: item.id,
               name: product?.name ?? item.search,
               sku: product?.sku ?? "—",
               quantity: item.quantity,
@@ -1444,6 +1416,8 @@ function MovimientosPage() {
             return [
               {
                 key: form.product_id,
+                productId: form.product_id,
+                movementId: undefined,
                 name: product?.name ?? "Producto",
                 sku: product?.sku ?? "—",
                 quantity: form.quantity,
@@ -1466,6 +1440,15 @@ function MovimientosPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
+      <p className="text-xs text-muted-foreground">
+        Precio unitario de compra: ↓ verde baja · → amarilla se mantiene · ↑ roja sube. Comparación
+        con la compra anterior del mismo producto y unidad, entre todos los proveedores.
+      </p>
+      {priceHistoryError && (
+        <p role="status" className="text-sm text-muted-foreground">
+          No se pudo consultar el historial; los indicadores de precios no están disponibles.
+        </p>
+      )}
       <details className="card p-4">
         <summary className="cursor-pointer font-semibold">
           Servicios de órdenes de compra · ACEPTADOS
@@ -1548,6 +1531,7 @@ function MovimientosPage() {
               <th>Descripción</th>
               <th>Tipo</th>
               <th>Cantidad</th>
+              <th>Precio unitario</th>
               <th>Valor total</th>
               <th>Proveedor / Tipo de unidad</th>
               <th>OC / Nombre maestro</th>
@@ -1558,13 +1542,13 @@ function MovimientosPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                <td colSpan={10} className="py-8 text-center text-muted-foreground">
                   Cargando…
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                <td colSpan={10} className="py-8 text-center text-muted-foreground">
                   {hasFilters
                     ? "No hay movimientos con estos filtros."
                     : "No hay movimientos registrados."}
@@ -1601,6 +1585,29 @@ function MovimientosPage() {
                     {m.quantity_value ?? m.quantity} {m.measure_unit ?? m.products?.unit ?? ""}
                   </td>
 
+                  <td className="whitespace-nowrap">
+                    {(() => {
+                      const purchase = purchasePrices.find((r) => r.movement_ids.includes(m.id));
+                      const price = purchase?.movement_prices[m.id] ?? m.unit_cost;
+                      return price == null ? (
+                        "—"
+                      ) : (
+                        <>
+                          {formatPurchaseUnitPrice(Number(price))}
+                          {m.type === "entrada" && purchase && (
+                            <PriceTrend
+                              current={Number(price)}
+                              previous={
+                                previousPurchase(purchasePrices, m.product_id, purchase.unit, {
+                                  movementId: m.id,
+                                })?.unit_price
+                              }
+                            />
+                          )}
+                        </>
+                      );
+                    })()}
+                  </td>
                   <td className="whitespace-nowrap">
                     {formatMoney(
                       (m.quantity_value ?? m.quantity) *
@@ -2079,7 +2086,9 @@ function MovimientosPage() {
                           .slice(0, 8);
 
                         const history = item.product_id
-                          ? (pricesByProduct[item.product_id] ?? [])
+                          ? productPurchases(purchasePrices, item.product_id, item.unit)
+                              .filter((r) => !item.id || !r.movement_ids.includes(item.id))
+                              .slice(0, 4)
                           : [];
 
                         return (
@@ -2177,7 +2186,20 @@ function MovimientosPage() {
                                 </div>
 
                                 <div>
-                                  <label className="label">Precio unitario *</label>
+                                  <label className="label">
+                                    Precio unitario *
+                                    <PriceTrend
+                                      current={item.unit_price}
+                                      previous={
+                                        previousPurchase(
+                                          purchasePrices,
+                                          item.product_id,
+                                          item.unit,
+                                          { movementId: item.id },
+                                        )?.unit_price
+                                      }
+                                    />
+                                  </label>
                                   <input
                                     className="input"
                                     type="number"
@@ -2201,7 +2223,7 @@ function MovimientosPage() {
 
                                 {history.length > 0 ? (
                                   <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-                                    {history.map((price, priceIndex) => (
+                                    {history.slice(0, 3).map((price, priceIndex) => (
                                       <span key={`${price.created_at}-${priceIndex}`}>
                                         <span className="text-muted-foreground">
                                           {priceIndex === 0
@@ -2211,7 +2233,11 @@ function MovimientosPage() {
                                               : "Hace 2 compras"}
                                           :
                                         </span>{" "}
-                                        <strong>{formatMoney(price.unit_price)}</strong>
+                                        <strong>{formatPurchaseUnitPrice(price.unit_price)}</strong>
+                                        <PriceTrend
+                                          current={price.unit_price}
+                                          previous={history[priceIndex + 1]?.unit_price}
+                                        />
                                         <span className="text-muted-foreground">
                                           {" "}
                                           ({new Date(price.created_at).toLocaleDateString("es-CL")})
@@ -2775,7 +2801,19 @@ function MovimientosPage() {
                         <td>{item.sku}</td>
                         <td className="text-right">{item.quantity}</td>
                         <td>{item.unit}</td>
-                        <td className="text-right">{formatMoney(item.unitPrice)}</td>
+                        <td className="text-right">
+                          {formatPurchaseUnitPrice(item.unitPrice)}
+                          {form.type === "entrada" && (
+                            <PriceTrend
+                              current={item.unitPrice}
+                              previous={
+                                previousPurchase(purchasePrices, item.productId, item.unit, {
+                                  movementId: item.movementId,
+                                })?.unit_price
+                              }
+                            />
+                          )}
+                        </td>
                         <td className="text-right">
                           {formatMoney(item.quantity * item.unitPrice)}
                         </td>

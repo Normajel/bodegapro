@@ -1,3 +1,6 @@
+import { PriceTrend } from "@/components/price-trend";
+import { usePurchasePrices } from "@/hooks/use-purchase-prices";
+import { formatPurchaseUnitPrice, previousPurchase } from "@/lib/purchase-prices";
 import { PurchaseOrderTracking } from "@/components/purchase-order-tracking";
 import { deliveryState, displayDate } from "@/lib/purchase-delivery";
 import { createFileRoute } from "@tanstack/react-router";
@@ -97,6 +100,7 @@ function newLine(itemType: PurchaseItemType = "producto"): OrderItemDraft {
 
 function ComprasPage() {
   const access = useAppAccess();
+  const { data: purchasePrices = [], isError: priceHistoryError } = usePurchasePrices();
   const canCreate = hasPermission(access?.name, access?.permissions, "purchases", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
@@ -281,6 +285,7 @@ function ComprasPage() {
   function invalidateOrders() {
     return Promise.all([
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }),
+      queryClient.invalidateQueries({ queryKey: ["purchase-price-history"] }),
       queryClient.invalidateQueries({ queryKey: ["purchase-delivery-summary"] }),
       queryClient.invalidateQueries({ queryKey: ["accepted-services"] }),
       queryClient.invalidateQueries({ queryKey: ["service-providers"] }),
@@ -591,6 +596,12 @@ function ComprasPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
+      {priceHistoryError && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Historial de precios no disponible. Los indicadores de compra se mostrarán cuando se pueda
+          consultar.
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Órdenes de compra</h1>
@@ -1173,7 +1184,26 @@ function ComprasPage() {
                           />
                         </div>
                         <div>
-                          <label className="label">Precio neto unitario *</label>
+                          <label className="label">
+                            Precio neto unitario *
+                            {line.product_id && (
+                              <PriceTrend
+                                current={line.unit_cost}
+                                previous={
+                                  previousPurchase(
+                                    purchasePrices,
+                                    line.product_id,
+                                    line.measure_unit,
+                                    {
+                                      purchaseKey: editingOrderId
+                                        ? "oc:" + editingOrderId
+                                        : undefined,
+                                    },
+                                  )?.unit_price
+                                }
+                              />
+                            )}
+                          </label>
                           <input
                             className="input"
                             type="number"
@@ -1456,7 +1486,25 @@ function ComprasPage() {
                         <td className="text-right">
                           {item.quantity} {item.measure_unit}
                         </td>
-                        <td className="text-right">{money(item.unit_cost)}</td>
+                        <td className="text-right">
+                          {formatPurchaseUnitPrice(item.unit_cost)}
+                          {item.product_id && (
+                            <PriceTrend
+                              current={item.unit_cost}
+                              previous={
+                                previousPurchase(
+                                  purchasePrices,
+                                  item.product_id,
+                                  item.measure_unit,
+                                  {
+                                    purchaseKey: "oc:" + previewOrder.id,
+                                    before: previewOrder.created_at,
+                                  },
+                                )?.unit_price
+                              }
+                            />
+                          )}
+                        </td>
                         <td className="text-right">{money(item.line_total)}</td>
                       </tr>
                     ))}
@@ -1574,6 +1622,23 @@ function ComprasPage() {
                     >
                       <div>
                         <p className="font-medium">{product?.name ?? "Producto"}</p>
+                        <p className="text-sm">
+                          Precio unitario: {formatPurchaseUnitPrice(item.unit_cost)}
+                          <PriceTrend
+                            current={item.unit_cost}
+                            previous={
+                              previousPurchase(
+                                purchasePrices,
+                                item.product_id ?? "",
+                                item.measure_unit,
+                                {
+                                  purchaseKey: "oc:" + activeOrder.id,
+                                  before: activeOrder.created_at,
+                                },
+                              )?.unit_price
+                            }
+                          />
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           Pedidas: {item.quantity} · Recibidas: {item.received_quantity} ·
                           Pendientes: {remaining} {item.measure_unit}
