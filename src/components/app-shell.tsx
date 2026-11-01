@@ -130,9 +130,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             activeNavItem.module === "settings" ? "manage" : "view",
           ));
 
-  const isHome = pathname.replace(/\/$/, "") === "/dashboard";
-  const { data: branding } = usePanelBranding(isHome && !!canViewCurrentPage && !!access);
-  const { data: panelLogoUrl } = usePanelLogoUrl(isHome ? branding?.panel_logo_path : null);
+  const { data: branding } = usePanelBranding(!!access);
+  const { data: panelLogoUrl } = usePanelLogoUrl(branding?.panel_logo_path);
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
@@ -197,10 +196,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Sidebar desktop */}
       <aside className="sticky top-0 h-dvh w-64 shrink-0 overflow-y-auto hidden flex-col gap-6 border-r border-sidebar-border bg-sidebar p-4 md:flex">
         <Link to="/dashboard" className="flex items-center gap-2 px-2">
-          <PanelIdentity
-            name={isHome ? branding?.panel_name : undefined}
-            logoUrl={isHome ? panelLogoUrl : undefined}
-          />
+          <PanelIdentity name={branding?.panel_name} logoUrl={panelLogoUrl} />
         </Link>
         {nav}
         <button
@@ -216,10 +212,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-40 flex min-h-[4.5rem] items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-8">
           <span className="min-w-0 max-w-[55%] md:hidden">
-            <PanelIdentity
-              name={isHome ? branding?.panel_name : undefined}
-              logoUrl={isHome ? panelLogoUrl : undefined}
-            />
+            <PanelIdentity name={branding?.panel_name} logoUrl={panelLogoUrl} />
           </span>
           <p
             className="min-w-0 flex-1 break-words text-right text-sm font-semibold md:text-left md:text-base"
