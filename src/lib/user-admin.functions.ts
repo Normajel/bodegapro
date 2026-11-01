@@ -226,6 +226,7 @@ export const updateManagedUser = createServerFn({ method: "POST" })
     }
 
     let roleId = profile.role_id;
+    let promotingToAdmin = false;
     if (!isAdminAccount) {
       if (!data.roleId) throw new Error("Selecciona un perfil");
       const { data: role, error: roleError } = await context.supabase
@@ -234,8 +235,14 @@ export const updateManagedUser = createServerFn({ method: "POST" })
         .eq("id", data.roleId)
         .single();
       if (roleError) throw new Error(`No se pudo validar el perfil: ${roleError.message}`);
-      if (role.name === "ADMIN" || role.name === "ADMINPRO") {
-        throw new Error("No se pueden asignar los perfiles ADMIN o ADMINPRO");
+      if (role.name === "ADMINPRO")
+        throw new Error("ADMINPRO está reservado al propietario de la plataforma");
+      if (role.name === "ADMIN") {
+        const { data: owner, error: ownerError } = await context.supabase.rpc("is_platform_owner");
+        if (ownerError || !owner || currentProfile.app_roles?.name !== "ADMINPRO") {
+          throw new Error("Solo el propietario ADMINPRO puede asignar el perfil ADMIN");
+        }
+        promotingToAdmin = true;
       }
       roleId = role.id;
     }
@@ -255,7 +262,9 @@ export const updateManagedUser = createServerFn({ method: "POST" })
         username: data.username,
         email: data.email,
         full_name: data.fullName,
-        role_id: roleId,
+        // Grant ADMIN only after the account update succeeds, so an Auth failure
+        // cannot leave elevated privileges behind after a failed save.
+        role_id: promotingToAdmin ? profile.role_id : roleId,
       })
       .eq("id", data.userId);
 
@@ -289,5 +298,17 @@ export const updateManagedUser = createServerFn({ method: "POST" })
       throw new Error(`No se pudo actualizar la cuenta: ${authUpdateError.message}`);
     }
 
+    if (promotingToAdmin) {
+      const { error: roleError } = await supabaseAdmin
+        .from("profiles")
+        .update({ role_id: roleId })
+        .eq("id", data.userId)
+        .select("id")
+        .single();
+      if (roleError)
+        throw new Error(
+          "Los datos de la cuenta se actualizaron, pero no se pudo asignar ADMIN. Actualiza la lista y vuelve a intentar.",
+        );
+    }
     return { id: data.userId, passwordUpdated: Boolean(data.password) };
   });

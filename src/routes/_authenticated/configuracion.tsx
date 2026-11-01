@@ -38,7 +38,7 @@ const emptyPermissions: RolePermissions = {};
 function ConfiguracionPage() {
   const queryClient = useQueryClient();
   const access = useAppAccess();
-  const canCreateAdmin = access?.isPlatformOwner === true && access.name === "ADMINPRO";
+  const canAssignAdmin = access?.isPlatformOwner === true && access.name === "ADMINPRO";
   const [tab, setTab] = useState<Tab>("users");
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [roleName, setRoleName] = useState("");
@@ -90,11 +90,10 @@ function ConfiguracionPage() {
   });
 
   const selectedRole = roles.find((role) => role.id === selectedRoleId);
-  const selectableRoles = useMemo(() => roles.filter((role) => !isAdminRole(role.name)), [roles]);
-  const newUserRoles = useMemo(
+  const assignableUserRoles = useMemo(
     () =>
-      roles.filter((role) => !isAdminRole(role.name) || (role.name === "ADMIN" && canCreateAdmin)),
-    [roles, canCreateAdmin],
+      roles.filter((role) => !isAdminRole(role.name) || (role.name === "ADMIN" && canAssignAdmin)),
+    [roles, canAssignAdmin],
   );
 
   function startNewRole() {
@@ -393,7 +392,7 @@ function ConfiguracionPage() {
                     disabled={rolesLoading}
                   >
                     <option value="">Selecciona un perfil…</option>
-                    {newUserRoles.map((role) => (
+                    {assignableUserRoles.map((role) => (
                       <option key={role.id} value={role.id}>
                         {role.name}
                       </option>
@@ -459,7 +458,7 @@ function ConfiguracionPage() {
                           className="btn btn-ghost p-1.5"
                           aria-label={`Editar usuario ${profile.full_name || profile.email || ""}`}
                           title="Editar usuario"
-                          disabled={profile.app_roles?.name === "ADMINPRO" && !canCreateAdmin}
+                          disabled={profile.app_roles?.name === "ADMINPRO" && !canAssignAdmin}
                           onClick={() => openEditUser(profile)}
                         >
                           <Pencil className="h-4 w-4" />
@@ -580,7 +579,7 @@ function ConfiguracionPage() {
                         required
                       >
                         <option value="">Selecciona un perfil…</option>
-                        {selectableRoles.map((role) => (
+                        {assignableUserRoles.map((role) => (
                           <option key={role.id} value={role.id}>
                             {role.name}
                           </option>

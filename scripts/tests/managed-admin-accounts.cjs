@@ -8,11 +8,14 @@ const compiled = ts.transpileModule(fs.readFileSync("src/lib/user-admin.function
 const actorId = "00000000-0000-4000-8000-000000000001";
 const userId = "00000000-0000-4000-8000-000000000002";
 const roleId = "00000000-0000-4000-8000-000000000003";
+const oldRoleId = "00000000-0000-4000-8000-000000000004";
 async function run(options = {}) {
   let created = 0,
     updated = 0,
     deleted = 0,
     profileReads = 0;
+  const writes = [];
+  const sequence = [];
   const admin = {
     from: () => ({
       select: () => ({
@@ -21,8 +24,19 @@ async function run(options = {}) {
           neq: () => ({ maybeSingle: async () => ({ data: null }) }),
         }),
       }),
-      update: () => ({
-        eq: async () => ({ error: options.assignError ? { message: "assignment failed" } : null }),
+      update: (payload) => ({
+        eq: () => {
+          writes.push(payload);
+          sequence.push("profile");
+          const error =
+            options.assignError || (options.promotionError && Object.keys(payload).length === 1)
+              ? { message: "assignment failed" }
+              : null;
+          return {
+            error,
+            select: () => ({ single: async () => ({ data: { id: userId }, error }) }),
+          };
+        },
       }),
     }),
     auth: {
@@ -37,7 +51,8 @@ async function run(options = {}) {
         },
         updateUserById: async () => {
           updated++;
-          return { error: null };
+          sequence.push("auth");
+          return { error: options.authError ? { message: "auth update failed" } : null };
         },
       },
     },
@@ -56,11 +71,11 @@ async function run(options = {}) {
                   ? { app_roles: { name: options.actorRole ?? "ADMINPRO" } }
                   : {
                       id: options.self ? actorId : userId,
-                      role_id: roleId,
+                      role_id: options.currentRole ? oldRoleId : roleId,
                       username: "existing",
                       email: "existing@example.com",
                       full_name: "Existing",
-                      app_roles: { name: options.targetRole ?? "ADMINPRO" },
+                      app_roles: { name: options.currentRole ?? options.targetRole ?? "ADMINPRO" },
                     },
               error: null,
             };
@@ -107,7 +122,7 @@ async function run(options = {}) {
   } catch (e) {
     error = e;
   }
-  return { created, updated, deleted, error };
+  return { created, updated, deleted, error, writes, sequence };
 }
 (async () => {
   let r = await run();
@@ -141,8 +156,38 @@ async function run(options = {}) {
   r = await run({ update: true, self: true });
   assert.equal(r.error, undefined);
   assert.equal(r.updated, 1);
+  r = await run({ update: true, currentRole: "BODEGA", targetRole: "ADMIN" });
+  assert.equal(r.error, undefined);
+  assert.equal(r.writes[0].role_id, oldRoleId);
+  assert.equal(r.writes.at(-1).role_id, roleId);
+  assert.deepEqual(r.sequence, ["profile", "auth", "profile"]);
+  for (const options of [
+    { owner: false },
+    { ownerError: true },
+    { actorRole: "ADMIN", owner: false },
+    { aal: "aal1" },
+    { targetRole: "ADMINPRO" },
+  ]) {
+    r = await run({ update: true, currentRole: "BODEGA", targetRole: "ADMIN", ...options });
+    assert(r.error);
+    assert.equal(r.writes.length, 0);
+    assert.equal(r.updated, 0);
+  }
+  r = await run({ update: true, currentRole: "GERENCIA", targetRole: "ADMIN", authError: true });
+  assert(r.error);
+  assert.equal(
+    r.writes.some((w) => w.role_id === roleId),
+    false,
+  );
+  r = await run({
+    update: true,
+    currentRole: "GERENCIA",
+    targetRole: "ADMIN",
+    promotionError: true,
+  });
+  assert.match(r.error.message, /no se pudo asignar ADMIN/);
   console.log(
-    "PASS: owner-only ADMIN creation, MFA, role restrictions, Gerencia creation, username collision, rollback and ADMINPRO account protection; no real accounts created.",
+    "PASS: owner-only ADMIN creation and assignment, MFA, deferred promotion, Auth failure rollback and ADMINPRO account protection; no real accounts created.",
   );
 })().catch((e) => {
   console.error(e);
