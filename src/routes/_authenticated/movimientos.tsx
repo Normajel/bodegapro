@@ -1,7 +1,6 @@
 import { PriceTrend } from "@/components/price-trend";
 import { usePurchasePrices } from "@/hooks/use-purchase-prices";
 import { formatPurchaseUnitPrice, previousPurchase, productPurchases } from "@/lib/purchase-prices";
-import { ServiceLedger } from "@/components/service-ledger";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -1440,23 +1439,11 @@ function MovimientosPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <p className="text-xs text-muted-foreground">
-        Precio unitario de compra: ↓ verde baja · → amarilla se mantiene · ↑ roja sube. Comparación
-        con la compra anterior del mismo producto y unidad, entre todos los proveedores.
-      </p>
       {priceHistoryError && (
         <p role="status" className="text-sm text-muted-foreground">
           No se pudo consultar el historial; los indicadores de precios no están disponibles.
         </p>
       )}
-      <details className="card p-4">
-        <summary className="cursor-pointer font-semibold">
-          Servicios de órdenes de compra · ACEPTADOS
-        </summary>
-        <div className="pt-4">
-          <ServiceLedger />
-        </div>
-      </details>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Movimientos</h1>
