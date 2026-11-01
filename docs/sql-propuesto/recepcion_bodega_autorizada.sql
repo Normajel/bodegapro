@@ -1,0 +1,25 @@
+-- DISEÑO DE SEGURIDAD. NO EJECUTAR: TODAVÍA NO ES UNA MIGRACIÓN.
+-- Revisión de compatibilidad contra Supabase realizada el 2026-10-31.
+-- El borrador anterior definía una función SECURITY DEFINER en private,
+-- pero sin un punto de entrada seguro desplegable ni pruebas de integración.
+-- Se retiró el DDL ejecutable para evitar despliegues parciales accidentales.
+--
+-- DISEÑO REQUERIDO PARA LA MIGRACIÓN DEFINITIVA
+-- 1. Una única RPC pública para recepción, con validación explícita de auth.uid(),
+--    perfil BODEGA/ADMIN/ADMINPRO y permisos de recepción, sin purchases.edit para BODEGA.
+-- 2. Verificar MFA exigido por has_app_permission para ADMIN/ADMINPRO.
+-- 3. Operación transaccional que bloquee OC, líneas y productos; verifique
+--    aprobación, documentos, item_id UUID, cantidades enteras positivas,
+--    duplicados y cantidades pendientes.
+-- 4. Insertar stock_movements y actualizar received_quantity y estado de OC
+--    en la misma transacción; rechazar cualquier error sin cambios parciales.
+-- 5. Auditar owner, search_path, grants y exposición del esquema private.
+-- 6. Impedir que clientes eludan el flujo mediante UPDATE directo de
+--    received_quantity o de movimientos vinculados a OC.
+-- 7. Revisar triggers de stock y consumidores de la RPC antigua.
+-- 8. Probar con sesiones reales de BODEGA, GERENCIA, ADMIN y ADMINPRO,
+--    incluyendo recepción parcial, completa, repetida y concurrencia.
+-- 9. Desplegar de manera coordinada con frontend; NO revocar RPC antigua
+--    hasta comprobar migración y compatibilidad de sus consumidores.
+--
+-- RESULTADO: no aprobado para ejecutar; preparar migración integral y tests.

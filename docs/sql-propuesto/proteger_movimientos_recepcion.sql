@@ -1,0 +1,13 @@
+-- DISEÑO PENDIENTE: NO EJECUTAR EN SUPABASE.
+-- La versión anterior del trigger fue retirada porque no estaba validada
+-- contra los procedimientos de anulación y corrección de compras.
+-- auth.uid() no sirve como excepción segura para distinguir operaciones internas.
+--
+-- Para implementar la protección:
+-- 1. Inspeccionar cancel_purchase_order y demás funciones que modifican
+--    movimientos asociados a una orden de compra.
+-- 2. Impedir modificaciones directas de recepciones vinculadas a OC.
+-- 3. Definir una operación de corrección auditada que sincronice movimientos,
+--    stock, cantidades recibidas y estado de la OC en una transacción.
+-- 4. Mantener los movimientos sin OC y las salidas bajo sus permisos actuales.
+-- 5. Probar con BODEGA, GERENCIA y ADMIN antes del despliegue.

@@ -98,6 +98,10 @@ function ComprasPage() {
   const canCreate = hasPermission(access?.name, access?.permissions, "purchases", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
+  const canReceive = ["BODEGA", "ADMIN", "ADMINPRO"].includes((access?.name ?? "").trim().toUpperCase()) &&
+    hasPermission(access?.name, access?.permissions, "purchases", "view") &&
+    hasPermission(access?.name, access?.permissions, "movements", "create") &&
+    (["BODEGA"].includes((access?.name ?? "").trim().toUpperCase()) || canEdit);
   const canApprove =
         ["ADMINPRO", "ADMIN", "GERENCIA"].includes((access?.name ?? "").trim().toUpperCase());
   const queryClient = useQueryClient();
@@ -416,6 +420,19 @@ function ComprasPage() {
     }));
     if (!linesToReceive.some((line) => line.quantity > 0)) {
       toast.error("Ingresa al menos una cantidad recibida");
+      return;
+    }
+    // Validación de interfaz; Supabase debe aplicar la misma regla.
+    if (
+      linesToReceive.some(
+        (line) =>
+          !Number.isSafeInteger(line.quantity) ||
+          line.quantity < 0 ||
+          line.quantity > (activeOrderItems.find((item) => item.id === line.item_id)?.quantity ?? 0) -
+            (activeOrderItems.find((item) => item.id === line.item_id)?.received_quantity ?? 0),
+      )
+    ) {
+      toast.error("Las cantidades deben ser enteras, no negativas y no superar lo pendiente");
       return;
     }
 
@@ -794,7 +811,7 @@ function ComprasPage() {
                                 Anular
                               </DropdownMenuItem>
                             )}
-                            {canEdit &&
+                            {canReceive &&
                               approvalStatus === "aprobada" &&
                               (status === "pendiente" || status === "parcial") &&
                               orderItems.some(
@@ -1408,7 +1425,7 @@ function ComprasPage() {
         </>
       )}
 
-      {receiveOpen && activeOrder && canEdit && (
+      {receiveOpen && activeOrder && canReceive && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4">
           <div className="card my-2 w-full max-w-3xl space-y-4 p-4 sm:my-4 sm:p-6">
             <div className="flex items-center justify-between">
