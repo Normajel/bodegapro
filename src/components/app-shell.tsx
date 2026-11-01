@@ -33,10 +33,10 @@ const PROFILE_LABELS: Record<string, string> = {
 };
 
 const NAV_ITEMS = [
-  { to: "/panel-gerencial", label: "Panel Gerencial", icon: FileBarChart, module: "management" },
+  { to: "/panel-gerencial", label: "Panel gerencial", icon: FileBarChart, module: "management" },
   { to: "/dashboard", label: "Panel", icon: LayoutDashboard, module: "dashboard" },
   { to: "/productos", label: "Inventario", icon: Package, module: "inventory" },
-  { to: "/compras", label: "Ordenes de Compra", icon: ShoppingCart, module: "purchases" },
+  { to: "/compras", label: "Órdenes de compra", icon: ShoppingCart, module: "purchases" },
   { to: "/servicios", label: "Servicios", icon: FileText, module: "purchases" },
   { to: "/movimientos", label: "Movimientos", icon: ArrowLeftRight, module: "movements" },
   { to: "/contactos", label: "Contactos", icon: Users, module: "contacts" },
@@ -44,12 +44,12 @@ const NAV_ITEMS = [
   { to: "/cubicacion", label: "Cubicación", icon: Calculator, module: "cubication" },
   {
     to: "/documento-cubicacion",
-    label: "Doc. cubicación",
+    label: "Documento de cubicación",
     icon: FileText,
     module: "cubication_document",
   },
   { to: "/configuracion", label: "Configuración", icon: Settings, module: "settings" },
-  { to: "/adminpro", label: "Panel ADMINPRO", icon: Shield, module: "platform" },
+  { to: "/adminpro", label: "Administración de plataforma", icon: Shield, module: "platform" },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -130,9 +130,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             activeNavItem.module === "settings" ? "manage" : "view",
           ));
 
-  const isHome = pathname.replace(/\/$/, "") === "/dashboard";
-  const { data: branding } = usePanelBranding(isHome && !!canViewCurrentPage && !!access);
-  const { data: panelLogoUrl } = usePanelLogoUrl(isHome ? branding?.panel_logo_path : null);
+  const { data: branding } = usePanelBranding(!!access);
+  const { data: panelLogoUrl } = usePanelLogoUrl(branding?.panel_logo_path);
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
@@ -142,7 +141,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const nav = (
-    <nav className="flex flex-1 flex-col gap-1">
+    <nav aria-label="Navegación principal" className="flex flex-1 flex-col gap-1">
       {visibleNavItems.map(({ to, label, icon: Icon }) => {
         const active = pathname.startsWith(to);
         return (
@@ -150,7 +149,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             key={to}
             to={to}
             onClick={() => setOpen(false)}
-            className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+            aria-current={active ? "page" : undefined}
+            className={`app-nav-link flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
               active
                 ? "bg-sidebar-accent text-sidebar-primary"
                 : "text-sidebar-foreground hover:bg-sidebar-accent"
@@ -194,17 +194,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-background">
       {/* Sidebar desktop */}
-      <aside className="hidden w-60 flex-col gap-6 border-r border-sidebar-border bg-sidebar p-4 md:flex">
+      <aside className="sticky top-0 h-dvh w-64 shrink-0 overflow-y-auto hidden flex-col gap-6 border-r border-sidebar-border bg-sidebar p-4 md:flex">
         <Link to="/dashboard" className="flex items-center gap-2 px-2">
-          <PanelIdentity
-            name={isHome ? branding?.panel_name : undefined}
-            logoUrl={isHome ? panelLogoUrl : undefined}
-          />
+          <PanelIdentity name={branding?.panel_name} logoUrl={panelLogoUrl} />
         </Link>
         {nav}
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+          className="app-nav-link flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
         >
           <LogOut className="h-4 w-4" />
           Cerrar sesión
@@ -213,12 +210,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Saludo de sesión y navegación móvil */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-8">
+        <header className="sticky top-0 z-40 flex min-h-[4.5rem] items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-8">
           <span className="min-w-0 max-w-[55%] md:hidden">
-            <PanelIdentity
-              name={isHome ? branding?.panel_name : undefined}
-              logoUrl={isHome ? panelLogoUrl : undefined}
-            />
+            <PanelIdentity name={branding?.panel_name} logoUrl={panelLogoUrl} />
           </span>
           <p
             className="min-w-0 flex-1 break-words text-right text-sm font-semibold md:text-left md:text-base"
@@ -229,27 +223,22 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button
             onClick={() => setOpen(!open)}
             className="btn btn-ghost p-2 md:hidden"
-            aria-label="Menú"
+            aria-label={open ? "Cerrar menú" : "Abrir menú"}
+            aria-expanded={open}
+            aria-controls="mobile-navigation"
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </header>
         {open && (
-          <div className="flex max-h-[calc(100vh-3.5rem)] flex-col gap-1 overflow-y-auto border-b border-border bg-sidebar p-3 md:hidden">
-            {visibleNavItems.map(({ to, label, icon: Icon }) => (
-              <Link
-                key={to}
-                to={to}
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent"
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </Link>
-            ))}
+          <div
+            id="mobile-navigation"
+            className="sticky top-[4.5rem] z-30 flex max-h-[calc(100dvh-4.5rem)] flex-col gap-1 overflow-y-auto border-b border-border bg-sidebar p-3 md:hidden"
+          >
+            {nav}
             <button
               onClick={handleSignOut}
-              className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent"
+              className="app-nav-link flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent"
             >
               <LogOut className="h-4 w-4" />
               Cerrar sesión
@@ -257,7 +246,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         )}
         <AppAccessContext.Provider value={access}>
-          <main className="min-w-0 flex-1 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4 md:p-8">
+          <main className="app-content mx-auto w-full max-w-[1600px] min-w-0 flex-1 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4 md:p-8">
             {canViewCurrentPage ? (
               children
             ) : (
