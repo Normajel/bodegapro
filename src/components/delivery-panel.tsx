@@ -1,3 +1,5 @@
+import { TablePagination } from "@/components/table-pagination";
+import { pageWindow, type TablePageSize } from "@/lib/table-pagination";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +9,8 @@ export function DeliveryPanel() {
   const access = useAppAccess();
   const enabled = hasPermission(access?.name, access?.permissions, "purchases", "view");
   const [filter, setFilter] = useState("pending");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<TablePageSize>(10);
   const {
     data: rows = [],
     isError,
@@ -41,6 +45,8 @@ export function DeliveryPanel() {
       (filter === "pending" && !["complete", "cancelled", "approval"].includes(r.delivery.key)) ||
       filter === r.delivery.key,
   );
+  const pagination = pageWindow(visible.length, pageSize, page);
+  const pagedRows = visible.slice(pagination.start, pagination.end);
   return (
     <section className="card space-y-3 p-4" aria-label="Plazos de recepción de productos">
       <div className="flex flex-wrap justify-between gap-3">
@@ -54,7 +60,14 @@ export function DeliveryPanel() {
         </div>
         <label className="label">
           Mostrar
-          <select className="input" value={filter} onChange={(e) => setFilter(e.target.value)}>
+          <select
+            className="input"
+            value={filter}
+            onChange={(e) => {
+              setFilter(e.target.value);
+              setPage(0);
+            }}
+          >
             <option value="pending">Pendientes de recepción</option>
             <option value="late">Fuera de plazo</option>
             <option value="soon">Próximas a vencer</option>
@@ -70,7 +83,7 @@ export function DeliveryPanel() {
           No se pudieron consultar los plazos.
         </p>
       ) : (
-        <div className="max-h-96 overflow-auto">
+        <div className="overflow-x-auto">
           <table className="table-base">
             <thead>
               <tr>
@@ -89,7 +102,7 @@ export function DeliveryPanel() {
                   <td colSpan={4}>No hay órdenes en esta situación.</td>
                 </tr>
               ) : (
-                visible.map((r) => (
+                pagedRows.map((r) => (
                   <tr
                     key={r.id}
                     className={r.delivery.late ? "bg-destructive/5 text-destructive" : ""}
@@ -110,6 +123,21 @@ export function DeliveryPanel() {
             </tbody>
           </table>
         </div>
+      )}
+      {!isError && (
+        <TablePagination
+          id="panel-deliveries"
+          label="Recepciones de productos"
+          total={visible.length}
+          page={pagination.page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(0);
+          }}
+          disabled={isLoading}
+        />
       )}
     </section>
   );

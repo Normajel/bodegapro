@@ -1,3 +1,5 @@
+import { TablePagination } from "@/components/table-pagination";
+import { pageWindow, type TablePageSize } from "@/lib/table-pagination";
 import { DeliveryPanel } from "@/components/delivery-panel";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,10 +41,15 @@ function finiteNumber(value: unknown, fallback = 0) {
 
 function DashboardPage() {
   const queryClient = useQueryClient();
+  const [todayPage, setTodayPage] = useState(0);
+  const [todayPageSize, setTodayPageSize] = useState<TablePageSize>(10);
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("7days");
   const [chartMetric, setChartMetric] = useState<ChartMetric>("value");
   const [criticalOpen, setCriticalOpen] = useState(false);
   const todayKey = dateKey(new Date());
+  useEffect(() => {
+    setTodayPage(0);
+  }, [todayKey]);
   const chartStartDay = useMemo(() => {
     const start = new Date(`${todayKey}T12:00:00Z`);
     if (chartPeriod === "7days") start.setUTCDate(start.getUTCDate() - 6);
@@ -131,6 +138,8 @@ function DashboardPage() {
     0,
   );
   const movementsToday = movements.filter((movement) => dateKey(movement.created_at) === todayKey);
+  const todayPagination = pageWindow(movementsToday.length, todayPageSize, todayPage);
+  const pagedTodayMovements = movementsToday.slice(todayPagination.start, todayPagination.end);
   const entriesToday = movementsToday.filter((movement) => movement.type === "entrada");
   const exitsToday = movementsToday.filter((movement) => movement.type === "salida");
   const movementCost = (movement: (typeof movements)[number]) =>
@@ -526,7 +535,7 @@ function DashboardPage() {
                   </td>
                 </tr>
               ) : (
-                movementsToday.map((movement) => {
+                pagedTodayMovements.map((movement) => {
                   const total = movementQuantity(movement) * movementCost(movement);
                   const documentLabel =
                     movement.document_type === "factura"
@@ -570,6 +579,21 @@ function DashboardPage() {
             </tbody>
           </table>
         </div>
+        {!movementsError && (
+          <TablePagination
+            id="panel-today-movements"
+            label="Movimientos de hoy"
+            total={movementsToday.length}
+            page={todayPagination.page}
+            pageSize={todayPageSize}
+            onPageChange={setTodayPage}
+            onPageSizeChange={(size) => {
+              setTodayPageSize(size);
+              setTodayPage(0);
+            }}
+            disabled={movementsLoading}
+          />
+        )}
       </section>
     </div>
   );
