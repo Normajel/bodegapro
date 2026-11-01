@@ -120,7 +120,11 @@ BEGIN
         (NEW.purchase_order_id IS NOT NULL OR NEW.purchase_order_item_id IS NOT NULL)) THEN
     RAISE EXCEPTION 'Los movimientos vinculados a OC no se pueden editar ni eliminar directamente';
   END IF;
-  RETURN OLD;
+  -- DELETE devuelve OLD; UPDATE debe devolver NEW para conservar la edición legítima.
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
 END;
 $guard$;
 
