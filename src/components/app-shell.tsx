@@ -83,7 +83,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       const { data: isPlatformOwner, error: ownerError } = await supabase.rpc("is_platform_owner");
       if (ownerError) throw ownerError;
 
-      return { ...data.app_roles, isPlatformOwner };
+      return { ...data.app_roles, isPlatformOwner, userId: user.id };
     },
   });
 

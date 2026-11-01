@@ -38,6 +38,7 @@ export type CurrentAccess = {
   name: string;
   permissions: unknown;
   isPlatformOwner?: boolean;
+  userId?: string;
 };
 
 export const AppAccessContext = createContext<CurrentAccess | null>(null);

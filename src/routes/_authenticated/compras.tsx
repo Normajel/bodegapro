@@ -6,7 +6,7 @@ import { PurchaseOrderTracking } from "@/components/purchase-order-tracking";
 import { deliveryState, displayDate } from "@/lib/purchase-delivery";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, Eye, MoreHorizontal, Pencil, Plus, Printer, Search, Truck, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -133,6 +133,11 @@ function ComprasPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [receiptFilter, setReceiptFilter] = useState<OrderStatus | "todos">("todos");
   const [approvalFilter, setApprovalFilter] = useState<ApprovalStatus | "todos">("todos");
+  useEffect(() => {
+    if (window.location.hash === "#por-aprobar") setApprovalFilter("por_aprobar");
+    if (window.location.hash === "#recepciones")
+      document.getElementById("recepciones")?.scrollIntoView({ block: "start" });
+  }, []);
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<OrderItemDraft[]>([newLine()]);
   const [documentType, setDocumentType] = useState<"factura" | "guia_despacho">("factura");
@@ -929,7 +934,9 @@ function ComprasPage() {
         </table>
       </div>
 
-      <DeliveryPanel />
+      <div id="recepciones" className="scroll-mt-24">
+        <DeliveryPanel />
+      </div>
 
       {trackingOrder && (
         <PurchaseOrderTracking

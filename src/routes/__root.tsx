@@ -158,7 +158,14 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      <Toaster richColors position="top-center" />
+      <Toaster
+        richColors
+        position="top-center"
+        expand
+        visibleToasts={4}
+        gap={12}
+        swipeDirections={["left", "right", "top"]}
+      />
     </QueryClientProvider>
   );
 }
