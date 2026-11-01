@@ -47,3 +47,21 @@ describe("delivery calendar and partial receipts", () => {
       late: false,
     }));
 });
+
+describe("missing deadline explanations", () => {
+  it("distinguishes missing configuration from missing sending evidence", async () => {
+    const { deliveryDeadlineLabel } = await import("@/lib/purchase-delivery");
+    expect(
+      deliveryDeadlineLabel({ ...row, due_date: null, sent_at: null, delivery_days: null }),
+    ).toBe("Faltan plazo y envío registrado");
+    expect(deliveryDeadlineLabel({ ...row, due_date: null, sent_at: null, delivery_days: 7 })).toBe(
+      "Falta registrar el envío",
+    );
+    expect(deliveryDeadlineLabel({ ...row, due_date: null, delivery_days: null })).toBe(
+      "Falta configurar el plazo",
+    );
+    expect(
+      deliveryDeadlineLabel({ ...row, due_date: null, pending_quantity: 0, delivery_days: null }),
+    ).toBe("Sin fecha límite histórica");
+  });
+});

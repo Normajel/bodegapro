@@ -67,3 +67,14 @@ export function displayDate(value: string | null) {
       })
     : "—";
 }
+
+export function deliveryDeadlineLabel(row: DeliveryRow & { delivery_days: number | null }) {
+  if (row.due_date) return displayDate(row.due_date);
+  if (row.status === "anulada") return "No corresponde: OC anulada";
+  if (row.approval_status !== "aprobada") return "Pendiente de aprobación";
+  if (Number(row.pending_quantity) === 0) return "Sin fecha límite histórica";
+  if (row.delivery_days == null && !row.sent_at) return "Faltan plazo y envío registrado";
+  if (row.delivery_days == null) return "Falta configurar el plazo";
+  if (!row.sent_at) return "Falta registrar el envío";
+  return "Fecha límite no disponible";
+}
