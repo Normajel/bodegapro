@@ -61,6 +61,11 @@ GRANT USAGE ON SCHEMA public TO oc_receipt_executor;
 GRANT SELECT ON public.profiles, public.app_roles, public.products,
   public.purchase_orders, public.purchase_order_items, public.stock_movements
   TO oc_receipt_executor;
+-- El trigger de stock de INSERT/DELETE actualiza products como invocador.
+-- Conceder solo las columnas de stock al rol técnico NOLOGIN; nunca al cliente.
+GRANT UPDATE (stock,updated_at) ON public.products TO oc_receipt_executor;
+CREATE POLICY oc_receipt_update_product_stock ON public.products
+FOR UPDATE TO oc_receipt_executor USING (true) WITH CHECK (true);
 GRANT UPDATE (status,updated_at) ON public.purchase_orders TO oc_receipt_executor;
 GRANT UPDATE (received_quantity) ON public.purchase_order_items TO oc_receipt_executor;
 GRANT INSERT ON public.stock_movements TO oc_receipt_executor;
