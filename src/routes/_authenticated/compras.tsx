@@ -703,7 +703,7 @@ function ComprasPage() {
             <tr>
               <th>N° OC</th>
               <th>Fecha</th>
-              <th>Proveedor</th>
+              <th>Proveedor / contratista</th>
               <th>Total OC</th>
               <th>Centro de costo</th>
               <th>Recepción</th>
@@ -979,7 +979,7 @@ function ComprasPage() {
                     />
                   </div>
                   <div>
-                    <label className="label">Proveedor *</label>
+                    <label className="label">Proveedor / contratista *</label>
                     <select
                       className="input"
                       value={supplierId}
@@ -989,7 +989,13 @@ function ComprasPage() {
                       <option value="">Selecciona proveedor…</option>
                       {suppliers.map((supplier) => (
                         <option key={supplier.id} value={supplier.id}>
-                          {supplier.name} ({supplier.supplier_kind})
+                          {supplier.name} (
+                          {supplier.supplier_kind === "servicios"
+                            ? "Contratista"
+                            : supplier.supplier_kind === "ambos"
+                              ? "Proveedor y contratista"
+                              : "Proveedor"}
+                          )
                         </option>
                       ))}
                     </select>

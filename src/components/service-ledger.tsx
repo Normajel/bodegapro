@@ -42,14 +42,14 @@ export function ServiceLedger() {
   });
   const rows = data?.data ?? [];
   return (
-    <section className="space-y-3" aria-label="Planilla de servicios por proveedor">
+    <section className="space-y-3" aria-label="Servicios contratistas">
       <p className="text-sm text-muted-foreground">
-        Servicios contratados por OC. ACEPTADO indica aprobación, no ejecución ni pago. No modifica
-        inventario.
+        Servicios realizados por contratistas, contratados mediante OC. ACEPTADO indica aprobación,
+        no ejecución ni pago. No modifica inventario.
       </p>
       <div className="grid gap-3 sm:grid-cols-4">
         <label className="label">
-          Proveedor
+          Contratista
           <select
             className="input"
             value={provider}
@@ -58,7 +58,7 @@ export function ServiceLedger() {
               setPage(0);
             }}
           >
-            <option value="">Todos los proveedores</option>
+            <option value="">Todos los contratistas</option>
             {providers.map((p) => (
               <option key={p.supplier_id} value={p.supplier_id}>
                 {p.supplier_name}
@@ -116,7 +116,7 @@ export function ServiceLedger() {
             <thead>
               <tr>
                 {[
-                  "Proveedor",
+                  "Contratista",
                   "N° OC",
                   "Servicio",
                   "Ingreso",

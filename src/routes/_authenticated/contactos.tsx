@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_authenticated/contactos")({
       { title: "Contactos — BodegaPro" },
       {
         name: "description",
-        content: "Gestiona proveedores y nombres maestros asociados a la bodega.",
+        content: "Gestiona proveedores, contratistas y nombres maestros asociados a la bodega.",
       },
     ],
   }),
@@ -52,7 +52,7 @@ function ContactosPage() {
   const canDelete = hasPermission(access?.name, access?.permissions, "contacts", "delete");
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Kind>("suppliers");
-  const [supplierFilter, setSupplierFilter] = useState("");
+  const [supplierFilter, setSupplierFilter] = useState("productos");
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -75,7 +75,10 @@ function ContactosPage() {
 
   function openNew() {
     setEditingId(null);
-    setForm(EMPTY_FORM);
+    setForm({
+      ...EMPTY_FORM,
+      supplier_kind: supplierFilter === "servicios" ? "servicios" : "productos",
+    });
     setFormOpen(true);
   }
 
@@ -276,11 +279,11 @@ function ContactosPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Contactos</h1>
           <p className="text-sm text-muted-foreground">
-            Proveedores y nombres maestros de la bodega
+            Proveedores, contratistas y nombres maestros de la bodega
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {tab === "suppliers" && (
+          {tab === "suppliers" && supplierFilter !== "servicios" && (
             <>
               <button
                 type="button"
@@ -318,21 +321,37 @@ function ContactosPage() {
           )}
           {canCreate && (
             <button className="btn btn-primary" onClick={openNew}>
-              <Plus className="h-4 w-4" /> Nuevo {tab === "suppliers" ? "proveedor" : "maestro"}
+              <Plus className="h-4 w-4" /> Nuevo{" "}
+              {tab === "suppliers"
+                ? supplierFilter === "servicios"
+                  ? "contratista"
+                  : "proveedor"
+                : "maestro"}
             </button>
           )}
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
-          className={`btn ${tab === "suppliers" ? "btn-primary" : "btn-secondary"}`}
+          className={`btn ${tab === "suppliers" && supplierFilter !== "servicios" ? "btn-primary" : "btn-secondary"}`}
           onClick={() => {
             setTab("suppliers");
+            setSupplierFilter("productos");
             setSupplierImportPreview(null);
           }}
         >
           Proveedores
+        </button>
+        <button
+          className={`btn ${tab === "suppliers" && supplierFilter === "servicios" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => {
+            setTab("suppliers");
+            setSupplierFilter("servicios");
+            setSupplierImportPreview(null);
+          }}
+        >
+          Contratistas
         </button>
         <button
           className={`btn ${tab === "customers" ? "btn-primary" : "btn-secondary"}`}
@@ -403,7 +422,7 @@ function ContactosPage() {
 
       {tab === "suppliers" && (
         <label className="label">
-          Tipo de proveedor
+          Tipo de contacto
           <select
             className="input max-w-xs"
             value={supplierFilter}
@@ -411,7 +430,7 @@ function ContactosPage() {
           >
             <option value="">Todos</option>
             <option value="productos">Productos (incluye ambos)</option>
-            <option value="servicios">Servicios (incluye ambos)</option>
+            <option value="servicios">Contratistas (incluye ambos)</option>
           </select>
         </label>
       )}
@@ -472,8 +491,8 @@ function ContactosPage() {
                           {"supplier_kind" in r
                             ? ({
                                 productos: "Productos",
-                                servicios: "Servicios",
-                                ambos: "Productos y servicios",
+                                servicios: "Contratista",
+                                ambos: "Proveedor y contratista",
                               }[r.supplier_kind] ?? r.supplier_kind)
                             : "—"}
                           {"delivery_days" in r && r.delivery_days != null && (
@@ -527,7 +546,12 @@ function ContactosPage() {
           <div className="card w-full max-w-lg p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-lg font-bold">
-                {editingId ? "Editar" : "Nuevo"} {tab === "suppliers" ? "proveedor" : "maestro"}
+                {editingId ? "Editar" : "Nuevo"}{" "}
+                {tab === "suppliers"
+                  ? form.supplier_kind === "servicios"
+                    ? "contratista"
+                    : "proveedor"
+                  : "maestro"}
               </h2>
               <button
                 className="btn btn-ghost p-1.5"
@@ -574,15 +598,15 @@ function ContactosPage() {
                 <>
                   <div className="grid grid-cols-2 gap-3">
                     <label className="label">
-                      Tipo de proveedor
+                      Tipo de contacto
                       <select
                         className="input"
                         value={form.supplier_kind}
                         onChange={(e) => setForm({ ...form, supplier_kind: e.target.value })}
                       >
-                        <option value="productos">Productos</option>
-                        <option value="servicios">Servicios</option>
-                        <option value="ambos">Productos y servicios</option>
+                        <option value="productos">Proveedor (productos)</option>
+                        <option value="servicios">Contratista (servicios)</option>
+                        <option value="ambos">Proveedor y contratista</option>
                       </select>
                     </label>
                     {form.supplier_kind !== "servicios" && (
