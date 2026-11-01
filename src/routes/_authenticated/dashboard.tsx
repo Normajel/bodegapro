@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { Bell, Check, X } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
+import { hasPermission, useAppAccess } from "@/lib/permissions";
 import { dateKey, santiagoDateTimeIso } from "@/lib/warehouse";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -21,6 +22,31 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 type ChartPeriod = "today" | "7days";
 type ChartMetric = "value" | "quantity";
+type DeliveryStatus =
+  "sin_envio" | "en_plazo" | "por_vencer" | "vencida" | "completa" | "cerrada" | "anulada";
+type DeliveryOrder = {
+  id: string;
+  order_number: string;
+  status: string;
+  approved_at: string | null;
+  first_sent_at: string | null;
+  delivery_due_date: string | null;
+  suppliers: { name: string } | null;
+  purchase_order_items: { item_type: string; quantity: number; received_quantity: number }[];
+};
+type DeliveryNotification = {
+  id: string;
+  purchase_order_id: string;
+  alert_type: "dos_dias" | "fecha_compromiso" | "vencida";
+  delivery_due_date: string;
+  purchase_orders: { order_number: string } | null;
+};
+type DeliveryRow = DeliveryOrder & {
+  received: number;
+  pending: number;
+  deliveryStatus: DeliveryStatus;
+  deliveryLabel: string;
+};
 
 function formatCLP(value: number) {
   const safeValue = Number.isFinite(value) ? value : 0;
@@ -36,8 +62,58 @@ function finiteNumber(value: unknown, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+function getDeliveryStatus(
+  dueDate: string | null,
+  pendingQuantity: number,
+  today: string,
+  orderStatus: string,
+): DeliveryStatus {
+  if (orderStatus === "anulada") return "anulada";
+  if (orderStatus === "cerrada_con_diferencia") return "cerrada";
+  if (pendingQuantity <= 0) return "completa";
+  if (!dueDate) return "sin_envio";
+  const due = Date.parse(`${dueDate.slice(0, 10)}T00:00:00Z`);
+  const current = Date.parse(`${today}T00:00:00Z`);
+  if (!Number.isFinite(due) || !Number.isFinite(current)) return "sin_envio";
+  const days = (due - current) / 86_400_000;
+  if (days < 0) return "vencida";
+  if (days <= 2) return "por_vencer";
+  return "en_plazo";
+}
+
+function santiagoToday() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function formatSantiagoDate(value: string | null) {
+  if (!value) return "—";
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00Z`) : new Date(value);
+  if (!Number.isFinite(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("es-CL", {
+    timeZone: "America/Santiago",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+function errorText(error: unknown) {
+  return error && typeof error === "object" && "message" in error
+    ? String(error.message)
+    : String(error);
+}
+
 function DashboardPage() {
   const queryClient = useQueryClient();
+  const access = useAppAccess();
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("7days");
   const [chartMetric, setChartMetric] = useState<ChartMetric>("value");
   const [criticalOpen, setCriticalOpen] = useState(false);
@@ -49,6 +125,12 @@ function DashboardPage() {
   }, [chartPeriod, todayKey]);
   const chartStartIso = santiagoDateTimeIso(chartStartDay);
   const chartEndIso = santiagoDateTimeIso(todayKey, 24);
+  const companyId = access?.companyId;
+  const canViewPurchases = Boolean(
+    access &&
+    (access.isPlatformOwner || hasPermission(access.name, access.permissions, "purchases", "view")),
+  );
+  const deliveryToday = santiagoToday();
 
   useEffect(() => {
     const channel = supabase
@@ -88,6 +170,152 @@ function DashboardPage() {
       }
     },
   });
+
+  const {
+    data: deliveryOrders = [],
+    isLoading: deliveryOrdersLoading,
+    error: deliveryOrdersError,
+  } = useQuery({
+    queryKey: ["dashboard-purchase-deliveries", companyId],
+    enabled: canViewPurchases && Boolean(companyId),
+    queryFn: async () => {
+      if (!companyId) throw new Error("No hay una empresa activa.");
+      const orders = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data, error } = await supabase
+          .from("purchase_orders")
+          .select("*, suppliers(name)")
+          .eq("company_id", companyId)
+          .eq("approval_status", "aprobada")
+          .order("created_at", { ascending: false })
+          .range(offset, offset + 999);
+        if (error) throw error;
+        orders.push(...data);
+        if (data.length < 1000) break;
+      }
+
+      const orderIds = orders.map((order) => order.id);
+      const items = [];
+      for (let offset = 0; orderIds.length > 0; offset += 1000) {
+        const { data, error } = await supabase
+          .from("purchase_order_items")
+          .select("*")
+          .eq("company_id", companyId)
+          .in("purchase_order_id", orderIds)
+          .range(offset, offset + 999);
+        if (error) throw error;
+        items.push(...data);
+        if (data.length < 1000) break;
+      }
+
+      const itemsByOrder = new Map<string, DeliveryOrder["purchase_order_items"]>();
+      for (const item of items) {
+        const orderItems = itemsByOrder.get(item.purchase_order_id) ?? [];
+        orderItems.push(item);
+        itemsByOrder.set(item.purchase_order_id, orderItems);
+      }
+      return orders.map((order) => ({
+        ...order,
+        purchase_order_items: itemsByOrder.get(order.id) ?? [],
+      })) as unknown as DeliveryOrder[];
+    },
+  });
+
+  const {
+    data: deliveryNotifications = [],
+    isLoading: notificationsLoading,
+    error: notificationsError,
+  } = useQuery({
+    queryKey: ["dashboard-purchase-delivery-notifications", companyId],
+    enabled: canViewPurchases && Boolean(companyId),
+    queryFn: async () => {
+      const { error: refreshError } = await supabase.rpc(
+        "refresh_purchase_order_delivery_notifications" as never,
+      );
+      if (refreshError) throw refreshError;
+      const { data, error } = await supabase
+        .from("purchase_order_delivery_notifications" as never)
+        .select(
+          "id, purchase_order_id, alert_type, delivery_due_date, purchase_orders(order_number)",
+        )
+        .eq("company_id" as never, companyId ?? "")
+        .is("resolved_at" as never, null)
+        .is("read_at" as never, null)
+        .order("created_at" as never, { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as DeliveryNotification[];
+    },
+  });
+
+  const markNotificationRead = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("purchase_order_delivery_notifications" as never)
+        .update({ read_at: new Date().toISOString() } as never)
+        .eq("id" as never, id)
+        .is("read_at" as never, null);
+      if (error) throw error;
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ["dashboard-purchase-delivery-notifications", companyId],
+      }),
+  });
+
+  const deliveryRows = useMemo<DeliveryRow[]>(
+    () =>
+      deliveryOrders.map((order) => {
+        const productItems = order.purchase_order_items.filter(
+          (item) => item.item_type === "producto",
+        );
+        const received = productItems.reduce(
+          (sum, item) => sum + finiteNumber(item.received_quantity),
+          0,
+        );
+        const pending = productItems.reduce(
+          (sum, item) =>
+            sum + Math.max(0, finiteNumber(item.quantity) - finiteNumber(item.received_quantity)),
+          0,
+        );
+        const ordered = productItems.reduce((sum, item) => sum + finiteNumber(item.quantity), 0);
+        const deliveryStatus = getDeliveryStatus(
+          order.delivery_due_date,
+          order.status === "completa" ? 0 : ordered > 0 ? pending : 1,
+          deliveryToday,
+          order.status,
+        );
+        const labels: Record<DeliveryStatus, string> = {
+          sin_envio: "Sin envío",
+          en_plazo: "En plazo",
+          por_vencer: "Por vencer",
+          vencida: "Vencida",
+          completa: "Completa",
+          cerrada: "Cerrada con diferencia",
+          anulada: "Anulada",
+        };
+        return {
+          ...order,
+          received,
+          pending,
+          deliveryStatus,
+          deliveryLabel:
+            order.status === "parcial" &&
+            !["anulada", "cerrada", "completa"].includes(deliveryStatus)
+              ? `Parcial · ${labels[deliveryStatus]}`
+              : labels[deliveryStatus],
+        };
+      }),
+    [deliveryOrders, deliveryToday],
+  );
+  const deliveryCounts = {
+    withinDue: deliveryRows.filter((order) => order.deliveryStatus === "en_plazo").length,
+    dueSoon: deliveryRows.filter((order) => order.deliveryStatus === "por_vencer").length,
+    overdue: deliveryRows.filter((order) => order.deliveryStatus === "vencida").length,
+    partial: deliveryRows.filter((order) => order.status === "parcial").length,
+    completeOrClosed: deliveryRows.filter(
+      (order) => order.deliveryStatus === "completa" || order.deliveryStatus === "cerrada",
+    ).length,
+  };
 
   const {
     data: movements = [],
@@ -383,6 +611,169 @@ function DashboardPage() {
             </div>
           </section>
         </div>
+      )}
+
+      {canViewPurchases && (
+        <section
+          aria-labelledby="purchase-delivery-title"
+          className="space-y-4 border-y border-border py-4"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="purchase-delivery-title" className="font-display text-base font-bold">
+                Control de entregas de compras
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Cantidades de productos · fechas locales de America/Santiago
+              </p>
+            </div>
+            <Link
+              to="/compras"
+              className="text-sm font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Ver órdenes de compra
+            </Link>
+          </div>
+
+          {deliveryOrdersError ? (
+            <p role="alert" className="text-sm text-destructive">
+              No se pudo cargar el control de entregas: {errorText(deliveryOrdersError)}
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                {[
+                  { label: "Dentro de plazo", count: deliveryCounts.withinDue },
+                  { label: "Por vencer", count: deliveryCounts.dueSoon },
+                  { label: "Vencidas", count: deliveryCounts.overdue },
+                  { label: "Parciales", count: deliveryCounts.partial },
+                  { label: "Recibidas / cerradas", count: deliveryCounts.completeOrClosed },
+                ].map((item) => (
+                  <div key={item.label} className="card p-3">
+                    <span className="text-xs font-medium text-muted-foreground">{item.label}</span>
+                    <p className="mt-1 font-display text-xl font-bold">
+                      {deliveryOrdersLoading ? "…" : item.count}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="table-base min-w-[980px]">
+                  <thead>
+                    <tr>
+                      <th>Proveedor</th>
+                      <th>N.º OC</th>
+                      <th>Aprobada</th>
+                      <th>Enviada</th>
+                      <th>Compromiso</th>
+                      <th>Recibido</th>
+                      <th>Pendiente</th>
+                      <th>Estado de entrega</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deliveryOrdersLoading ? (
+                      <tr>
+                        <td colSpan={8} className="py-6 text-center text-sm text-muted-foreground">
+                          Cargando órdenes de compra…
+                        </td>
+                      </tr>
+                    ) : deliveryRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-6 text-center text-sm text-muted-foreground">
+                          No hay órdenes aprobadas para mostrar.
+                        </td>
+                      </tr>
+                    ) : (
+                      deliveryRows.map((order) => (
+                        <tr key={order.id}>
+                          <td className="font-medium">{order.suppliers?.name ?? "—"}</td>
+                          <td>{order.order_number}</td>
+                          <td>{formatSantiagoDate(order.approved_at)}</td>
+                          <td>{formatSantiagoDate(order.first_sent_at)}</td>
+                          <td>{formatSantiagoDate(order.delivery_due_date)}</td>
+                          <td>{order.received.toLocaleString("es-CL")}</td>
+                          <td>{order.pending.toLocaleString("es-CL")}</td>
+                          <td>
+                            <span
+                              className={`badge ${
+                                order.deliveryStatus === "vencida"
+                                  ? "badge-destructive"
+                                  : order.deliveryStatus === "por_vencer"
+                                    ? "badge-warning"
+                                    : "badge-secondary"
+                              }`}
+                            >
+                              {order.deliveryLabel}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          <div className="space-y-2 rounded-md border border-border p-3">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <Bell className="h-4 w-4" />
+              Notificaciones de entrega pendientes
+            </h3>
+            {notificationsError ? (
+              <p role="alert" className="text-sm text-destructive">
+                No se pudieron actualizar o cargar las notificaciones:{" "}
+                {errorText(notificationsError)}
+              </p>
+            ) : notificationsLoading ? (
+              <p className="text-sm text-muted-foreground">Cargando notificaciones…</p>
+            ) : deliveryNotifications.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No hay notificaciones pendientes.</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {deliveryNotifications.map((notification) => (
+                  <li
+                    key={notification.id}
+                    className="flex flex-wrap items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"
+                  >
+                    <div className="text-sm">
+                      <p className="font-medium">
+                        {
+                          {
+                            dos_dias: "Compromiso en dos días",
+                            fecha_compromiso: "Fecha de compromiso hoy",
+                            vencida: "Entrega vencida",
+                          }[notification.alert_type]
+                        }{" "}
+                        · OC {notification.purchase_orders?.order_number ?? "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Compromiso: {formatSantiagoDate(notification.delivery_due_date)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary h-8 px-3 text-xs"
+                      disabled={markNotificationRead.isPending}
+                      onClick={() => markNotificationRead.mutate(notification.id)}
+                    >
+                      <Check className="mr-1 h-3.5 w-3.5" />
+                      Marcar leída
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {markNotificationRead.error && (
+              <p role="alert" className="text-sm text-destructive">
+                No se pudo marcar la notificación como leída:{" "}
+                {errorText(markNotificationRead.error)}
+              </p>
+            )}
+          </div>
+        </section>
       )}
 
       <section aria-labelledby="movement-chart-title" className="border-y border-border py-4">

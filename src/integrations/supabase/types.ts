@@ -8,8 +8,76 @@ export type Database = {
   };
   public: {
     Tables: {
+      companies: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          name: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          name?: string;
+        };
+        Relationships: [];
+      };
+      company_memberships: {
+        Row: {
+          company_id: string;
+          created_at: string;
+          is_active: boolean;
+          role_id: string;
+          user_id: string;
+        };
+        Insert: {
+          company_id: string;
+          created_at?: string;
+          is_active?: boolean;
+          role_id: string;
+          user_id: string;
+        };
+        Update: {
+          company_id?: string;
+          created_at?: string;
+          is_active?: boolean;
+          role_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "company_memberships_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "company_memberships_role_id_fkey";
+            columns: ["role_id"];
+            isOneToOne: false;
+            referencedRelation: "app_roles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "company_memberships_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       app_roles: {
         Row: {
+          company_id: string | null;
           created_at: string;
           id: string;
           is_system: boolean;
@@ -18,6 +86,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          company_id?: string | null;
           created_at?: string;
           id?: string;
           is_system?: boolean;
@@ -26,6 +95,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          company_id?: string | null;
           created_at?: string;
           id?: string;
           is_system?: boolean;
@@ -33,13 +103,22 @@ export type Database = {
           permissions?: Json;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "app_roles_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       company_settings: {
         Row: {
           address: string;
           billing_email: string;
           business_activity: string;
+          company_id: string;
           email: string;
           id: boolean;
           name: string;
@@ -52,6 +131,7 @@ export type Database = {
           address?: string;
           billing_email?: string;
           business_activity?: string;
+          company_id?: string;
           email?: string;
           id?: boolean;
           name?: string;
@@ -64,6 +144,7 @@ export type Database = {
           address?: string;
           billing_email?: string;
           business_activity?: string;
+          company_id?: string;
           email?: string;
           id?: boolean;
           name?: string;
@@ -72,22 +153,33 @@ export type Database = {
           updated_at?: string;
           updated_by?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "company_settings_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       cubication_template_items: {
         Row: {
+          company_id: string;
           id: string;
           product_id: string;
           quantity: number;
           template_id: string;
         };
         Insert: {
+          company_id?: string;
           id?: string;
           product_id: string;
           quantity: number;
           template_id: string;
         };
         Update: {
+          company_id?: string;
           id?: string;
           product_id?: string;
           quantity?: number;
@@ -112,6 +204,7 @@ export type Database = {
       };
       cubication_templates: {
         Row: {
+          company_id: string;
           created_at: string;
           created_by: string | null;
           id: string;
@@ -119,6 +212,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           id?: string;
@@ -126,6 +220,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           id?: string;
@@ -137,6 +232,7 @@ export type Database = {
       customers: {
         Row: {
           address: string | null;
+          company_id: string;
           contact_name: string | null;
           created_at: string;
           email: string | null;
@@ -148,6 +244,7 @@ export type Database = {
         };
         Insert: {
           address?: string | null;
+          company_id?: string;
           contact_name?: string | null;
           created_at?: string;
           email?: string | null;
@@ -159,6 +256,7 @@ export type Database = {
         };
         Update: {
           address?: string | null;
+          company_id?: string;
           contact_name?: string | null;
           created_at?: string;
           email?: string | null;
@@ -172,6 +270,7 @@ export type Database = {
       };
       purchase_order_items: {
         Row: {
+          company_id: string;
           description: string;
           id: string;
           item_type: string;
@@ -184,6 +283,7 @@ export type Database = {
           unit_cost: number;
         };
         Insert: {
+          company_id?: string;
           description: string;
           id?: string;
           item_type?: string;
@@ -196,6 +296,7 @@ export type Database = {
           unit_cost: number;
         };
         Update: {
+          company_id?: string;
           description?: string;
           id?: string;
           item_type?: string;
@@ -226,16 +327,19 @@ export type Database = {
       };
       purchase_cost_centers: {
         Row: {
+          company_id: string;
           created_at: string;
           id: string;
           name: string;
         };
         Insert: {
+          company_id?: string;
           created_at?: string;
           id?: string;
           name: string;
         };
         Update: {
+          company_id?: string;
           created_at?: string;
           id?: string;
           name?: string;
@@ -247,6 +351,7 @@ export type Database = {
           approval_status: string;
           approved_at: string | null;
           approved_by: string | null;
+          company_id: string;
           cost_center_id: string | null;
           created_at: string;
           created_by: string | null;
@@ -269,6 +374,7 @@ export type Database = {
           approval_status?: string;
           approved_at?: string | null;
           approved_by?: string | null;
+          company_id?: string;
           cost_center_id?: string | null;
           created_at?: string;
           created_by?: string | null;
@@ -291,6 +397,7 @@ export type Database = {
           approval_status?: string;
           approved_at?: string | null;
           approved_by?: string | null;
+          company_id?: string;
           cost_center_id?: string | null;
           created_at?: string;
           created_by?: string | null;
@@ -331,6 +438,7 @@ export type Database = {
           active: boolean;
           barcode: string | null;
           category: string;
+          company_id: string;
           created_at: string;
           id: string;
           location: string | null;
@@ -348,6 +456,7 @@ export type Database = {
           active?: boolean;
           barcode?: string | null;
           category?: string;
+          company_id?: string;
           created_at?: string;
           id?: string;
           location?: string | null;
@@ -365,6 +474,7 @@ export type Database = {
           active?: boolean;
           barcode?: string | null;
           category?: string;
+          company_id?: string;
           created_at?: string;
           id?: string;
           location?: string | null;
@@ -390,6 +500,7 @@ export type Database = {
       };
       profiles: {
         Row: {
+          active_company_id: string | null;
           created_at: string;
           email: string | null;
           full_name: string | null;
@@ -398,6 +509,7 @@ export type Database = {
           username: string | null;
         };
         Insert: {
+          active_company_id?: string | null;
           created_at?: string;
           email?: string | null;
           full_name?: string | null;
@@ -406,6 +518,7 @@ export type Database = {
           username?: string | null;
         };
         Update: {
+          active_company_id?: string | null;
           created_at?: string;
           email?: string | null;
           full_name?: string | null;
@@ -419,6 +532,13 @@ export type Database = {
             columns: ["role_id"];
             isOneToOne: false;
             referencedRelation: "app_roles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "profiles_active_company_id_fkey";
+            columns: ["active_company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
             referencedColumns: ["id"];
           },
         ];
@@ -450,6 +570,7 @@ export type Database = {
       stock_movements: {
         Row: {
           batch_id: string | null;
+          company_id: string;
           created_at: string;
           created_by: string | null;
           customer_id: string | null;
@@ -474,6 +595,7 @@ export type Database = {
         };
         Insert: {
           batch_id?: string | null;
+          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           customer_id?: string | null;
@@ -498,6 +620,7 @@ export type Database = {
         };
         Update: {
           batch_id?: string | null;
+          company_id?: string;
           created_at?: string;
           created_by?: string | null;
           customer_id?: string | null;
@@ -521,6 +644,13 @@ export type Database = {
           unit_type_value?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "stock_movements_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "stock_movements_customer_id_fkey";
             columns: ["customer_id"];
@@ -562,6 +692,7 @@ export type Database = {
         Row: {
           address: string | null;
           city: string | null;
+          company_id: string;
           contact_name: string | null;
           created_at: string;
           delivery_address: string | null;
@@ -575,6 +706,7 @@ export type Database = {
         Insert: {
           address?: string | null;
           city?: string | null;
+          company_id?: string;
           contact_name?: string | null;
           created_at?: string;
           delivery_address?: string | null;
@@ -588,6 +720,7 @@ export type Database = {
         Update: {
           address?: string | null;
           city?: string | null;
+          company_id?: string;
           contact_name?: string | null;
           created_at?: string;
           delivery_address?: string | null;
@@ -598,7 +731,57 @@ export type Database = {
           phone?: string | null;
           rut?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      stock_movement_document_cancellations: {
+        Row: {
+          cancellation_id: string;
+          cancelled_at: string;
+          cancelled_by: string;
+          cancellation_reason: string | null;
+          company_id: string;
+          stock_movement_id: string;
+        };
+        Insert: {
+          cancellation_id: string;
+          cancelled_at?: string;
+          cancelled_by: string;
+          cancellation_reason?: string | null;
+          company_id?: string;
+          stock_movement_id: string;
+        };
+        Update: {
+          cancellation_id?: string;
+          cancelled_at?: string;
+          cancelled_by?: string;
+          cancellation_reason?: string | null;
+          company_id?: string;
+          stock_movement_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stock_movement_document_cancellations_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movement_document_cancellations_stock_movement_id_fkey";
+            columns: ["stock_movement_id"];
+            isOneToOne: true;
+            referencedRelation: "stock_movements";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: {
@@ -607,7 +790,57 @@ export type Database = {
           id: string;
           name: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      stock_movement_document_cancellations: {
+        Row: {
+          cancellation_id: string;
+          cancelled_at: string;
+          cancelled_by: string;
+          cancellation_reason: string | null;
+          company_id: string;
+          stock_movement_id: string;
+        };
+        Insert: {
+          cancellation_id: string;
+          cancelled_at?: string;
+          cancelled_by: string;
+          cancellation_reason?: string | null;
+          company_id?: string;
+          stock_movement_id: string;
+        };
+        Update: {
+          cancellation_id?: string;
+          cancelled_at?: string;
+          cancelled_by?: string;
+          cancellation_reason?: string | null;
+          company_id?: string;
+          stock_movement_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stock_movement_document_cancellations_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movement_document_cancellations_stock_movement_id_fkey";
+            columns: ["stock_movement_id"];
+            isOneToOne: true;
+            referencedRelation: "stock_movements";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       supplier_directory: {
         Row: {
@@ -618,9 +851,25 @@ export type Database = {
       };
     };
     Functions: {
+      active_company_id: {
+        Args: Record<PropertyKey, never>;
+        Returns: string | null;
+      };
+      active_role_name: {
+        Args: Record<PropertyKey, never>;
+        Returns: string | null;
+      };
       reset_business_data: {
         Args: Record<PropertyKey, never>;
         Returns: undefined;
+      };
+      current_company_id: {
+        Args: Record<PropertyKey, never>;
+        Returns: string | null;
+      };
+      create_company_with_admin: {
+        Args: { p_name: string };
+        Returns: string;
       };
       archive_product: {
         Args: { p_product_id: string };
@@ -633,6 +882,10 @@ export type Database = {
       is_app_admin: {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
+      };
+      set_active_company: {
+        Args: { p_company_id: string };
+        Returns: string;
       };
       is_platform_owner: {
         Args: Record<PropertyKey, never>;
@@ -648,6 +901,7 @@ export type Database = {
           batch_id: string | null;
           created_at: string;
           created_by: string | null;
+          company_id: string;
           customer_id: string | null;
           document_number: string | null;
           document_type: string | null;
