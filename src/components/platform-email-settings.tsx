@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Mail, ShieldCheck } from "lucide-react";
+import { CircleHelp, Mail, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 
 type Status = {
@@ -31,6 +32,84 @@ async function invoke(body: Record<string, unknown>): Promise<Status> {
   if (!data || data.message) throw new Error(data?.message ?? "Respuesta inválida.");
   return data;
 }
+function EmailSetupHelp() {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="btn btn-ghost h-10 w-10 shrink-0 p-2 text-primary"
+          aria-label="Ayuda para configurar el correo"
+          title="Cómo configurar el correo"
+        >
+          <CircleHelp className="h-5 w-5" aria-hidden="true" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        collisionPadding={16}
+        className="max-h-[75vh] w-[min(28rem,calc(100vw-2rem))] space-y-3 overflow-y-auto"
+        aria-labelledby="mail-setup-help-title"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <h3 id="mail-setup-help-title" className="font-semibold">
+            ¿Cómo configurar el correo?
+          </h3>
+          <button
+            type="button"
+            className="btn btn-ghost h-8 w-8 shrink-0 p-1"
+            aria-label="Cerrar ayuda"
+            onClick={() => setOpen(false)}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Necesitas un dominio propio, acceso a sus registros DNS y una cuenta en Resend. Esta
+          configuración la realiza el propietario ADMINPRO con segundo factor.
+        </p>
+        <ol className="list-decimal space-y-3 pl-5 text-sm">
+          <li>
+            <strong>Registra el dominio en Resend.</strong> Agrega el dominio o subdominio que
+            usarás para enviar, por ejemplo <span className="break-all">correo.tuempresa.cl</span>.
+          </li>
+          <li>
+            <strong>Completa los datos de este panel.</strong> En «Dominio de envío», escribe
+            exactamente el dominio registrado, sin https://. En «Correo remitente compartido», usa
+            una dirección de ese mismo dominio, como{" "}
+            <span className="break-all">ordenes@correo.tuempresa.cl</span>.
+          </li>
+          <li>
+            <strong>Agrega la clave de Resend.</strong> Créala en tu cuenta de Resend con permisos
+            para consultar y verificar dominios y enviar correo. Pégala en «Clave privada de Resend»
+            y pulsa «Guardar conexión». Si ya guardaste una clave y quieres conservarla, deja el
+            campo vacío.
+          </li>
+          <li>
+            <strong>Agrega los registros DNS.</strong> Después de guardar, abajo aparecerán los
+            registros que debes copiar en el administrador DNS de tu dominio. Copia su tipo, nombre,
+            valor y prioridad cuando corresponda.
+          </li>
+          <li>
+            <strong>Verifica y activa.</strong> Pulsa «Verificar dominio». Si sigue pendiente,
+            espera a que se propaguen los registros DNS y vuelve a verificar. Cuando figure
+            «Verificado», pulsa «Activar envío».
+          </li>
+        </ol>
+        <p className="rounded-md bg-muted p-3 text-sm">
+          Las órdenes se enviarán cuando una persona pulse «Enviar PDF» en una orden aprobada. Las
+          respuestas llegarán al correo indicado en Configuración → Empresa.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          La clave se guarda cifrada y no vuelve a mostrarse. No la compartas por correo ni en
+          mensajes. Si todavía no tienes dominio, puedes dejar el servicio inactivo.
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function PlatformEmailSettings() {
   const qc = useQueryClient();
   const [domain, setDomain] = useState("");
@@ -95,8 +174,11 @@ export function PlatformEmailSettings() {
     <section className="card space-y-4 p-4 sm:p-6">
       <div className="flex items-start gap-3">
         <Mail className="mt-1 h-5 w-5 shrink-0 text-primary" />
-        <div>
-          <h2 className="font-semibold">Correo de órdenes de compra</h2>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-semibold">Correo de órdenes de compra</h2>
+            <EmailSetupHelp />
+          </div>
           <p className="text-sm text-muted-foreground">
             Configura el remitente compartido de BodegaPro. Cada empresa se identificará con su
             nombre y recibirá las respuestas en su propio correo.
@@ -134,10 +216,6 @@ export function PlatformEmailSettings() {
                 <strong>{data.key_configured ? "Guardada y protegida" : "Sin configurar"}</strong>
               </span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              1. Registra tu dominio en Resend. 2. Guarda aquí la conexión. 3. Copia los registros
-              DNS en tu proveedor de dominio. 4. Verifica y activa el envío.
-            </p>
             <form
               autoComplete="off"
               onSubmit={(e) => {
