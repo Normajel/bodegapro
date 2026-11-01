@@ -169,7 +169,7 @@ export function CompanySettingsForm() {
           <input className="input" value={form.phone} onChange={set("phone")} maxLength={40} />
         </div>
         <div>
-          <label className="label">Correo</label>
+          <label className="label">Correo de la empresa</label>
           <input
             type="email"
             className="input"
@@ -177,6 +177,9 @@ export function CompanySettingsForm() {
             onChange={set("email")}
             maxLength={200}
           />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Aquí llegarán las respuestas de los proveedores a las órdenes enviadas por BodegaPro.
+          </p>
         </div>
         <div className="sm:col-span-2">
           <label className="label">Correo para facturación electrónica (XML)</label>

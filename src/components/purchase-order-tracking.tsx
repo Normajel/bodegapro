@@ -31,6 +31,18 @@ export function PurchaseOrderTracking({
       return data?.[0] ?? null;
     },
   });
+  const { data: company } = useQuery({
+    queryKey: ["company-settings", "email-identity"],
+    enabled: canSend,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("name, email")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
   const { data: events = [], isError } = useQuery({
     queryKey: ["purchase-email-events", order.id],
     refetchInterval: 5000,
@@ -176,14 +188,29 @@ export function PurchaseOrderTracking({
             <p>
               Para: <strong>{supplier?.email || "Proveedor sin correo registrado"}</strong>
             </p>
+            <p>
+              Empresa remitente:{" "}
+              <strong>{company?.name || "Configura el nombre de tu empresa"}</strong> — vía
+              BodegaPro
+            </p>
+            <p>
+              Respuestas a: <strong>{company?.email || "Configura el correo de tu empresa"}</strong>
+            </p>
             <p>Asunto: Orden de compra {order.order_number}</p>
             <p className="text-sm text-muted-foreground">
               Se adjuntará el PDF de la OC aprobada. El destinatario se toma de Contactos. El envío
-              requiere configurar el servicio de correo.
+              utiliza un remitente compartido de BodegaPro. Las respuestas llegarán al correo de tu
+              empresa configurado en Configuración → Empresa.
             </p>
             <button
               className="btn btn-primary"
-              disabled={sending || pending || !supplier?.email}
+              disabled={
+                sending ||
+                pending ||
+                !supplier?.email ||
+                !company?.name?.trim() ||
+                !company?.email?.trim()
+              }
               onClick={send}
             >
               {sending ? "Enviando…" : order.sent_at ? "Reenviar PDF" : "Enviar PDF"}

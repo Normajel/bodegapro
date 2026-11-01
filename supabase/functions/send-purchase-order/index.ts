@@ -129,6 +129,40 @@ Deno.serve(async (req: Request) => {
       503,
     );
   }
+  // Identity comes exclusively from the company settings returned by the guarded RPC.
+  const companyName = payload.company?.name?.replace(/[\u0000-\u001f\u007f]/g, " ").trim();
+  const replyTo = payload.company?.email?.trim() ?? "";
+  const mailbox =
+    /^[A-Za-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}$/;
+  if (!companyName || !mailbox.test(replyTo) || replyTo.length > 254) {
+    await record("failed", "Configura el nombre y un correo válido de la empresa antes de enviar.");
+    return json(
+      {
+        status: "failed",
+        message:
+          "Completa el nombre y el correo de tu empresa en Configuración → Empresa. Las respuestas del proveedor llegarán a ese correo.",
+      },
+      422,
+    );
+  }
+  // Preserve the shared verified mailbox, replacing only its visible display name.
+  const senderAddress =
+    from
+      .trim()
+      .match(/<([^<>]+)>$/)?.[1]
+      ?.trim() ?? from.trim();
+  if (!mailbox.test(senderAddress) || senderAddress.length > 254) {
+    await record("failed", "El remitente compartido no tiene un formato válido.");
+    return json(
+      {
+        status: "failed",
+        message: "El administrador debe revisar la configuración del remitente de correo.",
+      },
+      503,
+    );
+  }
+  const visibleSender =
+    JSON.stringify(companyName + " — vía BodegaPro") + " <" + senderAddress + ">";
   let attachment: string;
   try {
     const { order: o, supplier: s, company: c, items } = payload;
@@ -204,13 +238,18 @@ Deno.serve(async (req: Request) => {
         "Idempotency-Key": "purchase-order/" + eventId,
       },
       body: JSON.stringify({
-        from,
+        from: visibleSender,
+        reply_to: replyTo,
         to: [payload.event.recipient],
         subject: payload.event.subject,
-        text:
-          "Adjuntamos la orden de compra " +
-          payload.order.order_number +
-          ". Por favor, confirme su recepción y el plazo de entrega acordado.",
+        text: [
+          companyName + " le envía la orden de compra " + payload.order.order_number + ".",
+          "Adjuntamos el documento PDF aprobado. Por favor, confirme su recepción y el plazo de entrega acordado.",
+          "Para consultas o respuestas, escriba a " +
+            replyTo +
+            " o responda directamente a este correo.",
+          "Enviado por " + companyName + " a través de BodegaPro.",
+        ].join("\n\n"),
         attachments: [{ filename: payload.order.order_number + ".pdf", content: attachment }],
       }),
       signal: AbortSignal.timeout(20000),

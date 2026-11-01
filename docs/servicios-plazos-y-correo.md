@@ -24,6 +24,8 @@ En Supabase, Edge Functions → Secrets, configurar sin compartir claves en el c
 - `RESEND_API_KEY`: clave privada de Resend.
 - `PURCHASE_ORDER_FROM_EMAIL`: remitente de un dominio verificado en Resend, por ejemplo `Compras <compras@tu-dominio.cl>`.
 
+El remitente es compartido: la dirección verificada de `PURCHASE_ORDER_FROM_EMAIL` se conserva, pero el nombre visible será «Nombre legal de la empresa — vía BodegaPro». El nombre se toma de Configuración → Empresa, no del Nombre Panel. `reply_to` se toma del Correo de la empresa en esa misma configuración, para que las respuestas del proveedor lleguen directamente a ella. El cuerpo del mensaje y el PDF también identifican a la empresa. No se envía si falta su nombre o el correo de respuesta no es válido. La dirección compartida seguirá siendo visible en los detalles del correo.
+
 La integración usa Resend. Revisar su plan y verificar el dominio antes de usarla. Sin estas variables, la función no envía correo, registra intento fallido y no inicia el plazo. La clave no se utiliza en el navegador.
 
 El destinatario y contenido del PDF se consultan en el servidor desde la OC aprobada y su proveedor; el navegador no puede elegir otro destinatario ni marcar un envío como exitoso. Confirmación de Resend significa que el proveedor aceptó el correo; no garantiza entrega en la bandeja ni lectura. No se integra seguimiento de aperturas o webhooks de entrega en esta versión.

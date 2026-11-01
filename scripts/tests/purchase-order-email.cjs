@@ -138,10 +138,47 @@ async function run(options = {}) {
   assert.equal(r.result.status, "sent");
   assert.equal(r.recorded[0].status, "sent");
   assert.deepEqual(r.mail.to, ["supplier@example.com"]);
+  assert.equal(r.mail.from, '\"INTEGRASTOCK — vía BodegaPro\" <test@example.com>');
+  assert.equal(r.mail.reply_to, "test@example.com");
+  assert(r.mail.text.includes("INTEGRASTOCK le envía"));
+  assert(r.mail.text.includes("test@example.com"));
   assert(
     Buffer.from(r.mail.attachments[0].content, "base64").subarray(0, 4).equals(Buffer.from("%PDF")),
   );
   assert(r.mail.attachments[0].filename.endsWith(".pdf"));
+  r = await run({ env: { PURCHASE_ORDER_FROM_EMAIL: "BodegaPro <shared@example.com>" } });
+  assert.equal(r.mail.from, '\"INTEGRASTOCK — vía BodegaPro\" <shared@example.com>');
+  assert.equal(r.mail.reply_to, "test@example.com");
+  r = await run({
+    payload: {
+      ...payload,
+      company: {
+        ...payload.company,
+        name: 'Empresa "Sur" <Cliente>',
+        email: "replies@example.org",
+      },
+    },
+  });
+  assert.equal(
+    r.mail.from,
+    JSON.stringify('Empresa "Sur" <Cliente> — vía BodegaPro') + " <test@example.com>",
+  );
+  assert.equal(r.mail.reply_to, "replies@example.org");
+  for (const company of [
+    null,
+    { ...payload.company, name: " " },
+    { ...payload.company, email: "" },
+    { ...payload.company, email: "a@example.com,other@example.com" },
+    { ...payload.company, email: "a@example.com\r\nBcc:other@example.com" },
+  ]) {
+    const invalid = await run({ payload: { ...payload, company } });
+    assert.equal(invalid.code, 422);
+    assert.equal(invalid.recorded[0].status, "failed");
+    assert.equal(invalid.mailCalls, 0);
+  }
+  r = await run({ env: { PURCHASE_ORDER_FROM_EMAIL: "invalid" } });
+  assert.equal(r.code, 503);
+  assert.equal(r.mailCalls, 0);
   r = await run({
     payload: { ...payload, existing: true, event: { ...payload.event, status: "sent" } },
   });
@@ -162,7 +199,9 @@ async function run(options = {}) {
   r = await run({ recordError: true });
   assert.equal(r.result.status, "unknown");
   assert.equal(r.code, 502);
-  console.log("PASS: 12 email/PDF cases; no real network or email, long multi-page PDF generated.");
+  console.log(
+    "PASS: email/PDF, shared sender and company reply address cases; no real network or email, long multi-page PDF generated.",
+  );
 })().catch((e) => {
   console.error(e);
   process.exitCode = 1;
