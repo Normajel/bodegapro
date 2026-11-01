@@ -553,6 +553,10 @@ function MovimientosPage() {
   }
 
   function openEdit(m: Movement, relatedMovements: Movement[] = movements) {
+    if (m.purchase_order_item_id) {
+      toast.error("Esta recepción pertenece a una OC; no se puede editar desde Movimientos.");
+      return;
+    }
     if (
       m.type === "entrada" &&
       purchaseEntryLinks.some((link) => link.stock_movement_id === m.id)
