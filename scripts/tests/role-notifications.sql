@@ -1,0 +1,28 @@
+BEGIN;
+DO $$ DECLARE user_id uuid; result jsonb;
+BEGIN
+  SELECT p.id INTO user_id FROM public.profiles p JOIN public.app_roles r ON r.id=p.role_id WHERE r.name='ADMIN' LIMIT 1;
+  IF user_id IS NULL THEN RAISE EXCEPTION 'An Admin test profile is required'; END IF;
+  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',user_id,'role','authenticated','aal','aal2')::text,true);
+  result:=public.get_role_notifications();
+  IF result->>'approvals_pending'<>'false' OR (SELECT count(*) FROM jsonb_object_keys(result))<>3 THEN RAISE EXCEPTION 'Admin summary leaked other data'; END IF;
+  IF (result->>'receipts_pending')::boolean IS DISTINCT FROM EXISTS(SELECT 1 FROM public.purchase_orders o JOIN public.purchase_order_items i ON i.purchase_order_id=o.id WHERE o.approval_status='aprobada' AND o.status NOT IN ('anulada','completa') AND i.item_type='producto' AND i.quantity>i.received_quantity) THEN RAISE EXCEPTION 'Incorrect pending receipt notice'; END IF;
+  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',user_id,'role','authenticated','aal','aal1')::text,true);
+  BEGIN PERFORM public.get_role_notifications(); RAISE EXCEPTION 'Admin bypassed MFA'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  SELECT p.id INTO user_id FROM public.profiles p JOIN public.app_roles r ON r.id=p.role_id WHERE r.name IN ('GERENCIA','GERENTE') LIMIT 1;
+  IF user_id IS NULL THEN RAISE EXCEPTION 'A management test profile is required'; END IF;
+  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',user_id,'role','authenticated','aal','aal1')::text,true);
+  result:=public.get_role_notifications();
+  IF result->>'receipts_pending'<>'false' THEN RAISE EXCEPTION 'Management got admin notice'; END IF;
+  IF (result->>'approvals_pending')::boolean IS DISTINCT FROM EXISTS(SELECT 1 FROM public.purchase_orders WHERE approval_status='por_aprobar' AND status<>'anulada') THEN RAISE EXCEPTION 'Incorrect approval notice'; END IF;
+  IF (result->>'low_stock')::boolean IS DISTINCT FROM EXISTS(SELECT 1 FROM public.products WHERE active IS TRUE AND coalesce(stock_quantity,stock,0)<=coalesce(min_stock,0)) THEN RAISE EXCEPTION 'Incorrect stock notice'; END IF;
+  SELECT p.id INTO user_id FROM public.profiles p JOIN public.app_roles r ON r.id=p.role_id WHERE r.name='BODEGA' LIMIT 1;
+  IF user_id IS NULL THEN RAISE EXCEPTION 'A Bodega test profile is required'; END IF;
+  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',user_id,'role','authenticated','aal','aal2')::text,true);
+  BEGIN PERFORM public.get_role_notifications(); RAISE EXCEPTION 'Bodega obtained restricted notices'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  PERFORM set_config('request.jwt.claims','{}',true);
+  BEGIN PERFORM public.get_role_notifications(); RAISE EXCEPTION 'Anonymous obtained notices'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  IF has_function_privilege('anon','public.get_role_notifications()','EXECUTE') THEN RAISE EXCEPTION 'Anonymous has EXECUTE'; END IF;
+END $$;
+SELECT 'passed: admin, management, receipt and approval filters, stock, MFA, other roles, anonymous, no product details' as result;
+ROLLBACK;

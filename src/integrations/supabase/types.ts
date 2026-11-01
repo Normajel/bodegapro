@@ -704,6 +704,7 @@ export type Database = {
       };
     };
     Functions: {
+      get_role_notifications: { Args: Record<PropertyKey, never>; Returns: Json };
       get_panel_branding: {
         Args: Record<PropertyKey, never>;
         Returns: { panel_name: string; panel_logo_path: string | null }[];

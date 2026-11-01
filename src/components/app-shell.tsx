@@ -19,6 +19,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { AppAccessContext, hasPermission } from "@/lib/permissions";
 
+import { RoleNotifications } from "@/components/role-notifications";
 import { PanelIdentity } from "@/components/panel-identity";
 import { usePanelBranding, usePanelLogoUrl } from "@/hooks/use-panel-branding";
 
@@ -220,6 +221,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             Hola {profileName}
           </p>
+          <RoleNotifications access={access} />
           <button
             onClick={() => setOpen(!open)}
             className="btn btn-ghost p-2 md:hidden"
