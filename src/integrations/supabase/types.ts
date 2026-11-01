@@ -935,7 +935,7 @@ export type Database = {
           notes: string | null;
           phone: string | null;
           rut: string | null;
-          supplier_type: string;
+          supplier_type: "producto" | "servicio" | "ambos";
         };
         Insert: {
           address?: string | null;
@@ -951,7 +951,7 @@ export type Database = {
           notes?: string | null;
           phone?: string | null;
           rut?: string | null;
-          supplier_type?: string;
+          supplier_type?: "producto" | "servicio" | "ambos";
         };
         Update: {
           address?: string | null;
@@ -967,7 +967,7 @@ export type Database = {
           notes?: string | null;
           phone?: string | null;
           rut?: string | null;
-          supplier_type?: string;
+          supplier_type?: "producto" | "servicio" | "ambos";
         };
         Relationships: [
           {
