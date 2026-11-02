@@ -32,7 +32,7 @@ export function LegacyMigrationGate({ children }: { children: ReactNode }) {
 
   if (pathname === "/productos") return <TenantInventoryPreview />;
   if (pathname === "/contactos") return <TenantSuppliersPreview />;
-  if (pathname === "/ordenes-compra") return <TenantOrdersPreview />;
+  if (pathname === "/compras") return <TenantOrdersPreview />;
 
   // Gate all authenticated legacy pages, including nested routes.
   // Only the public landing/auth pages remain available.
