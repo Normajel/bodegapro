@@ -1,3 +1,4 @@
+import { NumericInput } from "@/components/numeric-input";
 import { SpecialProductSelector } from "@/components/special-product-selector";
 import { SpecialProductHistory } from "@/components/special-product-history";
 import { canAccessSpecialProducts, specialProductDescription } from "@/lib/special-products";
@@ -1235,7 +1236,7 @@ function ComprasPage() {
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                         <div>
                           <label className="label">Cantidad *</label>
-                          <input
+                          <NumericInput
                             className="input"
                             type="number"
                             min="1"
@@ -1279,7 +1280,7 @@ function ComprasPage() {
                               />
                             )}
                           </label>
-                          <input
+                          <NumericInput
                             className="input"
                             type="number"
                             min="0"
@@ -1734,7 +1735,7 @@ function ComprasPage() {
                         </p>
                       </div>
                       <label className="text-sm text-muted-foreground">Recibir ahora</label>
-                      <input
+                      <NumericInput
                         className="input"
                         type="number"
                         min="0"

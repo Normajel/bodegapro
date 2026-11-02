@@ -1,3 +1,4 @@
+import { NumericInput } from "@/components/numeric-input";
 import { TablePagination } from "@/components/table-pagination";
 import { fetchAllTableRows, pageWindow, type TablePageSize } from "@/lib/table-pagination";
 import { PriceTrend } from "@/components/price-trend";
@@ -2194,7 +2195,7 @@ function MovimientosPage() {
                               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                                 <div>
                                   <label className="label">Cantidad *</label>
-                                  <input
+                                  <NumericInput
                                     className="input"
                                     type="number"
                                     min="0.001"
@@ -2239,7 +2240,7 @@ function MovimientosPage() {
                                       }
                                     />
                                   </label>
-                                  <input
+                                  <NumericInput
                                     className="input"
                                     type="number"
                                     min="0"
@@ -2477,7 +2478,7 @@ function MovimientosPage() {
                               <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
                                 <div>
                                   <label className="label">Cantidad *</label>
-                                  <input
+                                  <NumericInput
                                     className="input"
                                     type="number"
                                     min="0.001"
@@ -2533,7 +2534,7 @@ function MovimientosPage() {
 
                                 <div>
                                   <label className="label">Costo unitario *</label>
-                                  <input
+                                  <NumericInput
                                     className="input"
                                     type="number"
                                     min="0"
@@ -2604,7 +2605,7 @@ function MovimientosPage() {
 
                     <div>
                       <label className="label">Cantidad *</label>
-                      <input
+                      <NumericInput
                         type="number"
                         min={1}
                         className="input"

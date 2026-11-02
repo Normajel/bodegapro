@@ -1,3 +1,4 @@
+import { NumericInput } from "@/components/numeric-input";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
@@ -161,7 +162,7 @@ export function PurchaseOrderTracking({
         <div className="rounded border p-3">
           <label className="label">
             Plazo de esta OC (días corridos desde el primer envío)
-            <input
+            <NumericInput
               className="input"
               type="number"
               min="0"

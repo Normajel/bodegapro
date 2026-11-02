@@ -1,3 +1,4 @@
+import { NumericInput } from "@/components/numeric-input";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
@@ -612,7 +613,7 @@ function ContactosPage() {
                     {form.supplier_kind !== "servicios" && (
                       <label className="label">
                         Plazo de entrega (días corridos)
-                        <input
+                        <NumericInput
                           className="input"
                           type="number"
                           min="0"

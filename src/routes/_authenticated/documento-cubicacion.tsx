@@ -1,3 +1,4 @@
+import { NumericInput } from "@/components/numeric-input";
 import { useSpecialProducts } from "@/hooks/use-special-products";
 import { canAccessSpecialProducts } from "@/lib/special-products";
 import { useAppAccess, hasPermission } from "@/lib/permissions";
@@ -385,7 +386,7 @@ function CubicationDocumentPage() {
                           <tr key={field.key}>
                             <td>{field.label}</td>
                             <td>
-                              <input
+                              <NumericInput
                                 className="input min-w-32 text-right"
                                 type="number"
                                 min="0"
@@ -419,7 +420,7 @@ function CubicationDocumentPage() {
                       <tr className="bg-primary/10 font-bold">
                         <td>VENTA PÚBLICO</td>
                         <td>
-                          <input
+                          <NumericInput
                             className="input text-right"
                             type="number"
                             min="0"
@@ -440,7 +441,7 @@ function CubicationDocumentPage() {
                       <tr className="bg-primary/10 font-bold">
                         <td>VENTA DISTRIBUIDOR</td>
                         <td>
-                          <input
+                          <NumericInput
                             className="input text-right"
                             type="number"
                             min="0"

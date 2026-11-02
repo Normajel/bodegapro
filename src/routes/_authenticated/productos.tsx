@@ -1,3 +1,4 @@
+import { NumericInput } from "@/components/numeric-input";
 import { ProductDescriptionField } from "@/components/product-description-field";
 import { PRODUCT_UNITS, type ProductDetails } from "@/lib/product-form";
 import { PriceTrend } from "@/components/price-trend";
@@ -1051,7 +1052,7 @@ function ProductosPage() {
                   <label className="label" htmlFor="product-stock">
                     Stock actual (ajuste de inventario)
                   </label>
-                  <input
+                  <NumericInput
                     id="product-stock"
                     type="number"
                     min={0}
@@ -1071,7 +1072,7 @@ function ProductosPage() {
                 <label className="label" htmlFor="product-min-stock">
                   Stock mínimo
                 </label>
-                <input
+                <NumericInput
                   id="product-min-stock"
                   type="number"
                   min={0}
@@ -1086,7 +1087,7 @@ function ProductosPage() {
                 <label className="label" htmlFor="product-unit-cost">
                   Costo unitario (CLP)
                 </label>
-                <input
+                <NumericInput
                   id="product-unit-cost"
                   type="number"
                   min={0}

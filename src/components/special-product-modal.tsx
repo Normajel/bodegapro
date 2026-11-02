@@ -1,3 +1,4 @@
+import { NumericInput } from "@/components/numeric-input";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -189,7 +190,7 @@ function SpecialProductForm({
       )}
       <label className="block">
         <span className="label">Costo unitario de referencia (CLP)</span>
-        <input
+        <NumericInput
           type="number"
           min="0"
           step="0.01"

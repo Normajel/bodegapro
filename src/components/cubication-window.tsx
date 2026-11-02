@@ -1,3 +1,4 @@
+import { NumericInput } from "@/components/numeric-input";
 import { useSpecialProducts } from "@/hooks/use-special-products";
 import { SpecialProductSelector } from "@/components/special-product-selector";
 import { canAccessSpecialProducts, type SpecialProduct } from "@/lib/special-products";
@@ -748,7 +749,7 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
                         <tr key={field.key}>
                           <td className="font-medium">{field.label}</td>
                           <td>
-                            <input
+                            <NumericInput
                               className="input w-full min-w-32 text-right"
                               type="number"
                               min="0"
@@ -775,7 +776,7 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
                   <h3 className="mb-3 font-display text-lg font-bold">Valores de venta</h3>
                   <label className="mb-3 block space-y-1">
                     <span className="font-bold">VENTA PÚBLICO</span>
-                    <input
+                    <NumericInput
                       className="input w-full text-right font-display text-xl font-bold"
                       type="number"
                       min="0"
@@ -790,7 +791,7 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
                   </label>
                   <label className="block space-y-1">
                     <span className="font-bold">VENTA DISTRIBUIDOR</span>
-                    <input
+                    <NumericInput
                       className="input w-full text-right font-display text-xl font-bold"
                       type="number"
                       min="0"

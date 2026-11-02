@@ -1,3 +1,4 @@
+import { NumericInput } from "@/components/numeric-input";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -149,7 +150,7 @@ export function ManualDispatchDialog({
           </label>
           <label className="label">
             Plazo de entrega (días corridos)
-            <input
+            <NumericInput
               className="input"
               type="number"
               required

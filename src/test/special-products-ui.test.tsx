@@ -187,6 +187,9 @@ describe("Productos especiales", () => {
     fireEvent.change(screen.getByLabelText("Descripción *"), {
       target: { value: "Puerta especial" },
     });
+    fireEvent.change(screen.getByLabelText("Costo unitario de referencia (CLP)"), {
+      target: { value: "2500" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Guardar producto especial" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(mocks.insert).toHaveBeenCalledWith(
@@ -216,6 +219,9 @@ describe("Productos especiales", () => {
     fireEvent.click(screen.getByRole("button", { name: "Nuevo producto especial" }));
     fireEvent.change(screen.getByLabelText("Descripción *"), {
       target: { value: "Producto pendiente" },
+    });
+    fireEvent.change(screen.getByLabelText("Costo unitario de referencia (CLP)"), {
+      target: { value: "2500" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Guardar producto especial" }));
     await waitFor(() => expect(mocks.error).toHaveBeenCalledWith("Error de conexión"));
