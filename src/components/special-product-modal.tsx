@@ -12,7 +12,8 @@ import {
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ProductDescriptionField } from "./product-description-field";
 import { CATEGORIES } from "@/lib/warehouse";
-import { PRODUCT_UNITS, type ProductDetails } from "@/lib/product-form";
+import { SpecialProductParameterSelect } from "./special-product-parameter-select";
+import { type ProductDetails } from "@/lib/product-form";
 import type { SpecialProduct } from "@/lib/special-products";
 
 // Montar el formulario solo mientras está abierto reinicia sus campos al cerrar.
@@ -154,37 +155,18 @@ function SpecialProductForm({
         value={form.name}
         onChange={(name) => setForm({ ...form, name })}
       />
-      <label className="block">
-        <span className="label">Categoría *</span>
-        <input
-          className="input"
-          list="special-categories"
-          required
-          maxLength={80}
-          value={form.category}
-          onChange={(e) => setForm({ ...form, category: e.target.value })}
-        />
-        <datalist id="special-categories">
-          {CATEGORIES.map((c) => (
-            <option key={c} value={c} />
-          ))}
-        </datalist>
-      </label>
-      <label className="block">
-        <span className="label">Unidad de medida *</span>
-        <input
-          className="input"
-          list="special-units"
-          required
-          value={form.unit}
-          onChange={(e) => setForm({ ...form, unit: e.target.value })}
-        />
-        <datalist id="special-units">
-          {PRODUCT_UNITS.map((u) => (
-            <option key={u} value={u} />
-          ))}
-        </datalist>
-      </label>
+      <SpecialProductParameterSelect
+        kind="category"
+        value={form.category}
+        onChange={(category) => setForm({ ...form, category })}
+        disabled={saving}
+      />
+      <SpecialProductParameterSelect
+        kind="unit"
+        value={form.unit}
+        onChange={(unit) => setForm({ ...form, unit })}
+        disabled={saving}
+      />
       <label className="block">
         <span className="label">Proveedor de referencia</span>
         <select

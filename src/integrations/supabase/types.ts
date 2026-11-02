@@ -8,6 +8,13 @@ export type Database = {
   };
   public: {
     Tables: {
+      special_product_parameters: {
+        Row: { id: string; kind: string; label: string; active: boolean };
+        Insert: { id?: string; kind: string; label: string; active?: boolean };
+        Update: { label?: string; active?: boolean };
+        Relationships: [];
+      };
+
       special_products: {
         Row: {
           id: string;

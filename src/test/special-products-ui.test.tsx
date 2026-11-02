@@ -5,6 +5,7 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import { SpecialProductSelector } from "@/components/special-product-selector";
 import { AppAccessContext } from "@/lib/permissions";
 import { CubicationWindow } from "@/components/cubication-window";
+import { SpecialProductParameterSelect } from "@/components/special-product-parameter-select";
 import type { SpecialProduct } from "@/lib/special-products";
 const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
@@ -12,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   download: vi.fn(),
   error: vi.fn(),
+  parameterUpdate: vi.fn(),
+  parameterSave: vi.fn(),
 }));
 const product: SpecialProduct = {
   id: "sp-id",
@@ -52,6 +55,22 @@ vi.mock("@/integrations/supabase/client", () => ({
             return { select: () => ({ single: mocks.single }) };
           },
         };
+      if (table === "special_product_parameters")
+        return {
+          update: (payload: unknown) => {
+            mocks.parameterUpdate(payload);
+            return { eq: () => ({ select: () => ({ single: mocks.parameterSave }) }) };
+          },
+          select: () => ({
+            order: async () => ({
+              data: [
+                { id: "param-category", kind: "category", label: "ESTRUCTURA", active: true },
+                { id: "param-unit", kind: "unit", label: "unidad", active: true },
+              ],
+              error: null,
+            }),
+          }),
+        };
       if (table === "supplier_directory")
         return { select: () => ({ order: async () => ({ data: [], error: null }) }) };
       if (table === "products")
@@ -90,14 +109,14 @@ vi.mock("@/integrations/supabase/client", () => ({
     },
   },
 }));
-function wrap(children: React.ReactNode) {
+function wrap(children: React.ReactNode, role = "VENTA") {
   return (
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
       <AppAccessContext.Provider
         value={{
-          name: "VENTA",
+          name: role,
           permissions: {
             special_inventory: { view: true, create: true },
             cubication: { view: true, edit: true },
@@ -123,6 +142,35 @@ function Fixture() {
   );
 }
 describe("Productos especiales", () => {
+  it("muestra listas desplegables y oculta la administración para Ventas", async () => {
+    render(wrap(<Fixture />));
+    fireEvent.click(screen.getByRole("button", { name: "Nuevo producto especial" }));
+    expect(screen.getByRole("combobox", { name: "Categoría *" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Unidad de medida *" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Administrar/ })).not.toBeInTheDocument();
+  });
+  it("permite a Admin modificar una opción compartida y selecciona el nuevo valor", async () => {
+    mocks.parameterSave.mockResolvedValue({
+      data: { id: "param-category", kind: "category", label: "CATEGORÍA NUEVA", active: true },
+      error: null,
+    });
+    const select = vi.fn();
+    render(
+      wrap(
+        <SpecialProductParameterSelect kind="category" value="ESTRUCTURA" onChange={select} />,
+        "ADMIN",
+      ),
+    );
+    const manage = screen.getByRole("button", { name: "Administrar categoría" });
+    await waitFor(() => expect(manage).toBeEnabled());
+    fireEvent.click(manage);
+    fireEvent.change(screen.getByLabelText("Nombre de categoría"), {
+      target: { value: "CATEGORÍA NUEVA" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cambio" }));
+    await waitFor(() => expect(select).toHaveBeenCalledWith("CATEGORÍA NUEVA"));
+    expect(mocks.parameterUpdate).toHaveBeenCalledWith({ label: "CATEGORÍA NUEVA" });
+  });
   it("filtra descripción y SKU y permite seleccionar con teclado", () => {
     render(wrap(<Fixture />));
     const combo = screen.getByRole("combobox");

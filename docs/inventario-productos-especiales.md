@@ -62,3 +62,13 @@ npx eslint src/components/special-product*.tsx src/components/product-descriptio
 `supabase/tests/special_product_catalog.sql` se ejecuta en una transacción que termina con ROLLBACK. Comprueba SKU, permisos de Admin/Ventas/Bodega/Gerencia, una OC mixta, recepción parcial y completa, proveedor, costos, stock general intacto para especiales, persistencia de plantilla e idempotencia del documento. No deja filas de prueba. Las secuencias pueden avanzar durante la prueba aunque se reviertan las filas.
 
 Los tests de interfaz comprueban búsqueda y selección por teclado, alta inmediata, reinicio del modal sin borrar la planilla, conservación de datos ante un error y UUID estable al repetir PDF y guardar.
+
+## Categorías y unidades de medida
+
+El modal **Nuevo producto especial** utiliza listas desplegables compartidas para Categoría y Unidad de medida, tanto desde el catálogo como desde Cubicación o una OC. Ventas solo selecciona opciones habilitadas; no puede escribir valores libres ni cambiar los parámetros.
+
+Admin y AdminPro disponen de **Administrar categoría / Administrar unidad de medida**. Pueden agregar opciones, renombrar la opción seleccionada o desactivarla. Los cambios se conservan en `special_product_parameters` y se comparten con los demás usuarios. Renombrar o desactivar una opción no reescribe productos ni compras históricas.
+
+La migración `20261102184129_special_product_parameters.sql` carga las opciones iniciales y conserva las categorías/unidades previamente utilizadas. RLS restringe los cambios de parámetros a Admin/AdminPro, respetando MFA. Un trigger valida los valores de cada producto especial, por lo que Ventas tampoco puede enviar opciones inexistentes mediante una petición directa a la API.
+
+Pruebas: `supabase/tests/special_product_parameters.sql` comprueba administración por Admin, lectura y selección por Ventas, rechazo de modificaciones no autorizadas y rechazo de categorías/unidades inexistentes. Las pruebas de interfaz verifican los dos desplegables y la edición administrativa.
