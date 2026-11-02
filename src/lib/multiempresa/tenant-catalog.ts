@@ -17,6 +17,7 @@ export const tenantQueryKeys = {
   products: (companyId: string) => ["tenant", companyId, "products"] as const,
   suppliers: (companyId: string) => ["tenant", companyId, "suppliers"] as const,
   orders: (companyId: string) => ["tenant", companyId, "purchase-orders"] as const,
+  movements: (companyId: string) => ["tenant", companyId, "movements"] as const,
 };
 
 export async function listCompanyProducts(companyId: string) {
@@ -48,6 +49,18 @@ export async function listCompanyPurchaseOrders(companyId: string) {
     .select("id,company_id,order_number,approval_status,status,order_date,total_amount")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+export async function listCompanyMovements(companyId: string) {
+  await requireCompany(companyId);
+  const { data, error } = await db
+    .from("stock_movements")
+    .select("id,company_id,folio,product_id,type,quantity,measure_unit,reference,document_type,document_number,created_at")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false })
+    .limit(100);
   if (error) throw error;
   return data;
 }
