@@ -11,6 +11,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { CompanySelector } from "@/components/multiempresa/CompanySelector";
+import { LegacyMigrationGate } from "@/components/multiempresa/LegacyMigrationGate";
 import { supabase } from "@/integrations/supabase/client";
 
 import appCss from "../styles.css?url";
@@ -159,7 +160,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <CompanySelector />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <LegacyMigrationGate><Outlet /></LegacyMigrationGate>
       <Toaster
         richColors
         position="top-center"
