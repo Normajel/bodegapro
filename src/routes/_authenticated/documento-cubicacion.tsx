@@ -1,6 +1,9 @@
+import { useSpecialProducts } from "@/hooks/use-special-products";
+import { canAccessSpecialProducts } from "@/lib/special-products";
+import { useAppAccess, hasPermission } from "@/lib/permissions";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { FileDown, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +33,17 @@ export const Route = createFileRoute("/_authenticated/documento-cubicacion")({
 });
 
 function CubicationDocumentPage() {
+  const access = useAppAccess();
+  const canSpecial =
+    canAccessSpecialProducts(access?.name) &&
+    hasPermission(access?.name, access?.permissions, "special_inventory");
+  const {
+    data: specialProducts = [],
+    isLoading: specialProductsLoading,
+    isError: specialProductsError,
+  } = useSpecialProducts();
+  const documentId = useRef(crypto.randomUUID());
+  const [exporting, setExporting] = useState(false);
   const [unitCode, setUnitCode] = useState("");
   const [unitType, setUnitType] = useState("");
   const [client, setClient] = useState("");
@@ -65,6 +79,48 @@ function CubicationDocumentPage() {
     },
   });
 
+  const {
+    data: specialItems = [],
+    isLoading: specialItemsLoading,
+    isError: specialItemsError,
+  } = useQuery({
+    queryKey: ["cubication-special-items", template?.id],
+    enabled: canSpecial && !!template?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cubication_special_items")
+        .select("*")
+        .eq("template_id", template!.id);
+      if (error) throw error;
+      return data;
+    },
+  });
+  const specialLines = useMemo<CubicationLine[]>(
+    () =>
+      specialItems.flatMap((item) => {
+        const p = specialProducts.find((p) => p.id === item.special_product_id);
+        return p
+          ? [
+              {
+                isSpecial: true,
+                specialId: item.line_id,
+                quantity: item.quantity,
+                product: {
+                  id: item.line_id,
+                  name: p.name,
+                  sku: p.sku,
+                  category: p.category,
+                  unit: p.unit,
+                  stock: 0,
+                  unit_cost: item.unit_cost,
+                },
+              },
+            ]
+          : [];
+      }),
+    [specialItems, specialProducts],
+  );
+
   const lines = useMemo<CubicationLine[]>(
     () =>
       (template?.cubication_template_items ?? []).flatMap((item) => {
@@ -87,7 +143,7 @@ function CubicationDocumentPage() {
       }),
     [template],
   );
-  const groups = useMemo(() => groupByCategory(lines), [lines]);
+  const groups = useMemo(() => groupByCategory([...lines, ...specialLines]), [lines, specialLines]);
   const materialsTotal = groups.reduce((sum, group) => sum + group.subtotal, 0);
   const totalCost = calculateCubicationTotal(materialsTotal, costBreakdown);
   const printData = {
@@ -99,36 +155,50 @@ function CubicationDocumentPage() {
     costBreakdown,
   };
 
-  function resetDocumentFields() {
-    setClient("");
-    setUnitType("");
-    setSalesOrderNumber("");
-    setCostBreakdown({ ...EMPTY_CUBICATION_COSTS });
-  }
-
-  function handlePrint() {
+  async function outputDocument(print: boolean) {
     if (!unitType) {
-      toast.error("Selecciona el tipo de unidad antes de imprimir");
+      toast.error("Selecciona el tipo de unidad antes de generar el documento");
       return;
     }
-    try {
-      printCubicationPdf(printData);
-      resetDocumentFields();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo imprimir");
-    }
-  }
-
-  function handleDownloadPdf() {
-    if (!unitType) {
-      toast.error("Selecciona el tipo de unidad antes de descargar el PDF");
+    if (specialItemsError || specialProductsError || specialLines.length !== specialItems.length) {
+      toast.error("No se pudieron cargar los productos especiales");
       return;
     }
+    let target: Window | null = null;
+    if (print) {
+      target = window.open("", "_blank");
+      if (!target) {
+        toast.error("Permite las ventanas emergentes para imprimir");
+        return;
+      }
+    }
+    setExporting(true);
     try {
-      downloadCubicationPdf(printData);
-      resetDocumentFields();
+      if (canSpecial && specialItems.length) {
+        const { error } = await supabase.rpc("save_special_cubication", {
+          p_document_id: documentId.current,
+          p_unit_code: unitCode,
+          p_context: { client, unitType, salesOrderNumber, costBreakdown },
+          p_lines: specialItems.map((item) => ({
+            line_id: item.line_id,
+            special_product_id: item.special_product_id,
+            quantity: item.quantity,
+            unit_cost: item.unit_cost,
+          })),
+        });
+        if (error) throw error;
+      }
+      if (print) printCubicationPdf(printData, target);
+      else downloadCubicationPdf(printData);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo descargar el PDF");
+      target?.close();
+      toast.error(
+        typeof error === "object" && error && "message" in error
+          ? String(error.message)
+          : "No se pudo generar el documento",
+      );
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -194,7 +264,10 @@ function CubicationDocumentPage() {
             className="input"
             value={unitCode}
             disabled={templatesLoading}
-            onChange={(event) => setUnitCode(event.target.value)}
+            onChange={(event) => {
+              setUnitCode(event.target.value);
+              documentId.current = crypto.randomUUID();
+            }}
           >
             <option value="">
               {templates.length === 0 && !templatesLoading
@@ -212,7 +285,7 @@ function CubicationDocumentPage() {
 
       {unitCode && (
         <div className="card space-y-4 p-4">
-          {templateLoading ? (
+          {templateLoading || specialProductsLoading || specialItemsLoading ? (
             <p className="py-6 text-center text-muted-foreground">Cargando…</p>
           ) : groups.length === 0 ? (
             <p className="py-6 text-center text-muted-foreground">
@@ -228,10 +301,20 @@ function CubicationDocumentPage() {
                   <p className="font-display text-lg font-bold">{unitCode}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" className="btn btn-secondary" onClick={handlePrint}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={exporting}
+                    onClick={() => outputDocument(true)}
+                  >
                     <Printer className="h-4 w-4" /> Imprimir
                   </button>
-                  <button type="button" className="btn btn-primary" onClick={handleDownloadPdf}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={exporting}
+                    onClick={() => outputDocument(false)}
+                  >
                     <FileDown className="h-4 w-4" /> PDF
                   </button>
                 </div>
@@ -261,10 +344,18 @@ function CubicationDocumentPage() {
                     </thead>
                     <tbody>
                       {group.lines.map((line) => (
-                        <tr key={line.product.id}>
-                          <td className="whitespace-normal">{line.product.name}</td>
+                        <tr
+                          key={line.product.id}
+                          className={line.isSpecial ? "bg-yellow-100 dark:bg-yellow-950/50" : ""}
+                        >
+                          <td className="whitespace-normal">
+                            {line.product.sku && line.isSpecial ? `${line.product.sku} · ` : ""}
+                            {line.product.name}
+                          </td>
                           <td className="text-right">
-                            {line.product.stock.toLocaleString("es-CL")} {line.product.unit}
+                            {line.isSpecial
+                              ? "—"
+                              : `${line.product.stock.toLocaleString("es-CL")} ${line.product.unit}`}
                           </td>
                           <td className="text-right">
                             {line.quantity.toLocaleString("es-CL")} {line.product.unit}

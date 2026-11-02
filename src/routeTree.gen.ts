@@ -24,6 +24,7 @@ import { Route as AuthenticatedInformesRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedMovimientosRouteImport } from './routes/_authenticated/movimientos'
 import { Route as AuthenticatedPanelGerencialRouteImport } from './routes/_authenticated/panel-gerencial'
 import { Route as AuthenticatedProductosRouteImport } from './routes/_authenticated/productos'
+import { Route as AuthenticatedProductosEspecialesRouteImport } from './routes/_authenticated/productos-especiales'
 import { Route as AuthenticatedServiciosRouteImport } from './routes/_authenticated/servicios'
 
 const IndexRoute = IndexRouteImport.update({
@@ -104,6 +105,12 @@ const AuthenticatedProductosRoute = AuthenticatedProductosRouteImport.update({
   path: '/productos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProductosEspecialesRoute =
+  AuthenticatedProductosEspecialesRouteImport.update({
+    id: '/productos-especiales',
+    path: '/productos-especiales',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedServiciosRoute = AuthenticatedServiciosRouteImport.update({
   id: '/servicios',
   path: '/servicios',
@@ -125,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/movimientos': typeof AuthenticatedMovimientosRoute
   '/panel-gerencial': typeof AuthenticatedPanelGerencialRoute
   '/productos': typeof AuthenticatedProductosRoute
+  '/productos-especiales': typeof AuthenticatedProductosEspecialesRoute
   '/servicios': typeof AuthenticatedServiciosRoute
 }
 export interface FileRoutesByTo {
@@ -142,6 +150,7 @@ export interface FileRoutesByTo {
   '/movimientos': typeof AuthenticatedMovimientosRoute
   '/panel-gerencial': typeof AuthenticatedPanelGerencialRoute
   '/productos': typeof AuthenticatedProductosRoute
+  '/productos-especiales': typeof AuthenticatedProductosEspecialesRoute
   '/servicios': typeof AuthenticatedServiciosRoute
 }
 export interface FileRoutesById {
@@ -161,6 +170,7 @@ export interface FileRoutesById {
   '/_authenticated/movimientos': typeof AuthenticatedMovimientosRoute
   '/_authenticated/panel-gerencial': typeof AuthenticatedPanelGerencialRoute
   '/_authenticated/productos': typeof AuthenticatedProductosRoute
+  '/_authenticated/productos-especiales': typeof AuthenticatedProductosEspecialesRoute
   '/_authenticated/servicios': typeof AuthenticatedServiciosRoute
 }
 export interface FileRouteTypes {
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/movimientos'
     | '/panel-gerencial'
     | '/productos'
+    | '/productos-especiales'
     | '/servicios'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/movimientos'
     | '/panel-gerencial'
     | '/productos'
+    | '/productos-especiales'
     | '/servicios'
   id:
     | '__root__'
@@ -215,6 +227,7 @@ export interface FileRouteTypes {
     | '/_authenticated/movimientos'
     | '/_authenticated/panel-gerencial'
     | '/_authenticated/productos'
+    | '/_authenticated/productos-especiales'
     | '/_authenticated/servicios'
   fileRoutesById: FileRoutesById
 }
@@ -332,6 +345,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProductosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/productos-especiales': {
+      id: '/_authenticated/productos-especiales'
+      path: '/productos-especiales'
+      fullPath: '/productos-especiales'
+      preLoaderRoute: typeof AuthenticatedProductosEspecialesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/servicios': {
       id: '/_authenticated/servicios'
       path: '/servicios'
@@ -354,6 +374,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMovimientosRoute: typeof AuthenticatedMovimientosRoute
   AuthenticatedPanelGerencialRoute: typeof AuthenticatedPanelGerencialRoute
   AuthenticatedProductosRoute: typeof AuthenticatedProductosRoute
+  AuthenticatedProductosEspecialesRoute: typeof AuthenticatedProductosEspecialesRoute
   AuthenticatedServiciosRoute: typeof AuthenticatedServiciosRoute
 }
 
@@ -369,6 +390,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMovimientosRoute: AuthenticatedMovimientosRoute,
   AuthenticatedPanelGerencialRoute: AuthenticatedPanelGerencialRoute,
   AuthenticatedProductosRoute: AuthenticatedProductosRoute,
+  AuthenticatedProductosEspecialesRoute: AuthenticatedProductosEspecialesRoute,
   AuthenticatedServiciosRoute: AuthenticatedServiciosRoute,
 }
 

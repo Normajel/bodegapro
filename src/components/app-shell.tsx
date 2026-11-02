@@ -36,6 +36,7 @@ const PROFILE_LABELS: Record<string, string> = {
 const NAV_ITEMS = [
   { to: "/panel-gerencial", label: "Panel gerencial", icon: FileBarChart, module: "management" },
   { to: "/dashboard", label: "Panel", icon: LayoutDashboard, module: "dashboard" },
+  { to: "/productos-especiales", label: "Inventario especial", icon: Package, module: "special_inventory" },
   { to: "/productos", label: "Inventario", icon: Package, module: "inventory" },
   { to: "/compras", label: "Órdenes de compra", icon: ShoppingCart, module: "purchases" },
   { to: "/servicios", label: "Servicios", icon: FileText, module: "purchases" },

@@ -1,3 +1,5 @@
+import { ProductDescriptionField } from "@/components/product-description-field";
+import { PRODUCT_UNITS, type ProductDetails } from "@/lib/product-form";
 import { PriceTrend } from "@/components/price-trend";
 import { usePurchasePrices } from "@/hooks/use-purchase-prices";
 import { productPurchases } from "@/lib/purchase-prices";
@@ -38,18 +40,7 @@ export const Route = createFileRoute("/_authenticated/productos")({
 });
 
 type Product = Tables<"products">;
-type ProductForm = {
-  sku: string;
-  name: string;
-  category: string;
-  unit: string;
-  supplier_id: string;
-  min_stock: number;
-  location: string;
-  unit_cost: number;
-  barcode: string;
-  stock: number;
-};
+type ProductForm = ProductDetails & { sku: string; min_stock: number; stock: number };
 
 function getProductStock(product: Product) {
   const stock = Number(product.stock_quantity ?? product.stock ?? 0);
@@ -75,19 +66,7 @@ function getSaveErrorMessage(error: unknown) {
 
 const DEFAULT_CATEGORY = CATEGORIES[0];
 
-const DEFAULT_UNITS = [
-  "unidad",
-  "kg",
-  "rollo",
-  "lata",
-  "tambor",
-  "mt",
-  "lts",
-  "m²",
-  "m³",
-  "caja",
-  "par",
-];
+const DEFAULT_UNITS = PRODUCT_UNITS;
 
 const EMPTY_FORM: ProductForm = {
   sku: "",
@@ -943,20 +922,10 @@ function ProductosPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="label" htmlFor="product-name">
-                  Descripción *
-                </label>
-                <input
-                  id="product-name"
-                  className="input w-full"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  required
-                  maxLength={200}
-                  placeholder="Ej.: Pintura esmalte al agua blanca"
-                />
-              </div>
+              <ProductDescriptionField
+                value={form.name}
+                onChange={(name) => setForm({ ...form, name })}
+              />
 
               <div>
                 <label className="label" htmlFor="product-barcode">

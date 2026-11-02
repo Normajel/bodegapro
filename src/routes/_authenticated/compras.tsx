@@ -1,3 +1,6 @@
+import { SpecialProductSelector } from "@/components/special-product-selector";
+import { SpecialProductHistory } from "@/components/special-product-history";
+import { canAccessSpecialProducts } from "@/lib/special-products";
 import { ManualDispatchDialog } from "@/components/manual-dispatch-dialog";
 import { DeliveryPanel } from "@/components/delivery-panel";
 import { PriceTrend } from "@/components/price-trend";
@@ -51,6 +54,8 @@ type OrderItemDraft = {
   item_type: PurchaseItemType;
   description: string;
   product_id: string;
+  special_product_id: string;
+  is_special: boolean;
   quantity: number;
   measure_unit: string;
   unit_cost: number;
@@ -100,6 +105,8 @@ function newLine(itemType: PurchaseItemType = "producto"): OrderItemDraft {
     item_type: itemType,
     description: "",
     product_id: "",
+    special_product_id: "",
+    is_special: false,
     quantity: 1,
     measure_unit: "UN",
     unit_cost: 0,
@@ -109,6 +116,7 @@ function newLine(itemType: PurchaseItemType = "producto"): OrderItemDraft {
 function ComprasPage() {
   const access = useAppAccess();
   const { data: purchasePrices = [], isError: priceHistoryError } = usePurchasePrices();
+  const specialAccess = canAccessSpecialProducts(access?.name);
   const canCreate = hasPermission(access?.name, access?.permissions, "purchases", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
@@ -292,6 +300,7 @@ function ComprasPage() {
 
   function invalidateOrders() {
     return Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["special-product-history"] }),
       queryClient.invalidateQueries({ queryKey: ["purchase-orders"] }),
       queryClient.invalidateQueries({ queryKey: ["purchase-price-history"] }),
       queryClient.invalidateQueries({ queryKey: ["purchase-delivery-summary"] }),
@@ -336,6 +345,8 @@ function ComprasPage() {
           item_type: item.item_type as PurchaseItemType,
           description: item.description,
           product_id: item.product_id ?? "",
+          special_product_id: item.special_product_id ?? "",
+          is_special: !!item.special_product_id,
           quantity: item.quantity,
           measure_unit: item.measure_unit,
           unit_cost: item.unit_cost,
@@ -381,7 +392,9 @@ function ComprasPage() {
   async function saveOrder(event: React.FormEvent) {
     event.preventDefault();
     const selected = lines.filter((line) =>
-      line.item_type === "producto" ? line.product_id : line.description.trim(),
+      line.item_type === "producto"
+        ? line.product_id || line.special_product_id
+        : line.description.trim(),
     );
     if (!supplierId) {
       toast.error("Selecciona un proveedor");
@@ -403,7 +416,7 @@ function ComprasPage() {
       selected.length !== lines.length ||
       selected.some(
         (line) =>
-          (line.item_type === "producto" && !line.product_id) ||
+          (line.item_type === "producto" && !line.product_id && !line.special_product_id) ||
           (line.item_type === "servicio" && !line.description.trim()) ||
           !Number.isFinite(line.quantity) ||
           line.quantity <= 0 ||
@@ -429,7 +442,9 @@ function ComprasPage() {
         p_lines: selected.map((line) => ({
           item_type: line.item_type,
           description: line.description.trim(),
-          product_id: line.item_type === "producto" ? line.product_id : null,
+          product_id: line.item_type === "producto" ? line.product_id || null : null,
+          special_product_id:
+            line.item_type === "producto" ? line.special_product_id || null : null,
           quantity: line.quantity,
           measure_unit: line.measure_unit.trim(),
           unit_cost: line.unit_cost,
@@ -484,7 +499,7 @@ function ComprasPage() {
         p_lines: linesToReceive,
       });
       if (error) throw error;
-      toast.success("Recepción registrada y stock actualizado");
+      toast.success("Recepción registrada. Los productos especiales no afectan el stock general");
       setReceiveOpen(false);
       await invalidateOrders();
     } catch (error) {
@@ -1107,7 +1122,10 @@ function ComprasPage() {
                     </div>
                   </div>
                   {lines.map((line, index) => (
-                    <div key={line.key} className="space-y-2 rounded-lg border p-3">
+                    <div
+                      key={line.key}
+                      className={`space-y-2 rounded-lg border p-3 ${line.is_special ? "bg-yellow-100 dark:bg-yellow-950/50" : ""}`}
+                    >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold">
                           {line.item_type === "producto" ? "Producto" : "Servicio"} {index + 1}
@@ -1131,11 +1149,15 @@ function ComprasPage() {
                           <label className="label">Tipo de línea</label>
                           <select
                             className="input"
-                            value={line.item_type}
+                            value={line.is_special ? "especial" : line.item_type}
                             onChange={(event) => {
-                              const itemType = event.target.value as PurchaseItemType;
+                              const isSpecial = event.target.value === "especial";
+                              const itemType: PurchaseItemType =
+                                event.target.value === "servicio" ? "servicio" : "producto";
                               updateLine(line.key, {
                                 item_type: itemType,
+                                is_special: isSpecial,
+                                special_product_id: "",
                                 product_id: "",
                                 description: "",
                                 measure_unit: itemType === "servicio" ? "SERV" : "UN",
@@ -1144,10 +1166,37 @@ function ComprasPage() {
                             }}
                           >
                             <option value="producto">Producto de inventario</option>
+                            {specialAccess && (
+                              <option value="especial">Producto especial (sin stock)</option>
+                            )}
                             <option value="servicio">Servicio</option>
                           </select>
                         </div>
-                        {line.item_type === "producto" ? (
+                        {line.is_special ? (
+                          <div>
+                            <span className="label">Producto especial *</span>
+                            <SpecialProductSelector
+                              value={line.special_product_id}
+                              onSelect={(p) =>
+                                updateLine(line.key, {
+                                  special_product_id: p.id,
+                                  product_id: "",
+                                  description: `${p.sku} · ${p.name}`,
+                                  measure_unit: p.unit,
+                                  unit_cost: p.unit_cost,
+                                })
+                              }
+                            />
+                            {line.special_product_id && (
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-sm">
+                                  Consultar compras, proveedores y uso
+                                </summary>
+                                <SpecialProductHistory productId={line.special_product_id} />
+                              </details>
+                            )}
+                          </div>
+                        ) : line.item_type === "producto" ? (
                           <div>
                             <label className="label">Producto *</label>
                             <select
@@ -1187,8 +1236,8 @@ function ComprasPage() {
                           <input
                             className="input"
                             type="number"
-                            min="0.001"
-                            step="0.001"
+                            min="1"
+                            step="1"
                             value={line.quantity}
                             onChange={(event) =>
                               updateLine(line.key, { quantity: Number(event.target.value) })
@@ -1501,8 +1550,14 @@ function ComprasPage() {
                   </thead>
                   <tbody>
                     {previewOrderItems.map((item) => (
-                      <tr key={item.id}>
+                      <tr
+                        key={item.id}
+                        className={
+                          item.special_product_id ? "bg-yellow-100 dark:bg-yellow-950/50" : ""
+                        }
+                      >
                         <td>
+                          {item.special_product_id ? "Especial · " : ""}
                           {item.item_type === "servicio"
                             ? `Servicio: ${item.description}`
                             : item.description}
@@ -1642,10 +1697,12 @@ function ComprasPage() {
                   return (
                     <div
                       key={item.id}
-                      className="grid items-center gap-2 rounded-md border p-3 sm:grid-cols-[1fr_auto_9rem]"
+                      className={`grid items-center gap-2 rounded-md border p-3 sm:grid-cols-[1fr_auto_9rem] ${item.special_product_id ? "bg-yellow-100 dark:bg-yellow-950/50" : ""}`}
                     >
                       <div>
-                        <p className="font-medium">{product?.name ?? "Producto"}</p>
+                        <p className="font-medium">
+                          {item.description || product?.name || "Producto"}
+                        </p>
                         <p className="text-sm">
                           Precio unitario: {formatPurchaseUnitPrice(item.unit_cost)}
                           <PriceTrend

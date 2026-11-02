@@ -1,3 +1,6 @@
+import { useSpecialProducts } from "@/hooks/use-special-products";
+import { SpecialProductSelector } from "@/components/special-product-selector";
+import { canAccessSpecialProducts, type SpecialProduct } from "@/lib/special-products";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileDown, Pencil, Plus, Printer, Save, Search, Trash2, X } from "lucide-react";
@@ -21,6 +24,9 @@ import { downloadCubicationPdf, printCubicationPdf } from "@/lib/cubication-pdf"
 
 type SpecialItem = {
   id: string;
+  productId: string;
+  sku: string;
+  unit: string;
   description: string;
   category: string;
   unitCost: string;
@@ -35,6 +41,9 @@ function toNumber(value: string) {
 function newSpecialItem(category: string): SpecialItem {
   return {
     id: crypto.randomUUID(),
+    productId: "",
+    sku: "",
+    unit: "",
     description: "",
     category,
     unitCost: "",
@@ -45,6 +54,12 @@ function newSpecialItem(category: string): SpecialItem {
 export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onClose: () => void }) {
   const queryClient = useQueryClient();
   const access = useAppAccess();
+  const canSpecial =
+    canAccessSpecialProducts(access?.name) &&
+    hasPermission(access?.name, access?.permissions, "special_inventory");
+  const documentId = useRef(crypto.randomUUID());
+  const [exporting, setExporting] = useState(false);
+  const hydratedSpecial = useRef<string | null>(null);
   const canEdit = hasPermission(access?.name, access?.permissions, "cubication", "edit");
 
   const [picking, setPicking] = useState(false);
@@ -95,12 +110,63 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
     },
   });
 
+  const {
+    data: savedSpecialItems,
+    isLoading: specialLoading,
+    isError: specialLoadError,
+  } = useQuery({
+    queryKey: ["cubication-special-items", template?.id],
+    enabled: canSpecial && !!template?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cubication_special_items")
+        .select("*")
+        .eq("template_id", template!.id);
+      if (error) throw error;
+      return data;
+    },
+  });
+  const {
+    data: specialCatalog = [],
+    isLoading: specialCatalogLoading,
+    isError: specialCatalogError,
+  } = useSpecialProducts();
+
+  useEffect(() => {
+    if (!template?.id || !savedSpecialItems || hydratedSpecial.current === template.id) return;
+    if (
+      savedSpecialItems.some(
+        (item) => !specialCatalog.some((p) => p.id === item.special_product_id),
+      )
+    )
+      return;
+    hydratedSpecial.current = template.id;
+    setSpecialItems(
+      savedSpecialItems.map((item) => {
+        const product = specialCatalog.find((p) => p.id === item.special_product_id)!;
+        return {
+          id: item.line_id,
+          productId: product.id,
+          sku: product.sku,
+          unit: product.unit,
+          description: product.name,
+          category: product.category,
+          quantity: String(item.quantity),
+          unitCost: String(item.unit_cost),
+        };
+      }),
+    );
+    setSpecialEnabled(savedSpecialItems.length > 0);
+  }, [template?.id, savedSpecialItems, specialCatalog]);
+
   useEffect(() => {
     setDirty(false);
     setPicking(false);
     const unitChanged = previousUnitCode.current !== unitCode;
     if (unitChanged) {
       previousUnitCode.current = unitCode;
+      documentId.current = crypto.randomUUID();
+      hydratedSpecial.current = null;
       setCostBreakdown({ ...EMPTY_CUBICATION_COSTS });
       setClient("");
       setUnitType("");
@@ -139,9 +205,9 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
         product: {
           id: item.id,
           name: item.description,
-          sku: "",
+          sku: item.sku,
           category: item.category,
-          unit: "",
+          unit: item.unit,
           stock: 0,
           unit_cost: toNumber(item.unitCost),
         },
@@ -161,18 +227,57 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
     );
   }, [products, search, category]);
 
-  const save = useMutation({
-    mutationFn: async () => {
-      const items = lines
-        .filter((line) => line.quantity > 0)
-        .map((line) => ({ product_id: line.product.id, quantity: line.quantity }));
-      if (items.length === 0) throw new Error("Selecciona al menos un ítem con cantidad mayor a 0");
+  function specialPayload() {
+    if (specialLoadError || specialCatalogError)
+      throw new Error("No se pudieron cargar los especiales guardados. Recarga antes de guardar.");
+    if (
+      specialItems.some(
+        (item) =>
+          !item.productId ||
+          !Number.isInteger(Number(item.quantity)) ||
+          Number(item.quantity) <= 0 ||
+          !Number.isFinite(Number(item.unitCost)) ||
+          Number(item.unitCost) < 0,
+      )
+    ) {
+      throw new Error(
+        "Selecciona los productos especiales e ingresa cantidades enteras mayores a cero y costos válidos",
+      );
+    }
+    return specialItems.map((item) => ({
+      line_id: item.id,
+      special_product_id: item.productId,
+      quantity: Number(item.quantity),
+      unit_cost: Number(item.unitCost),
+    }));
+  }
+  async function persistDocument(saveTemplate: boolean) {
+    const items = lines
+      .filter((line) => line.quantity > 0)
+      .map((line) => ({ product_id: line.product.id, quantity: line.quantity }));
+    if (saveTemplate && !items.length && !specialItems.length)
+      throw new Error("Selecciona al menos un ítem");
+    if (canSpecial) {
+      const { error } = await supabase.rpc("save_special_cubication", {
+        p_document_id: documentId.current,
+        p_unit_code: unitCode,
+        p_context: { client, unitType, salesOrderNumber, costBreakdown },
+        p_lines: specialPayload(),
+        p_save_template: saveTemplate,
+        p_items: items,
+      });
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["special-product-history"] });
+    } else if (saveTemplate) {
       const { error } = await supabase.rpc("save_cubication_template", {
         p_unit_code: unitCode,
         p_items: items,
       });
       if (error) throw error;
-    },
+    }
+  }
+  const save = useMutation({
+    mutationFn: () => persistDocument(true),
     onSuccess: async () => {
       toast.success("Cubicación guardada");
       setDirty(false);
@@ -221,10 +326,11 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
     setCostBreakdown((current) => ({ ...current, [key]: value }));
   };
 
-  const loading = productsLoading || templateLoading;
+  const loading = productsLoading || templateLoading || specialLoading || specialCatalogLoading;
   const hasLines = lines.length > 0 || specialLines.length > 0;
 
   function toggleSpecial(checked: boolean) {
+    setDirty(true);
     setSpecialEnabled(checked);
     if (checked && specialItems.length === 0) {
       setSpecialItems([newSpecialItem(CUBICATION_CATEGORIES[0])]);
@@ -232,50 +338,65 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
   }
 
   function updateSpecialItem(id: string, key: keyof Omit<SpecialItem, "id">, value: string) {
+    setDirty(true);
     setSpecialItems((current) =>
       current.map((item) => (item.id === id ? { ...item, [key]: value } : item)),
     );
   }
 
-  function resetDocumentFields() {
-    setClient("");
-    setUnitType("");
-    setSalesOrderNumber("");
-    setCostBreakdown({ ...EMPTY_CUBICATION_COSTS });
-    setSpecialEnabled(false);
-    setSpecialItems([]);
+  function selectSpecial(id: string, product: SpecialProduct) {
+    setDirty(true);
+    setSpecialItems((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              productId: product.id,
+              sku: product.sku,
+              unit: product.unit,
+              description: product.name,
+              category: product.category,
+              unitCost: String(product.unit_cost),
+            }
+          : item,
+      ),
+    );
   }
-
-  function downloadDocument() {
+  async function outputDocument(print: boolean) {
     if (!unitType) {
-      toast.error("Selecciona el tipo de unidad antes de descargar el documento");
+      toast.error("Selecciona el tipo de unidad antes de generar el documento");
       return;
     }
-    try {
-      downloadCubicationPdf(printData);
-      resetDocumentFields();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo descargar el PDF");
+    let printWindow: Window | null = null;
+    if (print) {
+      printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        toast.error("Permite las ventanas emergentes para imprimir");
+        return;
+      }
     }
-  }
-
-  function printDocument() {
-    if (!unitType) {
-      toast.error("Selecciona el tipo de unidad antes de imprimir el documento");
-      return;
-    }
+    setExporting(true);
     try {
-      printCubicationPdf(printData);
-      resetDocumentFields();
+      // Validar antes de imprimir; el UUID estable impide duplicar el uso al repetir PDF/guardar.
+      if (canSpecial) await persistDocument(false);
+      if (print) printCubicationPdf(printData, printWindow);
+      else downloadCubicationPdf(printData);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo imprimir");
+      printWindow?.close();
+      toast.error(
+        typeof error === "object" && error && "message" in error
+          ? String(error.message)
+          : "No se pudo generar el documento",
+      );
+    } finally {
+      setExporting(false);
     }
   }
 
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-2 sm:p-4"
-      onClick={onClose}
+      onClick={exporting || save.isPending ? undefined : onClose}
     >
       <section
         role="dialog"
@@ -343,7 +464,7 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
               </label>
             </div>
           )}
-          {!loading && !picking && (
+          {!loading && !picking && canSpecial && (
             <label className="flex items-center gap-2 rounded-lg border p-3 font-semibold">
               <input
                 type="checkbox"
@@ -354,7 +475,8 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
               />
               ESPECIAL
               <span className="text-xs font-normal text-muted-foreground">
-                Los ítems especiales son temporales y no se guardan en la plantilla.
+                Catálogo ESP sin stock. Las cantidades se registran al guardar, imprimir o generar
+                PDF.
               </span>
             </label>
           )}
@@ -473,6 +595,12 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
                   <span className="font-display text-xl font-bold">{money(materialsTotal)}</span>
                 </div>
               </div>
+              {(specialLoadError || specialCatalogError) && (
+                <p role="alert" className="text-destructive">
+                  No se pudieron cargar los productos especiales. Recarga la página antes de guardar
+                  o generar documentos.
+                </p>
+              )}
               {groups.map((group) => (
                 <div key={group.category} className="overflow-x-auto rounded-lg border">
                   <table className="table-base [&_td]:whitespace-nowrap">
@@ -495,22 +623,13 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
                         >
                           <td className="whitespace-normal">
                             {line.isSpecial && line.specialId ? (
-                              <input
-                                className="input min-w-48 bg-yellow-50 dark:bg-yellow-950"
-                                aria-label="Descripción del ítem especial"
-                                placeholder="Descripción"
+                              <SpecialProductSelector
                                 value={
                                   specialItems.find((item) => item.id === line.specialId)
-                                    ?.description ?? ""
+                                    ?.productId ?? ""
                                 }
-                                disabled={!specialEnabled || !canEdit}
-                                onChange={(event) =>
-                                  updateSpecialItem(
-                                    line.specialId!,
-                                    "description",
-                                    event.target.value,
-                                  )
-                                }
+                                disabled={!specialEnabled || !canEdit || !canSpecial}
+                                onSelect={(product) => selectSpecial(line.specialId!, product)}
                               />
                             ) : (
                               line.product.name
@@ -518,21 +637,9 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
                           </td>
                           <td>
                             {line.isSpecial && line.specialId ? (
-                              <select
-                                className="input min-w-40 bg-yellow-50 dark:bg-yellow-950"
-                                aria-label="Categoría del ítem especial"
-                                value={line.product.category}
-                                disabled={!specialEnabled || !canEdit}
-                                onChange={(event) =>
-                                  updateSpecialItem(line.specialId!, "category", event.target.value)
-                                }
-                              >
-                                {categories.map((option) => (
-                                  <option key={option} value={option}>
-                                    {option}
-                                  </option>
-                                ))}
-                              </select>
+                              <span className="badge badge-muted">
+                                {normalizeCubicationCategory(line.product.category)}
+                              </span>
                             ) : (
                               <span className="badge badge-muted">
                                 {normalizeCubicationCategory(line.product.category)}
@@ -589,11 +696,12 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
                                 type="button"
                                 className="btn btn-ghost p-1.5"
                                 aria-label="Eliminar ítem especial"
-                                onClick={() =>
+                                onClick={() => {
+                                  setDirty(true);
                                   setSpecialItems((current) =>
                                     current.filter((item) => item.id !== line.specialId),
-                                  )
-                                }
+                                  );
+                                }}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -612,16 +720,17 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
                 </div>
               ))}
 
-              {specialEnabled && canEdit && (
+              {specialEnabled && canEdit && canSpecial && (
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() =>
+                  onClick={() => {
+                    setDirty(true);
                     setSpecialItems((current) => [
                       ...current,
                       newSpecialItem(CUBICATION_CATEGORIES[0]),
-                    ])
-                  }
+                    ]);
+                  }}
                 >
                   <Plus className="h-4 w-4" /> Agregar ítem especial
                 </button>
@@ -709,15 +818,25 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
             <>
               {hasLines && (
                 <>
-                  <button type="button" className="btn btn-secondary" onClick={printDocument}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={exporting || save.isPending}
+                    onClick={() => outputDocument(true)}
+                  >
                     <Printer className="h-4 w-4" /> Imprimir
                   </button>
-                  <button type="button" className="btn btn-secondary" onClick={downloadDocument}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={exporting || save.isPending}
+                    onClick={() => outputDocument(false)}
+                  >
                     <FileDown className="h-4 w-4" /> PDF
                   </button>
                 </>
               )}
-              {lines.length > 0 && canEdit && (
+              {hasLines && canEdit && (
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -726,12 +845,12 @@ export function CubicationWindow({ unitCode, onClose }: { unitCode: string; onCl
                   <Pencil className="h-4 w-4" /> Editar lista
                 </button>
               )}
-              {lines.length > 0 && canEdit && (
+              {hasLines && canEdit && (
                 <button
                   type="button"
                   className="btn btn-primary"
                   onClick={() => save.mutate()}
-                  disabled={save.isPending || (!dirty && Boolean(template))}
+                  disabled={save.isPending || exporting || specialLoadError || specialCatalogError}
                 >
                   <Save className="h-4 w-4" /> {save.isPending ? "Guardando…" : "Guardar plantilla"}
                 </button>

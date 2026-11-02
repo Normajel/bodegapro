@@ -68,7 +68,9 @@ function buildCubicationPdf({
         line.isSpecial
           ? [
               {
-                content: line.product.name || "Ítem especial",
+                content: [line.product.sku, line.product.name || "Ítem especial"]
+                  .filter(Boolean)
+                  .join(" · "),
                 styles: { fillColor: [255, 242, 178] },
               },
               {
@@ -173,11 +175,12 @@ export function downloadCubicationPdf(data: CubicationPrintData) {
   buildCubicationPdf(data).save(`${fileName}.pdf`);
 }
 
-export function printCubicationPdf(data: CubicationPrintData) {
+export function printCubicationPdf(data: CubicationPrintData, targetWindow: Window | null = null) {
   const doc = buildCubicationPdf(data);
   doc.autoPrint();
   const url = URL.createObjectURL(doc.output("blob"));
-  const win = window.open(url, "_blank");
+  const win = targetWindow ?? window.open(url, "_blank");
+  if (targetWindow) targetWindow.location.href = url;
   if (!win) {
     URL.revokeObjectURL(url);
     throw new Error(

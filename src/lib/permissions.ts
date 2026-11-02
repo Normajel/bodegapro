@@ -5,6 +5,11 @@ export const PERMISSION_MODULES = [
   { key: "management", label: "Panel Gerencial (Admin y Gerencia)", actions: ["view"] },
   { key: "dashboard", label: "Panel", actions: ["view"] },
   { key: "management", label: "Panel gerencial", actions: ["view"] },
+  {
+    key: "special_inventory",
+    label: "Inventario especial (Admin, Ventas y AdminPro)",
+    actions: ["view", "create"],
+  },
   { key: "inventory", label: "Inventario", actions: ["view", "create", "edit", "delete"] },
   { key: "movements", label: "Movimientos", actions: ["view", "create", "edit", "delete"] },
   {
@@ -71,6 +76,11 @@ export function hasPermission(
   module: string,
   action: string = "view",
 ) {
+  if (
+    module === "special_inventory" &&
+    !["ADMIN", "ADMINPRO", "VENTA", "VENTAS"].includes(roleName?.trim().toUpperCase() ?? "")
+  )
+    return false;
   if (module === "management") return action === "view" && canViewManagement(roleName, permissions);
   if (roleName === "ADMINPRO") return true;
   return parseRolePermissions(permissions)[module]?.[action] === true;

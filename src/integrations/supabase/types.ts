@@ -8,6 +8,50 @@ export type Database = {
   };
   public: {
     Tables: {
+      special_products: {
+        Row: {
+          id: string;
+          sku: string;
+          name: string;
+          category: string;
+          unit: string;
+          supplier_id: string | null;
+          unit_cost: number;
+          barcode: string | null;
+          location: string | null;
+          active: boolean;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          sku?: string;
+          name: string;
+          category: string;
+          unit: string;
+          supplier_id?: string | null;
+          unit_cost?: number;
+          barcode?: string | null;
+          location?: string | null;
+          active?: boolean;
+          created_by?: string;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      cubication_special_items: {
+        Row: {
+          template_id: string;
+          line_id: string;
+          special_product_id: string;
+          quantity: number;
+          unit_cost: number;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       purchase_order_email_events: {
         Row: {
           id: string;
@@ -226,6 +270,7 @@ export type Database = {
           line_total: number;
           measure_unit: string;
           product_id: string | null;
+          special_product_id: string | null;
           purchase_order_id: string;
           quantity: number;
           received_quantity: number;
@@ -238,6 +283,7 @@ export type Database = {
           line_total?: never;
           measure_unit: string;
           product_id: string | null;
+          special_product_id: string | null;
           purchase_order_id: string;
           quantity: number;
           received_quantity?: number;
@@ -250,6 +296,7 @@ export type Database = {
           line_total?: never;
           measure_unit?: string;
           product_id?: string | null;
+          special_product_id?: string | null;
           purchase_order_id?: string;
           quantity?: number;
           received_quantity?: number;
@@ -706,6 +753,19 @@ export type Database = {
       };
     };
     Functions: {
+      get_special_product_history: { Args: { p_product_id: string }; Returns: Json };
+      save_special_cubication: {
+        Args: {
+          p_document_id: string;
+          p_unit_code: string;
+          p_context: Json;
+          p_lines: Json;
+          p_save_template?: boolean;
+          p_items?: Json;
+        };
+        Returns: string;
+      };
+
       record_manual_purchase_dispatch: {
         Args: {
           p_order_id: string;
