@@ -68,9 +68,7 @@ function buildCubicationPdf({
         line.isSpecial
           ? [
               {
-                content: [line.product.sku, line.product.name || "Ítem especial"]
-                  .filter(Boolean)
-                  .join(" · "),
+                content: line.product.name || "Ítem especial",
                 styles: { fillColor: [255, 242, 178] },
               },
               {

@@ -39,8 +39,8 @@ export function SpecialProductSelector({
           aria-autocomplete="list"
           autoComplete="off"
           disabled={disabled}
-          placeholder="Buscar descripción o SKU ESP…"
-          value={open ? search : selected ? `${selected.sku} · ${selected.name}` : ""}
+          placeholder="Buscar descripción…"
+          value={open ? search : (selected?.name ?? "")}
           onFocus={() => {
             setOpen(true);
             setSearch("");
@@ -125,7 +125,7 @@ export function SpecialProductSelector({
                 }
               }}
             >
-              <strong>{p.sku}</strong> · {p.name}
+              {p.name}
               <span className="block text-xs text-muted-foreground">
                 {p.unit} · Referencia {money(p.unit_cost)}
               </span>

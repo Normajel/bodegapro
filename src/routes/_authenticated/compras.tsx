@@ -1,6 +1,6 @@
 import { SpecialProductSelector } from "@/components/special-product-selector";
 import { SpecialProductHistory } from "@/components/special-product-history";
-import { canAccessSpecialProducts } from "@/lib/special-products";
+import { canAccessSpecialProducts, specialProductDescription } from "@/lib/special-products";
 import { ManualDispatchDialog } from "@/components/manual-dispatch-dialog";
 import { DeliveryPanel } from "@/components/delivery-panel";
 import { PriceTrend } from "@/components/price-trend";
@@ -343,7 +343,9 @@ function ComprasPage() {
         .map((item) => ({
           key: item.id,
           item_type: item.item_type as PurchaseItemType,
-          description: item.description,
+          description: item.special_product_id
+            ? specialProductDescription(item.description)
+            : item.description,
           product_id: item.product_id ?? "",
           special_product_id: item.special_product_id ?? "",
           is_special: !!item.special_product_id,
@@ -1181,7 +1183,7 @@ function ComprasPage() {
                                 updateLine(line.key, {
                                   special_product_id: p.id,
                                   product_id: "",
-                                  description: `${p.sku} · ${p.name}`,
+                                  description: p.name,
                                   measure_unit: p.unit,
                                   unit_cost: p.unit_cost,
                                 })
@@ -1560,7 +1562,9 @@ function ComprasPage() {
                           {item.special_product_id ? "Especial · " : ""}
                           {item.item_type === "servicio"
                             ? `Servicio: ${item.description}`
-                            : item.description}
+                            : item.special_product_id
+                              ? specialProductDescription(item.description)
+                              : item.description}
                         </td>
                         <td className="text-right">
                           {item.quantity} {item.measure_unit}
@@ -1701,7 +1705,11 @@ function ComprasPage() {
                     >
                       <div>
                         <p className="font-medium">
-                          {item.description || product?.name || "Producto"}
+                          {(item.special_product_id
+                            ? specialProductDescription(item.description)
+                            : item.description) ||
+                            product?.name ||
+                            "Producto"}
                         </p>
                         <p className="text-sm">
                           Precio unitario: {formatPurchaseUnitPrice(item.unit_cost)}

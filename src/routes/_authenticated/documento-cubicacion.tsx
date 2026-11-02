@@ -348,10 +348,7 @@ function CubicationDocumentPage() {
                           key={line.product.id}
                           className={line.isSpecial ? "bg-yellow-100 dark:bg-yellow-950/50" : ""}
                         >
-                          <td className="whitespace-normal">
-                            {line.product.sku && line.isSpecial ? `${line.product.sku} · ` : ""}
-                            {line.product.name}
-                          </td>
+                          <td className="whitespace-normal">{line.product.name}</td>
                           <td className="text-right">
                             {line.isSpecial
                               ? "—"

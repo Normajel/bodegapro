@@ -31,3 +31,9 @@ export type SpecialHistory = {
   orders: SpecialPurchase[];
   usage: SpecialUsage[];
 };
+
+// Compatibilidad con OC anteriores que incluyeron el código dentro de la descripción.
+// El SKU continúa almacenado por separado en el catálogo para trazabilidad.
+export function specialProductDescription(description: string) {
+  return description.replace(/^ESP\d{6}\s*[·-]\s*/i, "");
+}

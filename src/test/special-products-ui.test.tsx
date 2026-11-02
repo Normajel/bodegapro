@@ -178,7 +178,7 @@ describe("Productos especiales", () => {
     fireEvent.change(combo, { target: { value: "ESP000123" } });
     expect(screen.getByRole("option")).toHaveTextContent("Puerta especial");
     fireEvent.keyDown(combo, { key: "Enter" });
-    expect(combo).toHaveValue("ESP000123 · Puerta especial");
+    expect(combo).toHaveValue("Puerta especial");
   });
   it("guarda inmediatamente, selecciona el producto y reinicia solo el modal", async () => {
     mocks.single.mockResolvedValue({ data: product, error: null });
@@ -194,7 +194,7 @@ describe("Productos especiales", () => {
     );
     expect(mocks.insert.mock.calls[0]?.[0]).not.toHaveProperty("sku");
     expect(mocks.insert.mock.calls[0]?.[0]).not.toHaveProperty("stock");
-    expect(screen.getByRole("combobox")).toHaveValue("ESP000123 · Puerta especial");
+    expect(screen.getByRole("combobox")).toHaveValue("Puerta especial");
     fireEvent.click(screen.getByRole("button", { name: "Nuevo producto especial" }));
     expect(screen.getByLabelText("Descripción *")).toHaveValue("");
     expect(screen.getByLabelText("Cliente planilla")).toHaveValue("Cliente conservado");

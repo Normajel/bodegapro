@@ -130,7 +130,7 @@ function SpecialProductForm({
       queryClient.setQueryData<SpecialProduct[]>(["special-products"], (old) =>
         [...(old ?? []), data].sort((a, b) => a.name.localeCompare(b.name, "es")),
       );
-      toast.success(`Producto especial ${data.sku} guardado`);
+      toast.success("Producto especial guardado");
       onSaved(data);
       onClose();
     } catch (error) {
