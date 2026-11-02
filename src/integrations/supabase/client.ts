@@ -62,6 +62,19 @@ function createSupabaseClient() {
     throw new Error(message);
   }
 
+  // Multiempresa development must never connect to the original Contemar backend.
+  // Reject unexpected URLs on both the browser and SSR runtimes.
+  const expectedRef = 'vatpxpzdxstysvchyqqk';
+  let hostname: string;
+  try {
+    hostname = new URL(SUPABASE_URL).hostname;
+  } catch {
+    throw new Error('URL de Supabase no válida para INTEGRASTOCK Multiempresa.');
+  }
+  if (hostname !== `${expectedRef}.supabase.co`) {
+    throw new Error('Conexión bloqueada: esta versión solo puede usar el proyecto Supabase independiente de INTEGRASTOCK Multiempresa.');
+  }
+
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {
       fetch: createSupabaseFetch(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY),
