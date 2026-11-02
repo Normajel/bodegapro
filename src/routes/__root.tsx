@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { CompanySelector } from "@/components/multiempresa/CompanySelector";
 import { supabase } from "@/integrations/supabase/client";
 
 import appCss from "../styles.css?url";
@@ -156,6 +157,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <CompanySelector />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster
