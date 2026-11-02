@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { TenantInventoryPreview } from "./TenantInventoryPreview";
 
 /**
  * Fail-closed migration gate: old authenticated routes contain unscoped
@@ -26,6 +27,8 @@ export function LegacyMigrationGate({ children }: { children: ReactNode }) {
 
   if (auth === "checking") return <p className="p-6 text-sm">Verificando sesión…</p>;
   if (auth === "signed-out") return <>{children}</>;
+
+  if (pathname === "/productos") return <TenantInventoryPreview />;
 
   // Gate all authenticated legacy pages, including nested routes.
   // Only the public landing/auth pages remain available.
