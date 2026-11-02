@@ -136,7 +136,11 @@ export function SpecialProductSelector({
       <SpecialProductModal
         open={creating}
         initialName={search}
-        onClose={() => setCreating(false)}
+        onClose={() => {
+          setCreating(false);
+          setSearch("");
+          setOpen(false);
+        }}
         onSaved={(p) => {
           onSelect(p);
           setOpen(false);

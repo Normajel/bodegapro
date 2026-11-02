@@ -151,6 +151,17 @@ describe("Productos especiales", () => {
     expect(screen.getByLabelText("Descripción *")).toHaveValue("");
     expect(screen.getByLabelText("Cliente planilla")).toHaveValue("Cliente conservado");
   });
+  it("vacía el formulario al cancelar incluso si se abrió desde una búsqueda", () => {
+    render(wrap(<Fixture />));
+    fireEvent.focus(screen.getByRole("combobox"));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "Producto que no existe" } });
+    fireEvent.click(screen.getByRole("button", { name: "Nuevo producto especial" }));
+    expect(screen.getByLabelText("Descripción *")).toHaveValue("Producto que no existe");
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Nuevo producto especial" }));
+    expect(screen.getByLabelText("Descripción *")).toHaveValue("");
+    expect(screen.getByLabelText("Cliente planilla")).toHaveValue("Cliente conservado");
+  });
   it("mantiene los datos y permite reintentar cuando falla el guardado", async () => {
     mocks.single.mockResolvedValue({ data: null, error: { message: "Error de conexión" } });
     render(wrap(<Fixture />));
