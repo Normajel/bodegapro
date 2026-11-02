@@ -3,6 +3,7 @@ import { useLocation } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { TenantInventoryPreview } from "./TenantInventoryPreview";
 import { TenantSuppliersPreview } from "./TenantSuppliersPreview";
+import { TenantOrdersPreview } from "./TenantOrdersPreview";
 
 /**
  * Fail-closed migration gate: old authenticated routes contain unscoped
@@ -31,6 +32,7 @@ export function LegacyMigrationGate({ children }: { children: ReactNode }) {
 
   if (pathname === "/productos") return <TenantInventoryPreview />;
   if (pathname === "/contactos") return <TenantSuppliersPreview />;
+  if (pathname === "/ordenes-compra") return <TenantOrdersPreview />;
 
   // Gate all authenticated legacy pages, including nested routes.
   // Only the public landing/auth pages remain available.
