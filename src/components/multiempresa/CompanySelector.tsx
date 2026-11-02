@@ -26,15 +26,18 @@ export function CompanySelector() {
         if (!data.user) {
           setCompanies([]);
           setSelected("");
+          window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, { detail: { companyId: "" } }));
           return;
         }
         const available = await loadMyCompanies();
         if (!live) return;
         setCompanies(available);
-        setSelected((old) => {
-          if (available.some((item) => item.company.id === old)) return old;
-          return available.length === 1 ? available[0].company.id : "";
-        });
+        const initialCompanyId = available.length === 1 ? available[0].company.id : "";
+        setSelected(initialCompanyId);
+        void queryClient.cancelQueries().then(() => queryClient.clear());
+        window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, {
+          detail: { companyId: initialCompanyId },
+        }));
         setError("");
       } catch {
         if (live) {
@@ -52,6 +55,7 @@ export function CompanySelector() {
         setSignedIn(false);
         setCompanies([]);
         setSelected("");
+        window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, { detail: { companyId: "" } }));
         void queryClient.clear();
       } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
         void refresh();
@@ -76,8 +80,8 @@ export function CompanySelector() {
           value={selected}
           disabled={!!error || companies.length === 0}
           onChange={(event) => {
+            // Clear the prior tenant cache before publishing the next context.
             setSelected(event.target.value);
-            // Invalidate all prior tenant-dependent query cache entries.
             void queryClient.cancelQueries().then(() => queryClient.clear());
             window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, {
               detail: { companyId: event.target.value },
