@@ -199,14 +199,16 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link to="/dashboard" className="flex items-center gap-2 px-2">
           <PanelIdentity name={branding?.panel_name} logoUrl={panelLogoUrl} />
         </Link>
-        {nav}
-        <button
-          onClick={handleSignOut}
-          className="app-nav-link flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
-        >
-          <LogOut className="h-4 w-4" />
-          Cerrar sesión
-        </button>
+        <div className="flex flex-col gap-1">
+          {nav}
+          <button
+            onClick={handleSignOut}
+            className="app-nav-link flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+          >
+            <LogOut className="h-4 w-4" />
+            Cerrar sesión
+          </button>
+        </div>
       </aside>
 
       {/* Saludo de sesión y navegación móvil */}
