@@ -3,7 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { TenantReceiptPreview } from "./TenantReceiptPreview";
 import { useActiveCompany } from "@/lib/multiempresa/company-context";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
-import { canApproveTenantOrder, PURCHASE_APPROVAL_WRITES_ENABLED } from "@/lib/multiempresa/approval-service";
+import {
+  canApproveTenantOrder,
+  PURCHASE_APPROVAL_WRITES_ENABLED,
+} from "@/lib/multiempresa/approval-service";
 import { listCompanyPurchaseOrders, tenantQueryKeys } from "@/lib/multiempresa/tenant-catalog";
 
 const clp = (n: number) =>
@@ -39,7 +42,8 @@ export function TenantOrdersPreview() {
     <main className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="text-2xl font-bold">Órdenes de compra · Multiempresa</h1>
       <p className="mb-6 mt-1 text-sm text-slate-600">
-        Consulta de órdenes y aprobación por perfil. Las operaciones de escritura siguen bloqueadas hasta completar las pruebas con cuentas Auth reales.
+        Consulta de órdenes y aprobación por perfil. Las operaciones de escritura siguen bloqueadas
+        hasta completar las pruebas con cuentas Auth reales.
       </p>
 
       {!companyId && <p role="status">Selecciona una empresa para ver sus órdenes.</p>}
@@ -68,7 +72,11 @@ export function TenantOrdersPreview() {
                   <td className="px-4 py-3">{order.order_number}</td>
                   <td className="px-4 py-3">{order.order_date ?? "—"}</td>
                   <td className="px-4 py-3">{order.approval_status}</td>
-                  <td className="px-4 py-3">{order.approved_at ? new Date(order.approved_at).toLocaleDateString("es-CL") : "—"}</td>
+                  <td className="px-4 py-3">
+                    {order.approved_at
+                      ? new Date(order.approved_at).toLocaleDateString("es-CL")
+                      : "—"}
+                  </td>
                   <td className="px-4 py-3">{order.status}</td>
                   <td className="px-4 py-3">{clp(Number(order.total_amount ?? 0))}</td>
                   <td className="px-4 py-3">

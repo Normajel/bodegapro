@@ -50,7 +50,9 @@ export async function listCompanyPurchaseOrders(companyId: string) {
   await requireCompany(companyId);
   const { data, error } = await db
     .from("purchase_orders")
-    .select("id,company_id,order_number,approval_status,approved_at,approved_by,status,order_date,total_amount")
+    .select(
+      "id,company_id,order_number,approval_status,approved_at,approved_by,status,order_date,total_amount",
+    )
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
   if (error) throw error;

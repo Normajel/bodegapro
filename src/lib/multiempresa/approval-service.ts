@@ -40,6 +40,8 @@ export async function approveTenantOrder(
   if (!data) throw new Error("No se confirmó la aprobación de la orden.");
 
   await queryClient.invalidateQueries({ queryKey: tenantQueryKeys.orders(companyId) });
-  await queryClient.invalidateQueries({ queryKey: tenantQueryKeys.receiptLines(companyId, orderId) });
+  await queryClient.invalidateQueries({
+    queryKey: tenantQueryKeys.receiptLines(companyId, orderId),
+  });
   return data;
 }
