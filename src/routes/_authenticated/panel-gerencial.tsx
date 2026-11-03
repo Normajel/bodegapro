@@ -20,7 +20,7 @@ import { getManagementData } from "@/lib/management.functions";
 import {
   canViewManagement,
   summarizeManagement,
-  cubicationRequirements,
+  simulateCubication,
   stockOf,
 } from "@/lib/management";
 import { useAppAccess } from "@/lib/permissions";
@@ -69,6 +69,7 @@ function ManagementPanel() {
   const [category, setCategory] = useState("");
   const [product, setProduct] = useState("");
   const [template, setTemplate] = useState("");
+  const [moduleCountDraft, setModuleCountDraft] = useState("1");
   const [detail, setDetail] = useState(false);
   const access = useAppAccess();
   const valid = from <= to && !!from && !!to && Date.parse(to) - Date.parse(from) <= 366 * 86400000;
@@ -86,11 +87,23 @@ function ManagementPanel() {
     ? summarizeManagement(data.products, data.movements, category, product)
     : null;
   const selectedItems = data?.items.filter((i) => i.template_id === template) ?? [];
-  const requirements = data
-    ? cubicationRequirements(selectedItems, data.products).filter(
-        (p) => (!category || p.category === category) && (!product || p.id === product),
-      )
+  const modules = Math.max(1, Math.min(1000, Math.trunc(Number(moduleCountDraft) || 1)));
+  const scenario = data && template
+    ? simulateCubication(selectedItems, data.products, modules)
+    : null;
+  const percentCL = (value: number) =>
+    value.toLocaleString("es-CL", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+  const countCL = (value: number) => value.toLocaleString("es-CL", { maximumFractionDigits: 2 });
+  const coverageData = scenario && scenario.coverageByValue !== null
+    ? [
+        { name: "Cubierto con stock", value: scenario.coveredCost, color: "#0d9488" },
+        { name: "Por adquirir", value: scenario.shortageCost, color: "#f59e0b" },
+      ].filter((part) => part.value > 0)
     : [];
+  const criticalMaterials = [...(scenario?.rows ?? [])]
+    .filter((item) => item.required > 0)
+    .sort((a, b) => a.available / a.required - b.available / b.required)
+    .slice(0, 8);
   // Estados actuales de las OC creadas en el período seleccionado.
   // Las anuladas se muestran por separado, sin mezclarlas con compras vigentes.
   const orders = data?.orders ?? [];
@@ -513,93 +526,253 @@ function ManagementPanel() {
               )}
             </section>
           </div>
-          <section className="card space-y-4 p-4">
-            <h2 className="font-semibold">Cubicaciones · materiales por unidad/modelo</h2>
-            <label className="block max-w-lg text-sm">
-              Cubicación guardada
-              <select
-                className={field}
-                value={template}
-                onChange={(e) => setTemplate(e.target.value)}
-              >
-                <option value="">Seleccionar una cubicación</option>
-                {data.templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.unit_code}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <p className="text-sm text-muted-foreground">
-              Comparación para una unidad del modelo seleccionado. Las plantillas no representan
-              pedidos confirmados ni reservas. El faltante es teórico frente al stock actual; no
-              considera stock comprometido ni compras en tránsito. Los costos adicionales del
-              documento no están guardados en la plantilla.
-            </p>
-            {!data.templates.length && <p>Aún no hay cubicaciones guardadas.</p>}
-            {template && (
+          <section className="card min-w-0 space-y-5 p-4" aria-labelledby="cubication-title">
+            <div>
+              <h2 id="cubication-title" className="text-lg font-semibold">
+                Cubicaciones · planificación de materiales
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Simulador de costos y disponibilidad de stock para el modelo seleccionado.
+              </p>
+            </div>
+            <div className="grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <label className="block text-sm">
+                Cubicación guardada
+                <select className={field} value={template} onChange={(e) => setTemplate(e.target.value)}>
+                  <option value="">Seleccionar una cubicación</option>
+                  {data.templates.map((entry) => (
+                    <option key={entry.id} value={entry.id}>{entry.unit_code}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="min-w-0">
+                <label htmlFor="simulated-modules" className="block text-sm">
+                  Módulos a simular
+                </label>
+                <div className="flex items-center gap-2">
+                  <button type="button" className="btn btn-secondary h-10 w-10 shrink-0"
+                    aria-label="Disminuir módulos" disabled={modules <= 1}
+                    onClick={() => setModuleCountDraft(String(Math.max(1, modules - 1)))}>
+                    −
+                  </button>
+                  <input id="simulated-modules" type="text" inputMode="numeric" pattern="[0-9]*"
+                    className="input h-10 w-24 text-center tabular-nums"
+                    value={moduleCountDraft}
+                    onChange={(e) => {
+                      if (/^\\d{0,4}$/.test(e.target.value)) setModuleCountDraft(e.target.value);
+                    }}
+                    onBlur={() => setModuleCountDraft(String(modules))}
+                    aria-describedby="simulated-modules-help" />
+                  <button type="button" className="btn btn-secondary h-10 w-10 shrink-0"
+                    aria-label="Aumentar módulos" disabled={modules >= 1000}
+                    onClick={() => setModuleCountDraft(String(Math.min(1000, modules + 1)))}>
+                    +
+                  </button>
+                </div>
+                <p id="simulated-modules-help" className="mt-1 text-xs text-muted-foreground">
+                  De 1 a 1.000 unidades
+                </p>
+              </div>
+            </div>
+            {!data.templates.length && (
+              <p className="text-sm text-muted-foreground">Aún no hay cubicaciones guardadas.</p>
+            )}
+            {!template && data.templates.length > 0 && (
+              <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+                Selecciona un modelo para conocer costos, faltantes y capacidad teórica de fabricación.
+              </p>
+            )}
+            {scenario && (
               <>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <p className="text-xs text-muted-foreground">
+                  Escenario hipotético para {modules} módulo{modules === 1 ? "" : "s"}.
+                  Los materiales se calculan sobre toda la cubicación, independientemente de los
+                  filtros de categoría y producto del panel. No reserva ni descuenta inventario.
+                </p>
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                   {[
-                    [
-                      "Materiales estimados",
-                      money(requirements.reduce((s, p) => s + p.estimatedCost, 0)),
-                    ],
-                    [
-                      "Faltante estimado",
-                      money(requirements.reduce((s, p) => s + p.shortageCost, 0)),
-                    ],
-                    [
-                      "Productos faltantes",
-                      String(requirements.filter((p) => p.missing > 0).length),
-                    ],
-                  ].map(([label, value]) => (
-                    <div className="rounded-lg bg-muted p-3" key={label}>
-                      <p className="text-sm">{label}</p>
-                      <strong className="text-xl">{value}</strong>
+                    { label: "Costo estimado de materiales", value: money(scenario.totalCost), note: "Según costo unitario actual" },
+                    { label: "Faltante por comprar", value: money(scenario.shortageCost), note: "Valor teórico de materiales insuficientes" },
+                    { label: "Productos con faltantes", value: String(scenario.missingProducts.length), note: "Referencias con stock insuficiente" },
+                    { label: "Módulos cubiertos por stock", value: String(scenario.maxModules), note: "Máximo teórico con existencias actuales" },
+                  ].map((item) => (
+                    <div key={item.label} className="min-w-0 rounded-xl bg-muted/60 p-3">
+                      <p className="text-xs text-muted-foreground">{item.label}</p>
+                      <p className="mt-1 break-words text-lg font-bold tabular-nums sm:text-xl">
+                        {item.value}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">{item.note}</p>
                     </div>
                   ))}
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr>
-                        {[
-                          "Material",
-                          "Unidad",
-                          "Requerido",
-                          "Disponible",
-                          "Faltante",
-                          "Costo estimado",
-                        ].map((h) => (
-                          <th className="p-2" key={h}>
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {requirements.map((p) => (
-                        <tr className="border-t" key={p.id}>
-                          <td className="p-2">
-                            {p.name}
-                            {p.unit_cost <= 0 ? " · Sin costo" : ""}
-                          </td>
-                          <td>{p.unit}</td>
-                          <td>{p.required}</td>
-                          <td>{p.available}</td>
-                          <td className={p.missing ? "font-semibold text-destructive" : ""}>
-                            {p.missing}
-                          </td>
-                          <td>{money(p.estimatedCost)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {!requirements.length && (
-                    <p className="p-3">Sin materiales para esta selección.</p>
-                  )}
-                </div>
+                {(scenario.unpriced.length > 0 || scenario.unknownProductIds.length > 0) && (
+                  <p role="status" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+                    Estimación incompleta: {scenario.unpriced.length} materiales sin costo unitario
+                    positivo y {scenario.unknownProductIds.length} referencias de cubicación no
+                    encontradas en inventario. Estos materiales no están completamente valorizados;
+                    revisa la plantilla antes de tomar decisiones de compra.
+                  </p>
+                )}
+                {!scenario.rows.length && (
+                  <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+                    Esta cubicación no contiene materiales reconocidos con cantidades positivas.
+                  </p>
+                )}
+                {scenario.rows.length > 0 && (
+                  <>
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <div className="min-w-0 space-y-3 rounded-xl border border-border p-3">
+                        <h3 className="font-semibold">Cobertura valorizada de materiales</h3>
+                        {scenario.coverageByValue === null ? (
+                          <p className="py-10 text-center text-sm text-muted-foreground">
+                            Sin costos positivos para calcular la cobertura por valor.
+                          </p>
+                        ) : (
+                          <div className="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                            <div className="relative mx-auto h-52 w-full max-w-xs"
+                              role="img" aria-label={`Cobertura por valor: ${percentCL(scenario.coverageByValue ?? 0)} por ciento`}>
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie data={coverageData} dataKey="value" nameKey="name"
+                                    cx="50%" cy="50%" innerRadius="66%" outerRadius="88%"
+                                    paddingAngle={coverageData.length > 1 ? 2 : 0} stroke="none">
+                                    {coverageData.map((slice) => (
+                                      <Cell key={slice.name} fill={slice.color} />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip formatter={(value) => money(Number(value))} />
+                                </PieChart>
+                              </ResponsiveContainer>
+                              <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                                <span className="text-2xl font-bold tabular-nums">
+                                  {percentCL(scenario.coverageByValue)}%
+                                </span>
+                                <span className="text-xs text-muted-foreground">por valor</span>
+                              </div>
+                            </div>
+                            <div className="space-y-3 text-sm">
+                              <div className="flex items-start gap-2">
+                                <span className="mt-1.5 h-3 w-3 shrink-0 rounded-full bg-teal-600" />
+                                <div><p className="text-muted-foreground">Cubierto por stock</p>
+                                  <p className="font-semibold">{money(scenario.coveredCost)}</p></div>
+                              </div>
+                              <div className="flex items-start gap-2">
+                                <span className="mt-1.5 h-3 w-3 shrink-0 rounded-full bg-amber-500" />
+                                <div><p className="text-muted-foreground">Faltante valorizado</p>
+                                  <p className="font-semibold">{money(scenario.shortageCost)}</p></div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          Esta cobertura es monetaria, no una confirmación de que el módulo pueda
+                          fabricarse completo. Se calcula únicamente con costos registrados.
+                        </p>
+                      </div>
+                      <div className="min-w-0 space-y-3 rounded-xl border border-border p-3">
+                        <h3 className="font-semibold">Costo de materiales por categoría</h3>
+                        {scenario.categories.length ? (
+                          <div className="space-y-3">
+                            {scenario.categories.map((entry, index) => (
+                              <div key={entry.name} className="space-y-1.5">
+                                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                  <span className="text-sm">{entry.name}</span>
+                                  <span className="text-sm font-semibold tabular-nums">{money(entry.value)}</span>
+                                </div>
+                                <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+                                  <div className="h-full rounded-full"
+                                    style={{
+                                      width: `${scenario.totalCost > 0 ? Math.min(100, entry.value / scenario.totalCost * 100) : 0}%`,
+                                      backgroundColor: ["#0d9488", "#2563eb", "#8b5cf6", "#f59e0b", "#64748b"][index % 5],
+                                    }} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="py-10 text-center text-sm text-muted-foreground">
+                            Sin categorías valorizadas para este modelo.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <h3 className="font-semibold">Disponibilidad por material · principales alertas</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Ordenado por menor cobertura. Cada barra compara la cantidad disponible
+                        con lo requerido para {modules} módulo{modules === 1 ? "" : "s"}.
+                        Las unidades de medida se mantienen separadas.
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {criticalMaterials.map((material) => {
+                          const pct = material.required > 0
+                            ? Math.max(0, Math.min(100, material.available / material.required * 100))
+                            : 100;
+                          return (
+                            <div key={material.id} className="min-w-0 rounded-lg border border-border p-3">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="min-w-0 break-words text-sm font-medium">{material.name}</p>
+                                <span className={`shrink-0 text-sm font-bold tabular-nums ${pct < 100 ? "text-amber-600" : "text-teal-600"}`}>
+                                  {percentCL(pct)}%
+                                </span>
+                              </div>
+                              <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-muted">
+                                <div className={`h-full rounded-full ${pct < 30 ? "bg-red-500" : pct < 100 ? "bg-amber-500" : "bg-teal-600"}`}
+                                  style={{ width: `${pct}%` }} />
+                              </div>
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                {countCL(material.available)} disponibles /
+                                {" "}{countCL(material.required)} {material.unit} requeridos
+                              </p>
+                              {material.missing > 0 && (
+                                <p className="mt-1 text-xs font-semibold text-destructive">
+                                  Faltan {countCL(material.missing)} {material.unit} · {money(material.shortageCost)}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="font-semibold">Detalle completo para preparar compras</h3>
+                      <div className="overflow-x-auto rounded-lg border border-border">
+                        <table className="w-full min-w-[690px] text-left text-sm">
+                          <thead className="bg-muted/50">
+                            <tr>
+                              {["Material","Unidad","Requerido","Disponible","Faltante","Costo materiales","Valor faltante"].map((label) => (
+                                <th className="whitespace-nowrap p-2" key={label}>{label}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[...scenario.rows].sort((a,b) => b.shortageCost - a.shortageCost).map((material) => (
+                              <tr key={material.id} className="border-t border-border">
+                                <td className="p-2 font-medium">{material.name}
+                                  {material.unit_cost <= 0 ? " · Sin costo" : ""}
+                                </td>
+                                <td className="p-2">{material.unit}</td>
+                                <td className="p-2 tabular-nums">{countCL(material.required)}</td>
+                                <td className="p-2 tabular-nums">{countCL(material.available)}</td>
+                                <td className={`p-2 tabular-nums ${material.missing ? "font-semibold text-destructive" : ""}`}>
+                                  {countCL(material.missing)}
+                                </td>
+                                <td className="p-2 tabular-nums">{money(material.estimatedCost)}</td>
+                                <td className="p-2 tabular-nums">{money(material.shortageCost)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  El simulador utiliza stock actual y costos unitarios existentes. No considera
+                  reservas, consumos planificados, compras en tránsito, mano de obra ni otros
+                  costos adicionales. La cantidad fabricable es teórica y se refiere solamente a
+                  materiales de inventario de esta plantilla; no representa capacidad productiva.
+                </p>
               </>
             )}
           </section>
