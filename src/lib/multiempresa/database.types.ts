@@ -1195,6 +1195,18 @@ export type Database = {
         Args: { p_order_id: string };
         Returns: undefined;
       };
+      receive_tenant_purchase_order_batch: {
+        Args: {
+          p_company_id: string;
+          p_order_id: string;
+          p_operation_key: string;
+          p_items: Json;
+          p_document_type: string;
+          p_document_number: string;
+          p_notes?: string | null;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       [_ in never]: never;
