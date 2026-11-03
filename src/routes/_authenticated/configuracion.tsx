@@ -76,19 +76,33 @@ function ConfiguracionPage() {
     },
   });
 
+  // ADMINPRO es una cuenta de plataforma y solo su propietario puede verla.
+  // El filtro se aplica antes de recibir los usuarios, no solo al dibujar la tabla.
+  const canSeeAdminProUsers =
+    access?.name?.trim().toUpperCase() === "ADMINPRO" && access.isPlatformOwner === true;
+  const adminProRoleId = roles.find((role) => role.name === "ADMINPRO")?.id;
   const {
     data: profiles = [],
     isLoading: profilesLoading,
     isError: profilesError,
   } = useQuery({
-    queryKey: ["managed-profiles"],
+    queryKey: ["managed-profiles", access?.userId, canSeeAdminProUsers, adminProRoleId],
+    enabled: !rolesLoading && !rolesError && (canSeeAdminProUsers || !!adminProRoleId),
     queryFn: async () => {
-      const { data, error } = await supabase
+      let request = supabase
         .from("profiles")
         .select("id, full_name, email, username, role_id, created_at, app_roles(name)")
         .order("created_at");
+      if (!canSeeAdminProUsers) {
+        if (!adminProRoleId) throw new Error("No se pudo identificar el perfil protegido ADMINPRO");
+        request = request.neq("role_id", adminProRoleId);
+      }
+      const { data, error } = await request;
       if (error) throw error;
-      return data as Profile[];
+      return (data as Profile[]).filter(
+        (profile) => canSeeAdminProUsers ||
+          profile.app_roles?.name?.trim().toUpperCase() !== "ADMINPRO",
+      );
     },
   });
 
