@@ -68,7 +68,7 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
           documentNumber,
           notes,
           quantities: Object.fromEntries(
-            selected.map((line) => [line.purchase_order_item_id, quantities[line.purchase_order_item_id]]),
+            selected.map((line) => [line.purchase_order_item_id, quantities[line.purchase_order_item_id] ?? ""]),
           ),
         },
         lines,
