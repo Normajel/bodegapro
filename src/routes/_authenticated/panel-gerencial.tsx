@@ -559,7 +559,7 @@ function ManagementPanel() {
                     className="input h-10 w-24 text-center tabular-nums"
                     value={moduleCountDraft}
                     onChange={(e) => {
-                      if (/^\\d{0,4}$/.test(e.target.value)) setModuleCountDraft(e.target.value);
+                      if (/^\d{0,4}$/.test(e.target.value)) setModuleCountDraft(e.target.value);
                     }}
                     onBlur={() => setModuleCountDraft(String(modules))}
                     aria-describedby="simulated-modules-help" />
