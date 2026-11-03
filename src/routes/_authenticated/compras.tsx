@@ -513,10 +513,16 @@ function ComprasPage() {
   }
 
   async function cancelOrder(orderId: string, orderNumber: string) {
-    if (!window.confirm(`¿Anular la orden ${orderNumber}?`)) return;
+    const reason = window.prompt(`Indica el motivo para anular la orden ${orderNumber} (mínimo 10 caracteres):`);
+    if (reason === null) return;
+    if (reason.trim().length < 10) {
+      toast.error("Debes indicar un motivo de anulación de al menos 10 caracteres");
+      return;
+    }
+    if (!window.confirm(`¿Confirmas la anulación de la orden ${orderNumber}?`)) return;
     setSaving(true);
     try {
-      const { error } = await supabase.rpc("cancel_purchase_order", { p_order_id: orderId });
+      const { error } = await supabase.rpc("cancel_purchase_order", { p_order_id: orderId, p_reason: reason.trim() });
       if (error) throw error;
       toast.success("Orden anulada");
       await invalidateOrders();
