@@ -9,7 +9,6 @@ import {
   PURCHASE_APPROVAL_WRITES_ENABLED,
 } from "@/lib/multiempresa/approval-service";
 import {
-  listCompanyOrderKinds,
   listCompanyPurchaseOrders,
   tenantQueryKeys,
 } from "@/lib/multiempresa/tenant-catalog";
@@ -28,13 +27,6 @@ export function TenantOrdersPreview() {
   const orders = useQuery({
     queryKey: tenantQueryKeys.orders(companyId ?? ""),
     queryFn: () => listCompanyPurchaseOrders(companyId!),
-    enabled: !!companyId,
-    staleTime: 0,
-  });
-
-  const kinds = useQuery({
-    queryKey: tenantQueryKeys.orderKinds(companyId ?? ""),
-    queryFn: () => listCompanyOrderKinds(companyId!),
     enabled: !!companyId,
     staleTime: 0,
   });
@@ -84,7 +76,7 @@ export function TenantOrdersPreview() {
                 <tr className="border-t" key={order.id}>
                   <td className="px-4 py-3">{order.order_number}</td>
                   <td className="px-4 py-3">{order.order_date ?? "—"}</td>
-                  <td className="px-4 py-3">{kinds.data?.[order.id] ?? "—"}</td>
+                  <td className="px-4 py-3">{order.order_kind ?? "—"}</td>
                   <td className="px-4 py-3">{order.approval_status}</td>
                   <td className="px-4 py-3">
                     {order.approved_at
@@ -103,7 +95,7 @@ export function TenantOrdersPreview() {
                     >
                       {selectedOrderId === order.id
                         ? "Ocultar"
-                        : kinds.data?.[order.id] === "servicio"
+                        : order.order_kind === "servicio"
                           ? "Ver servicios"
                           : "Ver pendientes"}
                     </button>
@@ -117,7 +109,7 @@ export function TenantOrdersPreview() {
                           title="Aprobación pendiente de habilitación tras pruebas Auth"
                           className="cursor-not-allowed rounded bg-slate-200 px-3 py-1 text-slate-600"
                         >
-                          {kinds.data?.[order.id] === "servicio"
+                          {order.order_kind === "servicio"
                             ? "Aceptar servicios"
                             : "Aprobar OC"}
                         </button>
@@ -145,7 +137,7 @@ export function TenantOrdersPreview() {
               o.id === selectedOrderId &&
               o.approval_status === "aprobada" &&
               o.status !== "ACEPTADO" &&
-              kinds.data?.[o.id] === "producto",
+              o.order_kind === "producto",
           )
           .map((o) => (
             <TenantReceiptPreview
@@ -158,18 +150,10 @@ export function TenantOrdersPreview() {
       {companyId && <TenantServicesLedger companyId={companyId} />}
       {companyId &&
         orders.isSuccess &&
-        orders.data.some((o) => o.id === selectedOrderId && kinds.data?.[o.id] === "mixta") && (
-          <p className="mt-4 text-amber-800">
-            Esta OC contiene productos y servicios. Su aprobación y recepción requieren un flujo
-            mixto específico; no se registrará stock desde esta pantalla.
-          </p>
-        )}
-      {companyId &&
-        orders.isSuccess &&
         orders.data.some(
           (o) =>
             o.id === selectedOrderId &&
-            kinds.data?.[o.id] === "servicio" &&
+            o.order_kind === "servicio" &&
             o.status !== "ACEPTADO",
         ) && (
           <p className="mt-4 text-amber-800">
@@ -191,7 +175,7 @@ export function TenantOrdersPreview() {
           (o) =>
             o.id === selectedOrderId &&
             o.approval_status !== "aprobada" &&
-            kinds.data?.[o.id] === "producto",
+            o.order_kind === "producto",
         ) && (
           <p className="mt-4 text-amber-800">
             La orden debe estar aprobada para consultar su recepción.
