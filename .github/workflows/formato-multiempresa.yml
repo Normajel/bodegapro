@@ -7,6 +7,7 @@ on:
       - src/lib/multiempresa/**
       - src/components/multiempresa/**
       - src/routes/_authenticated/route.tsx
+      - src/routes/auth.tsx
   workflow_dispatch:
 
 permissions:
@@ -42,7 +43,8 @@ jobs:
             src/components/multiempresa/TenantReceiptPreview.tsx \
             src/components/multiempresa/TenantReceiptDraftForm.tsx \
             src/components/multiempresa/TenantSuppliersPreview.tsx \
-            src/routes/_authenticated/route.tsx
+            src/routes/_authenticated/route.tsx \
+            src/routes/auth.tsx
       - name: Guardar solo los cambios de formato
         run: |
           git add -- \
@@ -59,7 +61,8 @@ jobs:
             src/components/multiempresa/TenantReceiptPreview.tsx \
             src/components/multiempresa/TenantReceiptDraftForm.tsx \
             src/components/multiempresa/TenantSuppliersPreview.tsx \
-            src/routes/_authenticated/route.tsx
+            src/routes/_authenticated/route.tsx \
+            src/routes/auth.tsx
           if git diff --cached --quiet; then
             echo "Sin cambios de formato."
             exit 0
