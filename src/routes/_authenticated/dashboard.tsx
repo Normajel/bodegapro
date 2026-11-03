@@ -3,7 +3,7 @@ import { pageWindow, type TablePageSize } from "@/lib/table-pagination";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { RefreshCw, X } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { dateKey, santiagoDateTimeIso } from "@/lib/warehouse";
@@ -45,6 +45,23 @@ function DashboardPage() {
   const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("7days");
   const [chartMetric, setChartMetric] = useState<ChartMetric>("value");
   const [criticalOpen, setCriticalOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  useEffect(() => {
+    // Consultar las notificaciones cada vez que se abre el panel inicial.
+    void queryClient.invalidateQueries({ queryKey: ["role-notifications"] });
+  }, [queryClient]);
+  async function refreshPanel() {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["products"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-movements"] }),
+        queryClient.invalidateQueries({ queryKey: ["role-notifications"] }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }
   const todayKey = dateKey(new Date());
   useEffect(() => {
     setTodayPage(0);
@@ -237,7 +254,8 @@ function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
         <h1 className="text-2xl font-bold tracking-tight">Panel</h1>
         <p className="text-sm text-muted-foreground">
           {new Intl.DateTimeFormat("es-CL", {
@@ -247,6 +265,17 @@ function DashboardPage() {
             timeZone: "America/Santiago",
           }).format(new Date())}
         </p>
+        </div>
+        <button
+          type="button"
+          className="btn btn-secondary flex items-center gap-2"
+          onClick={() => void refreshPanel()}
+          disabled={refreshing}
+          aria-label="Actualizar panel y notificaciones"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden="true" />
+          {refreshing ? "Actualizando…" : "Actualizar panel"}
+        </button>
       </div>
 
       <section aria-label="Resumen de hoy" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
