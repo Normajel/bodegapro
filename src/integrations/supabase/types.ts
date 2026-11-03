@@ -907,6 +907,10 @@ export type Database = {
         Args: { p_order_id: string; p_reason: string };
         Returns: undefined;
       };
+      cancel_single_movement: {
+        Args: { p_movement_id: string; p_reason: string };
+        Returns: string;
+      };
       save_cubication_template: {
         Args: {
           p_items: Json;
