@@ -42,6 +42,9 @@ jobs:
             src/lib/multiempresa/company-context.test.ts \
             src/lib/multiempresa/receipt-validation.ts \
             src/lib/multiempresa/receipt-validation.test.ts \
+            src/lib/multiempresa/receipt-batch.ts \
+            src/lib/multiempresa/receipt-batch.test.ts \
+            src/lib/multiempresa/receipt-service.ts \
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
@@ -62,6 +65,9 @@ jobs:
             src/lib/multiempresa/company-context.test.ts \
             src/lib/multiempresa/receipt-validation.ts \
             src/lib/multiempresa/receipt-validation.test.ts \
+            src/lib/multiempresa/receipt-batch.ts \
+            src/lib/multiempresa/receipt-batch.test.ts \
+            src/lib/multiempresa/receipt-service.ts \
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
