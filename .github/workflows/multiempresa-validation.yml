@@ -7,6 +7,8 @@ on:
 permissions:
   contents: read
 
+# Cada commit realizado por el conector ejecuta nuevamente esta validación.
+
 jobs:
   unit-tests:
     name: Pruebas unitarias
