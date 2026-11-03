@@ -40,6 +40,7 @@ jobs:
             src/components/multiempresa/TenantMovementsPreview.tsx \
             src/components/multiempresa/TenantOrdersPreview.tsx \
             src/components/multiempresa/TenantReceiptPreview.tsx \
+            src/components/multiempresa/TenantReceiptDraftForm.tsx \
             src/components/multiempresa/TenantSuppliersPreview.tsx \
             src/routes/_authenticated/route.tsx
       - name: Guardar solo los cambios de formato
@@ -56,6 +57,7 @@ jobs:
             src/components/multiempresa/TenantMovementsPreview.tsx \
             src/components/multiempresa/TenantOrdersPreview.tsx \
             src/components/multiempresa/TenantReceiptPreview.tsx \
+            src/components/multiempresa/TenantReceiptDraftForm.tsx \
             src/components/multiempresa/TenantSuppliersPreview.tsx \
             src/routes/_authenticated/route.tsx
           if git diff --cached --quiet; then
