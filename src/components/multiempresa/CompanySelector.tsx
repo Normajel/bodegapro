@@ -16,59 +16,78 @@ export function CompanySelector() {
 
   useEffect(() => {
     let live = true;
+    let generation = 0;
+
+    function clearTenantContext() {
+      // Drop cached rows before another account or company can render.
+      queryClient.clear();
+      setCompanies([]);
+      setSelected("");
+      window.dispatchEvent(
+        new CustomEvent(COMPANY_CONTEXT_EVENT, { detail: { companyId: "" } }),
+      );
+    }
+
     async function refresh() {
+      const requestId = ++generation;
       setLoading(true);
+      setError("");
+      setSignedIn(false);
+      clearTenantContext();
       try {
         const { data, error: authError } = await supabase.auth.getUser();
         if (authError) throw authError;
-        if (!live) return;
-        setSignedIn(!!data.user);
-        if (!data.user) {
-          setCompanies([]);
-          setSelected("");
-          window.dispatchEvent(
-            new CustomEvent(COMPANY_CONTEXT_EVENT, { detail: { companyId: "" } }),
-          );
-          return;
-        }
+        if (!live || requestId !== generation) return;
+        if (!data.user) return;
+
         const available = await loadMyCompanies();
-        if (!live) return;
+        if (!live || requestId !== generation) return;
+        // A second user/session change invalidates any in-flight membership read.
+        const current = await supabase.auth.getUser();
+        if (!live || requestId !== generation) return;
+        if (current.error || current.data.user?.id !== data.user.id) {
+          throw new Error("La sesión cambió mientras se verificaban las empresas.");
+        }
         setCompanies(available);
+        setSignedIn(true);
         const initialCompanyId = available.length === 1 ? (available[0]?.company.id ?? "") : "";
         setSelected(initialCompanyId);
-        queryClient.clear();
         window.dispatchEvent(
           new CustomEvent(COMPANY_CONTEXT_EVENT, {
             detail: { companyId: initialCompanyId },
           }),
         );
-        setError("");
       } catch {
-        if (live) {
-          setCompanies([]);
-          setSelected("");
+        if (live && requestId === generation) {
+          clearTenantContext();
+          setSignedIn(false);
           setError("No se pudo verificar tu acceso a empresas.");
         }
       } finally {
-        if (live) setLoading(false);
+        if (live && requestId === generation) setLoading(false);
       }
     }
+
     void refresh();
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
+        ++generation;
+        clearTenantContext();
         setSignedIn(false);
-        setCompanies([]);
-        setSelected("");
-        window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, { detail: { companyId: "" } }));
-        queryClient.clear();
+        setLoading(false);
+        setError("");
       } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
-        void refresh();
+        // Defer asynchronous auth API calls outside the synchronous Auth callback.
+        queueMicrotask(() => {
+          if (live) void refresh();
+        });
       }
     });
     return () => {
       live = false;
+      ++generation;
       subscription.unsubscribe();
     };
   }, [queryClient]);
