@@ -20,12 +20,19 @@ export function TenantServicesLedger({ companyId }: Props) {
   });
 
   return (
-    <section aria-label="Servicios aceptados" className="mt-6 rounded-lg border border-slate-200 p-4">
+    <section
+      aria-label="Servicios aceptados"
+      className="mt-6 rounded-lg border border-slate-200 p-4"
+    >
       <h2 className="text-lg font-semibold">Servicios aceptados por proveedor</h2>
       <p className="mt-1 text-sm text-slate-600">
         Historial independiente del inventario: la aceptación de servicios nunca suma stock.
       </p>
-      {entries.isPending && <p role="status" className="mt-3">Consultando servicios…</p>}
+      {entries.isPending && (
+        <p role="status" className="mt-3">
+          Consultando servicios…
+        </p>
+      )}
       {entries.isError && (
         <p role="alert" className="mt-3 text-red-700">
           No se pudo consultar el historial de servicios de esta empresa.
@@ -52,13 +59,19 @@ export function TenantServicesLedger({ companyId }: Props) {
                 <tr key={line.id} className="border-t">
                   <td className="px-3 py-2">{line.supplier_name}</td>
                   <td className="px-3 py-2">{line.order_number}</td>
-                  <td className="px-3 py-2">{new Date(line.entered_at).toLocaleDateString("es-CL")}</td>
                   <td className="px-3 py-2">
-                    {line.approved_at ? new Date(line.approved_at).toLocaleDateString("es-CL") : "—"}
+                    {new Date(line.entered_at).toLocaleDateString("es-CL")}
+                  </td>
+                  <td className="px-3 py-2">
+                    {line.approved_at
+                      ? new Date(line.approved_at).toLocaleDateString("es-CL")
+                      : "—"}
                   </td>
                   <td className="px-3 py-2">{line.payment_terms}</td>
                   <td className="px-3 py-2">{line.description}</td>
-                  <td className="px-3 py-2">{line.quantity} {line.measure_unit}</td>
+                  <td className="px-3 py-2">
+                    {line.quantity} {line.measure_unit}
+                  </td>
                   <td className="px-3 py-2">{money(Number(line.total))}</td>
                   <td className="px-3 py-2 font-semibold text-teal-700">{line.status}</td>
                 </tr>

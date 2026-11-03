@@ -8,7 +8,11 @@ import {
   canApproveTenantOrder,
   PURCHASE_APPROVAL_WRITES_ENABLED,
 } from "@/lib/multiempresa/approval-service";
-import { listCompanyOrderKinds, listCompanyPurchaseOrders, tenantQueryKeys } from "@/lib/multiempresa/tenant-catalog";
+import {
+  listCompanyOrderKinds,
+  listCompanyPurchaseOrders,
+  tenantQueryKeys,
+} from "@/lib/multiempresa/tenant-catalog";
 
 const clp = (n: number) =>
   new Intl.NumberFormat("es-CL", {
@@ -97,7 +101,11 @@ export function TenantOrdersPreview() {
                         setSelectedOrderId(order.id === selectedOrderId ? null : order.id)
                       }
                     >
-                      {selectedOrderId === order.id ? "Ocultar" : kinds.data?.[order.id] === "servicio" ? "Ver servicios" : "Ver pendientes"}
+                      {selectedOrderId === order.id
+                        ? "Ocultar"
+                        : kinds.data?.[order.id] === "servicio"
+                          ? "Ver servicios"
+                          : "Ver pendientes"}
                     </button>
                   </td>
                   {mayApprove && (
@@ -109,7 +117,9 @@ export function TenantOrdersPreview() {
                           title="Aprobación pendiente de habilitación tras pruebas Auth"
                           className="cursor-not-allowed rounded bg-slate-200 px-3 py-1 text-slate-600"
                         >
-                          {kinds.data?.[order.id] === "servicio" ? "Aceptar servicios" : "Aprobar OC"}
+                          {kinds.data?.[order.id] === "servicio"
+                            ? "Aceptar servicios"
+                            : "Aprobar OC"}
                         </button>
                       ) : (
                         <span className="text-slate-500">—</span>
@@ -130,7 +140,13 @@ export function TenantOrdersPreview() {
       {companyId &&
         orders.isSuccess &&
         orders.data
-          .filter((o) => o.id === selectedOrderId && o.approval_status === "aprobada" && o.status !== "ACEPTADO" && kinds.data?.[o.id] === "producto")
+          .filter(
+            (o) =>
+              o.id === selectedOrderId &&
+              o.approval_status === "aprobada" &&
+              o.status !== "ACEPTADO" &&
+              kinds.data?.[o.id] === "producto",
+          )
           .map((o) => (
             <TenantReceiptPreview
               key={o.id}
@@ -150,8 +166,11 @@ export function TenantOrdersPreview() {
         )}
       {companyId &&
         orders.isSuccess &&
-        orders.data.some((o) =>
-          o.id === selectedOrderId && kinds.data?.[o.id] === "servicio" && o.status !== "ACEPTADO",
+        orders.data.some(
+          (o) =>
+            o.id === selectedOrderId &&
+            kinds.data?.[o.id] === "servicio" &&
+            o.status !== "ACEPTADO",
         ) && (
           <p className="mt-4 text-amber-800">
             Orden de servicios pendiente de aceptación por Gerencia. No corresponde recibir
@@ -168,7 +187,12 @@ export function TenantOrdersPreview() {
         )}
       {companyId &&
         orders.isSuccess &&
-        orders.data.some((o) => o.id === selectedOrderId && o.approval_status !== "aprobada" && kinds.data?.[o.id] === "producto") && (
+        orders.data.some(
+          (o) =>
+            o.id === selectedOrderId &&
+            o.approval_status !== "aprobada" &&
+            kinds.data?.[o.id] === "producto",
+        ) && (
           <p className="mt-4 text-amber-800">
             La orden debe estar aprobada para consultar su recepción.
           </p>
