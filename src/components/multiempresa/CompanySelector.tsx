@@ -34,7 +34,7 @@ export function CompanySelector() {
         setCompanies(available);
         const initialCompanyId = available.length === 1 ? available[0].company.id : "";
         setSelected(initialCompanyId);
-        void queryClient.cancelQueries().then(() => queryClient.clear());
+        queryClient.clear();
         window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, {
           detail: { companyId: initialCompanyId },
         }));
@@ -56,7 +56,7 @@ export function CompanySelector() {
         setCompanies([]);
         setSelected("");
         window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, { detail: { companyId: "" } }));
-        void queryClient.clear();
+        queryClient.clear();
       } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
         void refresh();
       }
@@ -84,7 +84,7 @@ export function CompanySelector() {
             setSelected(event.target.value);
             void queryClient.cancelQueries().then(() => queryClient.clear());
             window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, {
-              detail: { companyId: event.target.value },
+              detail: { companyId: nextCompany },
             }));
           }}
         >
