@@ -27,7 +27,7 @@ export function validateReceiptDocument(type: string, number: string): string | 
   const normalized = number.trim();
   if (!normalized) return "Ingresa el número de la guía o factura.";
   if (normalized.length > 60) return "El número del documento es demasiado largo.";
-  if (!/^[\\p{L}\\p{N} ._\\-/]+$/u.test(normalized)) {
+  if (!/^[A-Za-z0-9 ._/-]+$/.test(normalized)) {
     return "El número del documento contiene caracteres no permitidos.";
   }
   return null;
