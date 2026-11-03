@@ -656,6 +656,7 @@ export type Database = {
           net_total: number;
           notes: string | null;
           order_date: string;
+          order_kind: "producto" | "servicio";
           order_number: string;
           payment_terms: string;
           payment_terms_other: string | null;
@@ -683,6 +684,7 @@ export type Database = {
           net_total?: number;
           notes?: string | null;
           order_date?: string;
+          order_kind: "producto" | "servicio";
           order_number: string;
           payment_terms?: string;
           payment_terms_other?: string | null;
@@ -710,6 +712,7 @@ export type Database = {
           net_total?: number;
           notes?: string | null;
           order_date?: string;
+          order_kind?: "producto" | "servicio";
           order_number?: string;
           payment_terms?: string;
           payment_terms_other?: string | null;
