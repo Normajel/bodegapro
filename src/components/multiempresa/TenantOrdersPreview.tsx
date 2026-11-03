@@ -8,10 +8,7 @@ import {
   canApproveTenantOrder,
   PURCHASE_APPROVAL_WRITES_ENABLED,
 } from "@/lib/multiempresa/approval-service";
-import {
-  listCompanyPurchaseOrders,
-  tenantQueryKeys,
-} from "@/lib/multiempresa/tenant-catalog";
+import { listCompanyPurchaseOrders, tenantQueryKeys } from "@/lib/multiempresa/tenant-catalog";
 
 const clp = (n: number) =>
   new Intl.NumberFormat("es-CL", {
@@ -109,9 +106,7 @@ export function TenantOrdersPreview() {
                           title="Aprobación pendiente de habilitación tras pruebas Auth"
                           className="cursor-not-allowed rounded bg-slate-200 px-3 py-1 text-slate-600"
                         >
-                          {order.order_kind === "servicio"
-                            ? "Aceptar servicios"
-                            : "Aprobar OC"}
+                          {order.order_kind === "servicio" ? "Aceptar servicios" : "Aprobar OC"}
                         </button>
                       ) : (
                         <span className="text-slate-500">—</span>
@@ -151,10 +146,7 @@ export function TenantOrdersPreview() {
       {companyId &&
         orders.isSuccess &&
         orders.data.some(
-          (o) =>
-            o.id === selectedOrderId &&
-            o.order_kind === "servicio" &&
-            o.status !== "ACEPTADO",
+          (o) => o.id === selectedOrderId && o.order_kind === "servicio" && o.status !== "ACEPTADO",
         ) && (
           <p className="mt-4 text-amber-800">
             Orden de servicios pendiente de aceptación por Gerencia. No corresponde recibir
