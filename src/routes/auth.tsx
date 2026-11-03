@@ -1,143 +1,104 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { toast } from "sonner";
-import { Turnstile } from "@marsidev/react-turnstile";
+import { useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { signInWithUsername } from "@/lib/username-login.functions";
-
-const turnstileSiteKey = import.meta.env["VITE_TURNSTILE_SITE_KEY"];
+import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Acceder — BodegaPro" },
-      { name: "description", content: "Inicia sesión en BodegaPro para gestionar tu bodega." },
-      { property: "og:title", content: "Acceder — BodegaPro" },
-      {
-        property: "og:description",
-        content: "Inicia sesión en BodegaPro para gestionar tu bodega.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      { title: "Acceder — INTEGRASTOCK Multiempresa" },
+      { name: "description", content: "Acceso autorizado a INTEGRASTOCK Multiempresa." },
     ],
   }),
-  component: AuthPage,
+  component: TenantAuthPage,
 });
 
-function AuthPage() {
+/**
+ * This development branch authenticates directly against its isolated
+ * Supabase Auth project. User creation and password recovery remain
+ * under administrator control until onboarding is implemented.
+ */
+function TenantAuthPage() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [captchaToken, setCaptchaToken] = useState("");
-  const [captchaInstance, setCaptchaInstance] = useState(0);
-  const [captchaFailed, setCaptchaFailed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  async function handleEmail(e: React.FormEvent) {
-    e.preventDefault();
-    if (!turnstileSiteKey || !captchaToken) {
-      toast.error("Completa la verificación de seguridad antes de iniciar sesión.");
-      return;
-    }
-
+  async function handleSignIn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (loading) return;
     setLoading(true);
+    setMessage("");
     try {
-      const session = await signInWithUsername({
-        data: { username: username.trim(), password, captchaToken },
-      });
-      const { error } = await supabase.auth.setSession({
-        access_token: session.accessToken,
-        refresh_token: session.refreshToken,
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
       });
       if (error) throw error;
-      navigate({ to: "/dashboard" });
+
+      // Authentication alone is not tenant authorization.
+      const allowed = await loadMyCompanies();
+      if (allowed.length === 0) {
+        await supabase.auth.signOut();
+        setMessage("La cuenta no tiene una empresa activa asignada. Contacta a Administración.");
+        return;
+      }
+      await navigate({ to: "/compras" });
     } catch {
-      toast.error("No se pudo iniciar sesión. Revisa tus datos y la verificación de seguridad.");
+      setMessage("No se pudo iniciar sesión. Verifica tus credenciales o consulta al administrador.");
     } finally {
-      setCaptchaToken("");
-      setCaptchaInstance((instance) => instance + 1);
+      setPassword("");
       setLoading(false);
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary font-display text-xl font-bold text-primary-foreground">
-            B
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+      <section className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-bold text-slate-900">INTEGRASTOCK Multiempresa</h1>
+        <p className="mt-2 text-sm text-slate-600">
+          Accede con la cuenta asignada a tu empresa. Solo se muestran empresas con membresía activa.
+        </p>
+        <form onSubmit={handleSignIn} className="mt-6 space-y-4">
+          <div>
+            <label htmlFor="tenant-email" className="block text-sm font-semibold">Correo electrónico</label>
+            <input
+              id="tenant-email"
+              type="email"
+              autoComplete="username"
+              required
+              maxLength={254}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">BodegaPro</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Gestión de bodega para tu equipo</p>
-        </div>
-
-        <div className="card p-6">
-          <form onSubmit={handleEmail} className="space-y-4">
-            <div>
-              <label className="label" htmlFor="username">
-                Usuario
-              </label>
-              <input
-                id="username"
-                type="text"
-                className="input"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                autoComplete="username"
-                autoCapitalize="none"
-                spellCheck={false}
-                maxLength={32}
-                required
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="password">
-                Contraseña
-              </label>
-              <input
-                id="password"
-                type="password"
-                className="input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-              />
-            </div>
-            {turnstileSiteKey ? (
-              <Turnstile
-                key={captchaInstance}
-                siteKey={turnstileSiteKey}
-                onSuccess={(token) => {
-                  setCaptchaToken(token);
-                  setCaptchaFailed(false);
-                }}
-                onExpire={() => setCaptchaToken("")}
-                onError={() => {
-                  setCaptchaToken("");
-                  setCaptchaFailed(true);
-                }}
-              />
-            ) : (
-              <p className="text-sm text-destructive">
-                La verificación de seguridad no está configurada. Contacta al administrador.
-              </p>
-            )}
-            {captchaFailed && (
-              <p role="alert" className="text-sm text-destructive">
-                No se pudo cargar la verificación. Comprueba tu conexión e inténtalo nuevamente.
-              </p>
-            )}
-            <button
-              type="submit"
-              className="btn btn-primary w-full"
-              disabled={loading || !turnstileSiteKey || !captchaToken}
-            >
-              {loading ? "Cargando…" : "Iniciar sesión"}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
+          <div>
+            <label htmlFor="tenant-password" className="block text-sm font-semibold">Contraseña</label>
+            <input
+              id="tenant-password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            />
+          </div>
+          {message && <p role="alert" className="text-sm text-red-700">{message}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-md bg-slate-900 px-4 py-3 font-semibold text-white disabled:opacity-60"
+          >
+            {loading ? "Verificando acceso…" : "Iniciar sesión"}
+          </button>
+        </form>
+        <p className="mt-4 text-xs text-amber-800">
+          Entorno multiempresa en pruebas. No ingreses credenciales de Contemar.
+        </p>
+      </section>
+    </main>
   );
 }
