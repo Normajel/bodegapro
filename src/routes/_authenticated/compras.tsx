@@ -855,6 +855,12 @@ function ComprasPage() {
                           {deliveryRow?.due_date ? " · " + displayDate(deliveryRow.due_date) : ""}
                         </small>
                       )}
+                      {status === "anulada" && order.cancellation_reason && (
+                        <small className="block text-muted-foreground">
+                          Motivo de anulación: {order.cancellation_reason}
+                          {order.cancelled_at ? ` · ${new Date(order.cancelled_at).toLocaleString("es-CL")}` : ""}
+                        </small>
+                      )}
                       <small className="block text-muted-foreground">
                         Aprobación: {displayDate(order.approved_at)}
                       </small>
