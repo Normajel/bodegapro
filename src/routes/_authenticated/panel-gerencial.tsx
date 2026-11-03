@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import {
   BarChart,
   Bar,
-  LineChart,
+  ComposedChart,
   Line,
+  ReferenceLine,
   XAxis,
   YAxis,
   Tooltip,
@@ -20,6 +21,8 @@ import { getManagementData } from "@/lib/management.functions";
 import {
   canViewManagement,
   summarizeManagement,
+  categoryInventoryBreakdown,
+  managementFlowSeries,
   simulateCubication,
   stockOf,
 } from "@/lib/management";
@@ -32,28 +35,6 @@ export const Route = createFileRoute("/_authenticated/panel-gerencial")({
 });
 const compact = (value: number) =>
   new Intl.NumberFormat("es-CL", { notation: "compact", maximumFractionDigits: 1 }).format(value);
-function ChartCard({
-  title,
-  children,
-  empty = false,
-}: {
-  title: string;
-  children: ReactNode;
-  empty?: boolean;
-}) {
-  return (
-    <section className="card min-w-0 p-4">
-      <h2 className="mb-4 font-semibold">{title}</h2>
-      {empty ? (
-        <p className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-          Sin registros para esta selección.
-        </p>
-      ) : (
-        <div className="h-72 w-full">{children}</div>
-      )}
-    </section>
-  );
-}
 function ManagementPage() {
   const access = useAppAccess();
   return canViewManagement(access?.name, access?.permissions) ? (
@@ -71,6 +52,7 @@ function ManagementPanel() {
   const [template, setTemplate] = useState("");
   const [moduleCountDraft, setModuleCountDraft] = useState("1");
   const [detail, setDetail] = useState(false);
+  const [flowMode, setFlowMode] = useState<"daily" | "cumulative">("daily");
   const access = useAppAccess();
   const valid = from <= to && !!from && !!to && Date.parse(to) - Date.parse(from) <= 366 * 86400000;
   const query = useQuery({
@@ -86,6 +68,23 @@ function ManagementPanel() {
   const summary = data
     ? summarizeManagement(data.products, data.movements, category, product)
     : null;
+  const inventoryCategories = data
+    ? categoryInventoryBreakdown(data.products, category, product)
+    : null;
+  const categoryRows = inventoryCategories?.rows ?? [];
+  const topInventoryCategory = categoryRows[0];
+  const mostCriticalCategory = [...categoryRows]
+    .filter((entry) => entry.criticalCount > 0)
+    .sort((a, b) => b.criticalCount - a.criticalCount)[0];
+  const flowDaily = summary ? managementFlowSeries(summary.trend, from, to) : [];
+  const flowData = summary
+    ? managementFlowSeries(summary.trend, from, to, flowMode === "cumulative")
+    : [];
+  const flowNet = (summary?.entriesValue ?? 0) - (summary?.exitsValue ?? 0);
+  const peakEntries = [...flowDaily].sort((a, b) => b.Entradas - a.Entradas)[0];
+  const peakExits = [...flowDaily].sort((a, b) => b.Salidas - a.Salidas)[0];
+  const hasFlowActivity = flowDaily.some((day) => day.Entradas !== 0 || day.Salidas !== 0);
+
   const selectedItems = data?.items.filter((i) => i.template_id === template) ?? [];
   const modules = Math.max(1, Math.min(1000, Math.trunc(Number(moduleCountDraft) || 1)));
   const scenario = data && template
@@ -299,43 +298,183 @@ function ManagementPanel() {
             usan el costo actual registrado.
           </p>
           <div className="grid gap-5 xl:grid-cols-2">
-            <ChartCard
-              title="Valor de inventario por categoría · CLP"
-              empty={!summary.categories.length}
-            >
-              <ResponsiveContainer>
-                <BarChart
-                  data={summary.categories}
-                  onClick={(state) => {
-                    const row = state?.activePayload?.[0]?.payload as { name?: string } | undefined;
-                    if (row?.name) {
-                      setCategory(row.name);
-                      setProduct("");
-                      setDetail(true);
-                    }
-                  }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis tickFormatter={compact} />
-                  <Tooltip formatter={costTooltip} />
-                  <Bar dataKey="value" name="Valor actual" fill="#0d9488" cursor="pointer" />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
-            <ChartCard title="Entradas y salidas por día · CLP" empty={!summary.trend.length}>
-              <ResponsiveContainer>
-                <LineChart data={summary.trend}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                  <YAxis tickFormatter={compact} />
-                  <Tooltip formatter={costTooltip} />
-                  <Legend />
-                  <Line dataKey="Entradas" stroke="#0d9488" />
-                  <Line dataKey="Salidas" stroke="#2563eb" />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartCard>
+            <section className="card min-w-0 space-y-4 p-4" aria-labelledby="categories-title">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 id="categories-title" className="font-semibold">
+                    Valor de inventario por categoría · CLP
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Ranking por valorización actual · selecciona una categoría para ver su inventario
+                  </p>
+                </div>
+                {(category || product) && (
+                  <button type="button" className="btn btn-secondary text-xs"
+                    onClick={() => { setCategory(""); setProduct(""); }}>
+                    Ver todas
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Indicadores por categoría">
+                {[
+                  { label: "Valor seleccionado", value: money(inventoryCategories?.total ?? 0),
+                    note: "Stock × costo registrado" },
+                  { label: "Mayor valorización", value: topInventoryCategory?.name ?? "Sin datos",
+                    note: topInventoryCategory ? money(topInventoryCategory.value) : "—" },
+                  { label: "Más productos críticos", value: mostCriticalCategory?.name ?? "Ninguna",
+                    note: mostCriticalCategory ? `${mostCriticalCategory.criticalCount} productos` : "Sin alertas" },
+                ].map((stat) => (
+                  <div key={stat.label} className="min-w-0 rounded-xl bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    <p className="mt-1 break-words text-base font-bold">{stat.value}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{stat.note}</p>
+                  </div>
+                ))}
+              </div>
+              {categoryRows.length === 0 ? (
+                <p className="flex min-h-48 items-center justify-center text-sm text-muted-foreground">
+                  No hay categorías con productos activos para esta selección.
+                </p>
+              ) : (
+                <div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                  <div style={{ height: Math.min(560, Math.max(260, categoryRows.length * 43 + 45)) }}
+                    className="min-w-0" role="img" aria-label="Ranking de valor de inventario por categoría">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={categoryRows} layout="vertical" margin={{ top: 6, right: 12, bottom: 6, left: 0 }}
+                        onClick={(state) => {
+                          const row = state?.activePayload?.[0]?.payload as { name?: string } | undefined;
+                          if (row?.name) {
+                            setCategory(row.name === "Sin categoría" ? "" : row.name);
+                            setProduct("");
+                            setDetail(true);
+                          }
+                        }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" tickFormatter={compact} tick={{ fontSize: 11 }} />
+                        <YAxis type="category" dataKey="name" width={105} tick={{ fontSize: 11 }}
+                          tickFormatter={(label: string) => label.length > 17 ? label.slice(0, 16) + "…" : label} />
+                        <Tooltip
+                          formatter={(value) => money(Number(value))}
+                          labelFormatter={(_label, payload) => {
+                            const row = payload?.[0]?.payload as (typeof categoryRows)[number] | undefined;
+                            return row ? `${row.name} · ${percentCL(row.share)}% · ${row.productCount} productos · ${row.criticalCount} críticos` : "";
+                          }} />
+                        <Bar dataKey="value" name="Valor actual" fill="#0d9488" radius={[0,6,6,0]}
+                          maxBarSize={25} cursor="pointer" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="max-h-[560px] space-y-2 overflow-y-auto" aria-label="Detalle de categorías">
+                    {categoryRows.map((row, index) => (
+                      <button type="button" key={row.name}
+                        className="w-full rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                        onClick={() => {
+                          setCategory(row.name === "Sin categoría" ? "" : row.name);
+                          setProduct("");
+                          setDetail(true);
+                        }}>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="min-w-0 break-words text-sm font-semibold">
+                            {index + 1}. {row.name}
+                          </span>
+                          <span className="text-sm font-bold tabular-nums">{money(row.value)}</span>
+                        </div>
+                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-teal-600"
+                            style={{ width: `${Math.max(0, Math.min(100, row.share))}%` }} />
+                        </div>
+                        <p className="mt-1.5 text-xs text-muted-foreground">
+                          {percentCL(row.share)}% del valor seleccionado · {row.productCount} productos
+                          {row.criticalCount > 0 ? ` · ${row.criticalCount} críticos` : ""}
+                          {row.unpricedCount > 0 ? ` · ${row.unpricedCount} sin costo` : ""}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                La valorización usa el stock y el costo actual registrado. Se excluyen productos
+                inactivos; los artículos con stock sin costo positivo requieren revisión.
+              </p>
+            </section>
+            <section className="card min-w-0 space-y-4 p-4" aria-labelledby="flow-title">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 id="flow-title" className="font-semibold">
+                    Flujo valorizado de entradas y salidas · CLP
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {flowMode === "daily" ? "Movimientos diarios y diferencia neta" : "Acumulado desde el inicio del período"}
+                  </p>
+                </div>
+                <div className="flex gap-1 rounded-lg bg-muted p-1" role="group"
+                  aria-label="Modo de visualización del flujo">
+                  <button type="button" aria-pressed={flowMode === "daily"}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium ${flowMode === "daily" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+                    onClick={() => setFlowMode("daily")}>Diario</button>
+                  <button type="button" aria-pressed={flowMode === "cumulative"}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium ${flowMode === "cumulative" ? "bg-background shadow-sm" : "text-muted-foreground"}`}
+                    onClick={() => setFlowMode("cumulative")}>Acumulado</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" aria-label="Resumen valorizado de movimientos">
+                {[
+                  { label: "Entradas", value: money(summary.entriesValue), color: "text-teal-600" },
+                  { label: "Salidas", value: money(summary.exitsValue), color: "text-blue-600" },
+                  { label: "Diferencia neta", value: money(flowNet), color: flowNet < 0 ? "text-destructive" : "text-foreground" },
+                ].map((stat) => (
+                  <div key={stat.label} className="min-w-0 rounded-xl bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    <p className={`mt-1 break-words text-lg font-bold tabular-nums ${stat.color}`}>{stat.value}</p>
+                  </div>
+                ))}
+              </div>
+              {hasFlowActivity ? (
+                <>
+                  <div className="h-72 w-full min-w-0" role="img"
+                    aria-label="Entradas, salidas y diferencia neta de movimientos por fecha">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={flowData} margin={{ top: 10, right: 9, left: 0, bottom: 2 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="name" minTickGap={24} tick={{ fontSize: 10 }}
+                          tickFormatter={(day: string) => day.slice(5)} />
+                        <YAxis width={62} tickFormatter={compact} tick={{ fontSize: 10 }} />
+                        <Tooltip labelFormatter={(day) => `Fecha: ${day}`}
+                          formatter={(value) => money(Number(value))} />
+                        <Legend />
+                        <ReferenceLine y={0} stroke="#64748b" />
+                        <Bar dataKey="Entradas" fill="#0d9488" maxBarSize={28} radius={[3,3,0,0]} />
+                        <Bar dataKey="Salidas" fill="#2563eb" maxBarSize={28} radius={[3,3,0,0]} />
+                        <Line dataKey="Neto" stroke="#f59e0b" strokeWidth={2} dot={false}
+                          activeDot={{ r: 4 }} type="monotone" />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg border border-border p-3">
+                      <p className="text-xs text-muted-foreground">Mayor entrada diaria</p>
+                      <p className="mt-1 text-sm font-bold tabular-nums">{money(peakEntries?.Entradas ?? 0)}</p>
+                      <p className="text-xs text-muted-foreground">{peakEntries?.name ?? "—"}</p>
+                    </div>
+                    <div className="rounded-lg border border-border p-3">
+                      <p className="text-xs text-muted-foreground">Mayor salida diaria</p>
+                      <p className="mt-1 text-sm font-bold tabular-nums">{money(peakExits?.Salidas ?? 0)}</p>
+                      <p className="text-xs text-muted-foreground">{peakExits?.name ?? "—"}</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="flex min-h-48 items-center justify-center text-sm text-muted-foreground">
+                  No hay movimientos valorizados registrados en este período.
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                El neto es entradas menos salidas valorizadas, no utilidad ni saldo de caja.
+                Incluye ajustes y reversas. Los movimientos sin costo histórico no se
+                valorizan; consulta el aviso de costos faltantes del panel.
+              </p>
+            </section>
             <section className="card min-w-0 space-y-4 p-4" aria-labelledby="top-exits-title">
               <div>
                 <h2 id="top-exits-title" className="font-semibold">
