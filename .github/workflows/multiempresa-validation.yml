@@ -1,0 +1,29 @@
+name: Validación INTEGRASTOCK Multiempresa
+on:
+  push:
+    branches: [multiempresa-desarrollo]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci --no-audit --no-fund
+      - name: Ejecutar pruebas unitarias
+        run: npm test
+      - name: Validar ESLint
+        run: npm run lint
+      - name: Verificar tipos TypeScript
+        run: npx tsc --noEmit
+      - name: Compilar aplicación
+        run: npm run build
