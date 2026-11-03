@@ -20,6 +20,8 @@ export const tenantQueryKeys = {
   movements: (companyId: string) => ["tenant", companyId, "movements"] as const,
   receiptLines: (companyId: string, orderId: string) =>
     ["tenant", companyId, "receipt-lines", orderId] as const,
+  orderReceipts: (companyId: string, orderId: string) =>
+    ["tenant", companyId, "order-receipts", orderId] as const,
 };
 
 export async function listCompanyProducts(companyId: string) {
@@ -60,7 +62,7 @@ export async function listCompanyMovements(companyId: string) {
   const { data, error } = await db
     .from("stock_movements")
     .select(
-      "id,company_id,folio,product_id,type,quantity,measure_unit,reference,document_type,document_number,created_at",
+      "id,company_id,folio,product_id,purchase_order_id,purchase_order_item_id,type,quantity,measure_unit,reference,document_type,document_number,created_at",
     )
     .eq("company_id", companyId)
     .order("created_at", { ascending: false })
@@ -92,4 +94,21 @@ export async function listCompanyReceiptLines(companyId: string, orderId: string
     received_quantity: line.received_quantity,
     pending_quantity: Math.max(0, Number(line.quantity) - Number(line.received_quantity)),
   }));
+}
+
+/** Only recorded OC receipts appear here; unlinked adjustments are excluded. */
+export async function listCompanyOrderReceipts(companyId: string, orderId: string) {
+  await requireCompany(companyId);
+  if (!orderId) throw new Error("Selecciona una orden de compra.");
+  const { data, error } = await db
+    .from("stock_movements")
+    .select(
+      "id,company_id,folio,purchase_order_id,purchase_order_item_id,product_id,type,quantity,reference,document_type,document_number,created_at",
+    )
+    .eq("company_id", companyId)
+    .eq("purchase_order_id", orderId)
+    .eq("type", "entrada")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
 }
