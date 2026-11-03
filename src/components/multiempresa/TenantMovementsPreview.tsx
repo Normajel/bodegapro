@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useActiveCompany } from "@/lib/multiempresa/company-context";
 import {
   listCompanyMovements,
@@ -30,9 +31,17 @@ export function TenantMovementsPreview() {
   return (
     <main className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="text-2xl font-bold">Movimientos · Multiempresa</h1>
-      <p className="mb-6 mt-1 text-sm text-slate-600">
+      <p className="mb-3 mt-1 text-sm text-slate-600">
         Últimos 100 movimientos de la empresa. Registro, edición y anulación están deshabilitados
         hasta validar las operaciones de stock.
+      </p>
+      <p className="mb-6 text-sm text-slate-700">
+        Para preparar una entrada vinculada a una OC, utiliza el
+        {" "}
+        <Link to="/compras" className="font-semibold text-teal-700 underline">
+          módulo Órdenes de compra
+        </Link>.
+        El registro definitivo será una operación única compartida entre ambos módulos.
       </p>
 
       {!companyId && <p role="status">Selecciona una empresa.</p>}
