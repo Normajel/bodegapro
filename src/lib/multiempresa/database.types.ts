@@ -1195,6 +1195,10 @@ export type Database = {
         Args: { p_order_id: string };
         Returns: undefined;
       };
+      approve_tenant_purchase_order: {
+        Args: { p_company_id: string; p_order_id: string };
+        Returns: string;
+      };
       receive_tenant_purchase_order_batch: {
         Args: {
           p_company_id: string;
