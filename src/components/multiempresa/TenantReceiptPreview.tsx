@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { TenantReceiptDraftForm } from "./TenantReceiptDraftForm";
 import {
   listCompanyReceiptLines,
   listCompanyOrderReceipts,
@@ -79,6 +80,15 @@ export function TenantReceiptPreview({ companyId, orderId, orderNumber }: Props)
             <p className="p-4 text-slate-600">Esta orden no tiene líneas visibles.</p>
           )}
         </div>
+      )}
+
+      {lines.isSuccess && (
+        <TenantReceiptDraftForm
+          key={`${companyId}:${orderId}`}
+          companyId={companyId}
+          orderId={orderId}
+          lines={lines.data}
+        />
       )}
 
       <div className="mt-6 border-t border-slate-200 pt-4">
