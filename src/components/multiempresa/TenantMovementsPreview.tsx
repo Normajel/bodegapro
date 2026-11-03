@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { loadMyCompanies } from "@/lib/multiempresa/company-api";
+import { useActiveCompany } from "@/lib/multiempresa/company-context";
 import {
   listCompanyMovements,
   listCompanyPurchaseOrders,
@@ -8,45 +8,19 @@ import {
 } from "@/lib/multiempresa/tenant-catalog";
 
 export function TenantMovementsPreview() {
-  const [companyId, setCompanyId] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    function changed(event: Event) {
-      const id = (event as CustomEvent<{ companyId?: string }>).detail?.companyId;
-      setCompanyId(id || null);
-    }
-    window.addEventListener("integrastock:company-changed", changed);
-    void loadMyCompanies()
-      .then((options) => {
-        if (!mounted) return;
-        setCompanyId(
-          (previous) =>
-            previous ?? (options.length === 1 ? (options[0]?.company.id ?? null) : null),
-        );
-        setReady(true);
-      })
-      .catch(() => {
-        if (mounted) setReady(true);
-      });
-    return () => {
-      mounted = false;
-      window.removeEventListener("integrastock:company-changed", changed);
-    };
-  }, []);
+  const companyId = useActiveCompany();
 
   const movements = useQuery({
     queryKey: tenantQueryKeys.movements(companyId ?? ""),
     queryFn: () => listCompanyMovements(companyId!),
-    enabled: ready && !!companyId,
+    enabled: !!companyId,
     staleTime: 0,
   });
 
   const linkedOrders = useQuery({
     queryKey: tenantQueryKeys.orders(companyId ?? ""),
     queryFn: () => listCompanyPurchaseOrders(companyId!),
-    enabled: ready && !!companyId,
+    enabled: !!companyId,
     staleTime: 0,
   });
 
@@ -61,8 +35,8 @@ export function TenantMovementsPreview() {
         Últimos 100 movimientos de la empresa. Registro, edición y anulación están deshabilitados
         hasta validar las operaciones de stock.
       </p>
-      {!ready && <p role="status">Verificando empresas…</p>}
-      {ready && !companyId && <p role="status">Selecciona una empresa.</p>}
+      
+      {!companyId && <p role="status">Selecciona una empresa.</p>}
       {companyId && movements.isPending && <p role="status">Cargando movimientos…</p>}
       {companyId && movements.isError && (
         <p role="alert">No se pudieron consultar los movimientos.</p>
