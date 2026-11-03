@@ -1,0 +1,61 @@
+name: Formatear solo archivos multiempresa
+on:
+  push:
+    branches: [multiempresa-desarrollo]
+    paths:
+      - .github/workflows/formato-multiempresa.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.ref == 'refs/heads/multiempresa-desarrollo'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Aplicar Prettier a los 11 archivos detectados
+        run: |
+          npx prettier --write \
+            src/lib/multiempresa/database.types.ts \
+            src/lib/multiempresa/tenant-catalog.ts \
+            src/lib/multiempresa/tenant.test.ts \
+            src/components/multiempresa/CompanySelector.tsx \
+            src/components/multiempresa/LegacyMigrationGate.tsx \
+            src/components/multiempresa/TenantInventoryPreview.tsx \
+            src/components/multiempresa/TenantMovementsPreview.tsx \
+            src/components/multiempresa/TenantOrdersPreview.tsx \
+            src/components/multiempresa/TenantReceiptPreview.tsx \
+            src/components/multiempresa/TenantSuppliersPreview.tsx \
+            src/routes/_authenticated/route.tsx
+      - name: Guardar solo los cambios de formato
+        run: |
+          git add -- \
+            src/lib/multiempresa/database.types.ts \
+            src/lib/multiempresa/tenant-catalog.ts \
+            src/lib/multiempresa/tenant.test.ts \
+            src/components/multiempresa/CompanySelector.tsx \
+            src/components/multiempresa/LegacyMigrationGate.tsx \
+            src/components/multiempresa/TenantInventoryPreview.tsx \
+            src/components/multiempresa/TenantMovementsPreview.tsx \
+            src/components/multiempresa/TenantOrdersPreview.tsx \
+            src/components/multiempresa/TenantReceiptPreview.tsx \
+            src/components/multiempresa/TenantSuppliersPreview.tsx \
+            src/routes/_authenticated/route.tsx
+          if git diff --cached --quiet; then
+            echo "Sin cambios de formato."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "style: aplicar Prettier solo a archivos multiempresa"
+          git push origin HEAD:multiempresa-desarrollo
