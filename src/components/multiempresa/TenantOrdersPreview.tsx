@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { TenantReceiptPreview } from "./TenantReceiptPreview";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 import { listCompanyPurchaseOrders, tenantQueryKeys } from "@/lib/multiempresa/tenant-catalog";
 
@@ -8,12 +9,14 @@ const clp = (n: number) => new Intl.NumberFormat("es-CL", { style: "currency", c
 export function TenantOrdersPreview() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     const onCompanyChange = (event: Event) => {
       const id = (event as CustomEvent<{companyId?: string}>).detail?.companyId;
       setCompanyId(id || null);
+      setSelectedOrderId(null);
     };
     window.addEventListener("integrastock:company-changed", onCompanyChange);
     void loadMyCompanies().then(options => {
@@ -42,7 +45,7 @@ export function TenantOrdersPreview() {
       <table className="w-full text-left text-sm">
         <thead className="bg-slate-50"><tr>
           <th className="px-4 py-3">N° OC</th><th className="px-4 py-3">Fecha</th>
-          <th className="px-4 py-3">Aprobación</th><th className="px-4 py-3">Estado</th><th className="px-4 py-3">Total</th>
+          <th className="px-4 py-3">Aprobación</th><th className="px-4 py-3">Estado</th><th className="px-4 py-3">Total</th><th className="px-4 py-3">Recepción</th>
         </tr></thead>
         <tbody>{orders.data.map(order => <tr className="border-t" key={order.id}>
           <td className="px-4 py-3">{order.order_number}</td>
@@ -50,9 +53,12 @@ export function TenantOrdersPreview() {
           <td className="px-4 py-3">{order.approval_status}</td>
           <td className="px-4 py-3">{order.status}</td>
           <td className="px-4 py-3">{clp(Number(order.total_amount ?? 0))}</td>
+          <td className="px-4 py-3"><button type="button" className="rounded border px-3 py-1" onClick={() => setSelectedOrderId(order.id === selectedOrderId ? null : order.id)}>{selectedOrderId === order.id ? "Ocultar" : "Ver pendientes"}</button></td>
         </tr>)}</tbody>
       </table>
       {orders.data.length === 0 && <p className="p-6 text-center text-slate-600">No existen órdenes de compra para esta empresa.</p>}
     </div>}
+    {companyId && orders.isSuccess && orders.data.filter(o => o.id === selectedOrderId && o.approval_status === "aprobada").map(o => <TenantReceiptPreview key={o.id} companyId={companyId} orderId={o.id} orderNumber={o.order_number} />)}
+    {companyId && orders.isSuccess && orders.data.some(o => o.id === selectedOrderId && o.approval_status !== "aprobada") && <p className="mt-4 text-amber-800">La orden debe estar aprobada para consultar su recepción.</p>}
   </main>;
 }
