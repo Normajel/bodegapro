@@ -48,7 +48,7 @@ jobs:
       - run: npm run build
 
   lint-multiempresa:
-    name: ESLint multiempresa (alcance reducido)
+    name: ESLint de código multiempresa
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -59,4 +59,18 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Revisar archivos multiempresa
-        run: npx eslint src/lib/multiempresa src/components/multiempresa src/routes/_authenticated/route.tsx
+        run: npx eslint src/lib/multiempresa src/components/multiempresa src/routes/_authenticated/route.tsx --rule "prettier/prettier: off"
+
+  format-multiempresa:
+    name: Formato Prettier multiempresa
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Revisar formato sin modificar archivos
+        run: npx prettier --check src/lib/multiempresa src/components/multiempresa src/routes/_authenticated/route.tsx
