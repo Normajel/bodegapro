@@ -70,11 +70,21 @@ export async function listCompanyReceiptLines(companyId: string, orderId: string
   await requireCompany(companyId);
   if (!orderId) throw new Error("Selecciona una orden de compra.");
   const { data, error } = await db
-    .from("tenant_purchase_order_receipt_progress")
-    .select("company_id,purchase_order_id,purchase_order_item_id,product_id,item_type,description,ordered_quantity,received_quantity,pending_quantity")
+    .from("purchase_order_items")
+    .select("id,company_id,purchase_order_id,product_id,item_type,description,quantity,received_quantity")
     .eq("company_id", companyId)
     .eq("purchase_order_id", orderId)
     .order("description");
   if (error) throw error;
-  return data;
+  return data.map(line => ({
+    purchase_order_item_id: line.id,
+    company_id: line.company_id,
+    purchase_order_id: line.purchase_order_id,
+    product_id: line.product_id,
+    item_type: line.item_type,
+    description: line.description,
+    ordered_quantity: line.quantity,
+    received_quantity: line.received_quantity,
+    pending_quantity: Math.max(0, Number(line.quantity) - Number(line.received_quantity)),
+  }));
 }
