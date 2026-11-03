@@ -1399,16 +1399,25 @@ function MovimientosPage() {
       return;
     }
 
-    if (!window.confirm("¿Eliminar este movimiento? El stock se revertirá.")) {
+    const reason = window.prompt("Indica el motivo para anular este movimiento (mínimo 10 caracteres):");
+    if (reason === null) return;
+    if (reason.trim().length < 10) {
+      toast.error("Debes indicar un motivo de anulación de al menos 10 caracteres");
+      return;
+    }
+    if (!window.confirm("¿Confirmas la anulación? Se conservará el movimiento original y se registrará un movimiento compensatorio.")) {
       return;
     }
 
-    const { error } = await supabase.from("stock_movements").delete().eq("id", id);
+    const { error } = await supabase.rpc("cancel_single_movement", {
+      p_movement_id: id,
+      p_reason: reason.trim(),
+    });
 
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Movimiento eliminado y stock revertido");
+      toast.success("Movimiento anulado con registro de motivo y ajuste de stock");
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["movements"] }),
