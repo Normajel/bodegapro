@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write
 
+# Avoid multiple autoformat jobs pushing against the same development branch.
+concurrency:
+  group: multiempresa-format-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   format:
     if: github.ref == 'refs/heads/multiempresa-desarrollo'
