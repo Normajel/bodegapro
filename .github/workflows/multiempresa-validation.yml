@@ -8,6 +8,7 @@ permissions:
   contents: read
 
 # Esta validación corre después de las correcciones y formato multiempresa.\n# Comprueba TypeScript, ESLint, Vite, Prettier y pruebas unitarias.
+# Etapa 43: validación final tras formatear historial ACEPTADO de servicios.
 
 jobs:
   unit-tests:
