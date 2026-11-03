@@ -46,7 +46,9 @@ function TenantAuthPage() {
       }
       await navigate({ to: "/compras" });
     } catch {
-      setMessage("No se pudo iniciar sesión. Verifica tus credenciales o consulta al administrador.");
+      setMessage(
+        "No se pudo iniciar sesión. Verifica tus credenciales o consulta al administrador.",
+      );
     } finally {
       setPassword("");
       setLoading(false);
@@ -58,11 +60,14 @@ function TenantAuthPage() {
       <section className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-2xl font-bold text-slate-900">INTEGRASTOCK Multiempresa</h1>
         <p className="mt-2 text-sm text-slate-600">
-          Accede con la cuenta asignada a tu empresa. Solo se muestran empresas con membresía activa.
+          Accede con la cuenta asignada a tu empresa. Solo se muestran empresas con membresía
+          activa.
         </p>
         <form onSubmit={handleSignIn} className="mt-6 space-y-4">
           <div>
-            <label htmlFor="tenant-email" className="block text-sm font-semibold">Correo electrónico</label>
+            <label htmlFor="tenant-email" className="block text-sm font-semibold">
+              Correo electrónico
+            </label>
             <input
               id="tenant-email"
               type="email"
@@ -75,7 +80,9 @@ function TenantAuthPage() {
             />
           </div>
           <div>
-            <label htmlFor="tenant-password" className="block text-sm font-semibold">Contraseña</label>
+            <label htmlFor="tenant-password" className="block text-sm font-semibold">
+              Contraseña
+            </label>
             <input
               id="tenant-password"
               type="password"
@@ -86,7 +93,11 @@ function TenantAuthPage() {
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
             />
           </div>
-          {message && <p role="alert" className="text-sm text-red-700">{message}</p>}
+          {message && (
+            <p role="alert" className="text-sm text-red-700">
+              {message}
+            </p>
+          )}
           <button
             type="submit"
             disabled={loading}
