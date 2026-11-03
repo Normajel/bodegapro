@@ -121,7 +121,7 @@ export function TenantOrdersPreview() {
       {companyId &&
         orders.isSuccess &&
         orders.data
-          .filter((o) => o.id === selectedOrderId && o.approval_status === "aprobada")
+          .filter((o) => o.id === selectedOrderId && o.approval_status === "aprobada" && o.status !== "ACEPTADO")
           .map((o) => (
             <TenantReceiptPreview
               key={o.id}
@@ -131,6 +131,14 @@ export function TenantOrdersPreview() {
             />
           ))}
       {companyId && <TenantServicesLedger companyId={companyId} />}
+      {companyId &&
+        orders.isSuccess &&
+        orders.data.some((o) => o.id === selectedOrderId && o.status === "ACEPTADO") && (
+          <p className="mt-4 text-teal-800">
+            Esta OC corresponde a servicios ACEPTADOS. Consulta su detalle en el historial de
+            servicios; no tiene recepción física de inventario.
+          </p>
+        )}
       {companyId &&
         orders.isSuccess &&
         orders.data.some((o) => o.id === selectedOrderId && o.approval_status !== "aprobada") && (
