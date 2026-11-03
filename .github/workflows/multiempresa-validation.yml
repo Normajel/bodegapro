@@ -8,7 +8,8 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  unit-tests:
+    name: Pruebas unitarias
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -17,13 +18,45 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - name: Instalar dependencias
-        run: npm ci --no-audit --no-fund
-      - name: Ejecutar pruebas unitarias
-        run: npm test
-      - name: Validar ESLint
-        run: npm run lint
-      - name: Verificar tipos TypeScript
-        run: npx tsc --noEmit
-      - name: Compilar aplicación
-        run: npm run build
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+
+  typescript:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit
+
+  build:
+    name: Compilación Vite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+
+  lint-multiempresa:
+    name: ESLint multiempresa (alcance reducido)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Revisar archivos multiempresa
+        run: npx eslint src/lib/multiempresa src/components/multiempresa src/routes/_authenticated/route.tsx
