@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { prepareReceiptBatch } from "@/lib/multiempresa/receipt-batch";
+import { RECEIPT_WRITES_ENABLED } from "@/lib/multiempresa/receipt-service";
 import {
   validateReceiptDraft,
   validateReceiptDocument,
@@ -23,6 +25,7 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
   const [documentType, setDocumentType] = useState("guia");
   const [documentNumber, setDocumentNumber] = useState("");
   const [notes, setNotes] = useState("");
+  const [review, setReview] = useState(false);
 
   // Never reuse a draft from another order or company.
   useEffect(() => {
@@ -30,6 +33,7 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
     setDocumentType("guia");
     setDocumentNumber("");
     setNotes("");
+    setReview(false);
   }, [companyId, orderId]);
 
   const receivable = useMemo(
@@ -54,6 +58,13 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
     const value = Number(quantities[line.purchase_order_item_id]);
     return sum + (Number.isSafeInteger(value) && value > 0 ? value : 0);
   }, 0);
+
+  const preview = validDraft
+    ? prepareReceiptBatch(
+        { companyId, orderId, documentType, documentNumber, notes, quantities },
+        lines,
+      )
+    : null;
 
   return (
     <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -165,15 +176,42 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
           {selected.length} producto(s) · {total} unidad(es)
           {validDraft ? " · Datos válidos para revisión" : " · Completa y revisa los datos"}
         </p>
-        <button
-          type="button"
-          disabled
-          title="Guardado deshabilitado hasta validar permisos, idempotencia y documentos en Supabase"
-          className="cursor-not-allowed rounded bg-slate-300 px-4 py-2 text-sm font-semibold text-slate-600"
-        >
-          Registrar recepción (próximamente)
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={!preview}
+            onClick={() => setReview((value) => !value)}
+            className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+          >
+            {review ? "Ocultar revisión" : "Revisar recepción"}
+          </button>
+          <button
+            type="button"
+            disabled={!RECEIPT_WRITES_ENABLED}
+            title="Guardado bloqueado hasta validar sesiones Auth reales y autorización"
+            className="cursor-not-allowed rounded bg-slate-300 px-4 py-2 text-sm font-semibold text-slate-600"
+          >
+            Registrar recepción (próximamente)
+          </button>
+        </div>
       </div>
+      {review && preview && (
+        <section aria-label="Revisión de recepción" className="mt-4 rounded border border-slate-200 bg-white p-3">
+          <h4 className="font-semibold">Resumen previo al registro</h4>
+          <p className="mt-2 text-sm">Documento: {preview.p_document_type} N° {preview.p_document_number}</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+            {preview.p_items.map((item) => (
+              <li key={item.item_id}>
+                {lines.find((line) => line.purchase_order_item_id === item.item_id)?.description ?? "Producto"}
+                : {item.quantity} unidad(es)
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-slate-600">
+            Esta revisión no guarda información ni realiza movimientos de stock.
+          </p>
+        </section>
+      )}
       <p className="mt-2 text-xs text-amber-800">
         No se enviarán datos ni se actualizará el stock desde este formulario.
       </p>
