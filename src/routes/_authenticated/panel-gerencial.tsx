@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import {
@@ -12,6 +12,9 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Legend,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import { getManagementData } from "@/lib/management.functions";
 import {
@@ -88,21 +91,69 @@ function ManagementPanel() {
         (p) => (!category || p.category === category) && (!product || p.id === product),
       )
     : [];
-  const orders = data?.orders.filter((o) => o.status !== "anulada") ?? [];
-  const orderStates = [
-    { name: "Por aprobar", value: orders.filter((o) => o.approval_status !== "aprobada").length },
+  // Estados actuales de las OC creadas en el período seleccionado.
+  // Las anuladas se muestran por separado, sin mezclarlas con compras vigentes.
+  const orders = data?.orders ?? [];
+  const orderCategories = [
     {
-      name: "Pendiente",
-      value: orders.filter((o) => o.approval_status === "aprobada" && o.status === "pendiente")
-        .length,
+      key: "approvals",
+      name: "Por aprobar",
+      color: "#f59e0b",
+      description: "Esperando autorización de Gerencia",
+      matches: (order: (typeof orders)[number]) =>
+        order.status !== "anulada" && order.approval_status !== "aprobada",
     },
     {
-      name: "Parcial",
-      value: orders.filter((o) => o.approval_status === "aprobada" && o.status === "parcial")
-        .length,
+      key: "pending",
+      name: "Pendiente de recepción",
+      color: "#2563eb",
+      description: "Aprobadas, sin entrega completa",
+      matches: (order: (typeof orders)[number]) =>
+        order.status === "pendiente" && order.approval_status === "aprobada",
     },
-    { name: "Completa", value: orders.filter((o) => o.status === "completa").length },
+    {
+      key: "partial",
+      name: "Recepción parcial",
+      color: "#8b5cf6",
+      description: "Productos aún por recepcionar",
+      matches: (order: (typeof orders)[number]) =>
+        order.status === "parcial" && order.approval_status === "aprobada",
+    },
+    {
+      key: "complete",
+      name: "Recibida completa",
+      color: "#0d9488",
+      description: "Recepción terminada",
+      matches: (order: (typeof orders)[number]) => order.status === "completa",
+    },
+    {
+      key: "cancelled",
+      name: "Anulada",
+      color: "#94a3b8",
+      description: "Órdenes sin vigencia",
+      matches: (order: (typeof orders)[number]) => order.status === "anulada",
+    },
   ];
+  const orderStates = orderCategories.map((category) => {
+    const matches = orders.filter(category.matches);
+    return {
+      ...category,
+      value: matches.length,
+      amount: matches.reduce((total, order) => total + Number(order.total_amount ?? 0), 0),
+    };
+  });
+  const displayedOrderStates = orderStates.filter((state) => state.value > 0);
+  const orderCount = orders.length;
+  const awaitingApproval = orderStates[0].value;
+  const awaitingReceipt = orderStates[1].value + orderStates[2].value;
+  const completedOrders = orderStates[3].value;
+  const cancelledOrders = orderStates[4].value;
+  const activeOrderAmount = orderStates
+    .filter((state) => state.key !== "cancelled")
+    .reduce((total, state) => total + state.amount, 0);
+  const orderShare = (count: number) =>
+    orderCount > 0 ? ((count / orderCount) * 100).toFixed(1) : "0,0";
+
   const costTooltip = (v: number) => money(v);
   return (
     <div className="space-y-5">
@@ -287,17 +338,116 @@ function ManagementPanel() {
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
-            <ChartCard title="Estado de órdenes creadas en el período" empty={!orders.length}>
-              <ResponsiveContainer>
-                <BarChart data={orderStates}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Bar dataKey="value" name="Órdenes" fill="#7c3aed" />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
+            <section className="card min-w-0 space-y-4 p-4" aria-labelledby="orders-status-title">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 id="orders-status-title" className="font-semibold">
+                    Estado de órdenes creadas en el período
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Distribución actual por estado · incluye OC anuladas
+                  </p>
+                </div>
+                <Link to="/compras" className="text-sm font-medium text-primary underline underline-offset-2">
+                  Ver órdenes
+                </Link>
+              </div>
+              {orderCount === 0 ? (
+                <p className="flex min-h-64 items-center justify-center text-sm text-muted-foreground">
+                  Sin órdenes de compra creadas en este período.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Indicadores de órdenes">
+                    {[
+                      { label: "Total de OC", value: orderCount, color: "text-foreground" },
+                      { label: "Por aprobar", value: awaitingApproval, color: "text-amber-600" },
+                      { label: "Por recepcionar", value: awaitingReceipt, color: "text-blue-600" },
+                      { label: "Completas", value: completedOrders, color: "text-teal-600" },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-xl border border-border bg-muted/20 p-3">
+                        <p className="text-xs text-muted-foreground">{item.label}</p>
+                        <p className={`mt-1 text-2xl font-bold tabular-nums ${item.color}`}>{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+                    <div className="relative mx-auto h-64 w-full max-w-sm" role="img"
+                      aria-label={`Distribución de ${orderCount} órdenes: ${displayedOrderStates
+                        .map((state) => `${state.name}, ${state.value}`).join("; ")}`}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={displayedOrderStates}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius="64%"
+                            outerRadius="88%"
+                            paddingAngle={displayedOrderStates.length > 1 ? 3 : 0}
+                            stroke="none"
+                          >
+                            {displayedOrderStates.map((state) => (
+                              <Cell key={state.key} fill={state.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value, _name, props) => {
+                              const state = props.payload as (typeof orderStates)[number];
+                              return [
+                                `${Number(value)} OC · ${orderShare(Number(value))}% · ${money(state.amount)}`,
+                                state.name,
+                              ];
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-3xl font-bold tabular-nums">{orderCount}</span>
+                        <span className="text-xs text-muted-foreground">órdenes del período</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2" aria-label="Desglose por estado">
+                      {orderStates.map((state) => (
+                        <div key={state.key} className="rounded-lg border border-border p-3">
+                          <div className="flex items-start gap-3">
+                            <span aria-hidden="true" className="mt-1.5 h-3 w-3 shrink-0 rounded-full"
+                              style={{ backgroundColor: state.color }} />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-baseline justify-between gap-1">
+                                <span className="text-sm font-semibold">{state.name}</span>
+                                <span className="text-sm font-bold tabular-nums">
+                                  {state.value} OC · {orderShare(state.value)}%
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{state.description}</p>
+                              <p className="mt-1 text-sm font-medium tabular-nums">{money(state.amount)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Monto de OC vigentes del período</p>
+                      <p className="text-lg font-bold tabular-nums">{money(activeOrderAmount)}</p>
+                    </div>
+                    {cancelledOrders > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {cancelledOrders} OC anulada{cancelledOrders === 1 ? "" : "s"} excluida{cancelledOrders === 1 ? "" : "s"} del monto vigente
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Las cifras corresponden a órdenes creadas entre {from} y {to}, según su estado actual.
+                    Los montos son los totales registrados en cada OC; no equivalen a pagos realizados
+                    ni al valor efectivamente recepcionado. Los pendientes de otros períodos no están incluidos.
+                  </p>
+                </>
+              )}
+            </section>
           </div>
           <section className="card space-y-4 p-4">
             <h2 className="font-semibold">Cubicaciones · materiales por unidad/modelo</h2>
