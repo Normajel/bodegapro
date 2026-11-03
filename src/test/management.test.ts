@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canViewManagement,
   cubicationRequirements,
+  simulateCubication,
   summarizeManagement,
   type ManagementProduct,
 } from "@/lib/management";
@@ -52,6 +53,40 @@ describe("Panel gerencial", () => {
     expect(r!.missing).toBe(40);
     expect(r!.shortageCost).toBe(40000);
     expect(cubicationRequirements([{ product_id: "a", quantity: 30 }], [p])[0]!.missing).toBe(0);
+  });
+  it("scales material requirements without multiplying existing stock", () => {
+    const scenario = simulateCubication(
+      [{ product_id: "a", quantity: 2 }, { product_id: "a", quantity: 1 }],
+      [{ ...p, stock_quantity: 10, unit_cost: 500 }],
+      4,
+    );
+    expect(scenario.rows).toHaveLength(1);
+    expect(scenario.rows[0]).toMatchObject({
+      required: 12,
+      available: 10,
+      missing: 2,
+      estimatedCost: 6000,
+      shortageCost: 1000,
+    });
+    expect(scenario.coverageByValue).toBeCloseTo(83.333, 2);
+    expect(scenario.maxModules).toBe(3);
+    expect(scenario.missingProducts).toHaveLength(1);
+  });
+  it("marks unpriced material costs and unknown products as incomplete", () => {
+    const scenario = simulateCubication(
+      [{ product_id: "a", quantity: 2 }, { product_id: "not-found", quantity: 2 }],
+      [{ ...p, unit_cost: 0, stock_quantity: 0 }],
+      2,
+    );
+    expect(scenario.unknownProductIds).toEqual(["not-found"]);
+    expect(scenario.unpriced).toHaveLength(1);
+    expect(scenario.coverageByValue).toBeNull();
+    expect(scenario.maxModules).toBe(0);
+  });
+  it("does not claim production capability when a template has no usable materials", () => {
+    const scenario = simulateCubication([], [p], 1);
+    expect(scenario.maxModules).toBe(0);
+    expect(scenario.rows).toEqual([]);
   });
   it("does not price historical movements at current costs or include unrelated categories", () => {
     const movements = [
