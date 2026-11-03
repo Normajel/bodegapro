@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 
-# Cada commit realizado por el conector ejecuta nuevamente esta validación.
+# Esta validación corre después de las correcciones y formato multiempresa.\n# Comprueba TypeScript, ESLint, Vite, Prettier y pruebas unitarias.
 
 jobs:
   unit-tests:
