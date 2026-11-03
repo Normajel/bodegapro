@@ -108,3 +108,64 @@ export function cubicationRequirements(
       };
     });
 }
+
+
+/**
+ * Scenario-only material planning. Does not reserve or mutate stock.
+ * Aggregate duplicate template lines before comparing them with the on-hand stock.
+ * Costs use current recorded unit costs, not historical purchase prices.
+ */
+export function simulateCubication(
+  items: { product_id: string; quantity: number }[],
+  products: ManagementProduct[],
+  units: number,
+) {
+  const moduleCount = Number.isFinite(units) ? Math.max(1, Math.min(1000, Math.trunc(units))) : 1;
+  const productIds = new Set(products.map((p) => p.id));
+  const unknownProductIds = [...new Set(items.map((item) => item.product_id))]
+    .filter((id) => !productIds.has(id));
+  const rows = cubicationRequirements(
+    items.map((item) => ({ ...item, quantity: numberValue(item.quantity) * moduleCount })),
+    products,
+  ).filter((p) => p.required > 0);
+  const totalCost = rows.reduce((sum, p) => sum + p.estimatedCost, 0);
+  const shortageCost = rows.reduce((sum, p) => sum + p.shortageCost, 0);
+  const missingProducts = rows.filter((p) => p.missing > 0);
+  const unpriced = rows.filter((p) => numberValue(p.unit_cost) <= 0);
+  const pricedTotal = rows
+    .filter((p) => numberValue(p.unit_cost) > 0)
+    .reduce((sum, p) => sum + p.estimatedCost, 0);
+  const pricedShortage = rows
+    .filter((p) => numberValue(p.unit_cost) > 0)
+    .reduce((sum, p) => sum + p.shortageCost, 0);
+  const coverageByValue = pricedTotal > 0
+    ? Math.max(0, Math.min(100, (1 - pricedShortage / pricedTotal) * 100))
+    : null;
+  const byCategory = new Map<string, number>();
+  for (const row of rows) {
+    const category = row.category || "Sin categoría";
+    byCategory.set(category, (byCategory.get(category) ?? 0) + row.estimatedCost);
+  }
+  const maxModules = rows.length > 0 && unknownProductIds.length === 0
+    ? Math.min(
+        ...rows.map((p) => {
+          const perModule = p.required / moduleCount;
+          return perModule > 0 ? Math.floor(p.available / perModule) : 0;
+        }),
+      )
+    : 0;
+  return {
+    moduleCount,
+    rows,
+    missingProducts,
+    unpriced,
+    unknownProductIds,
+    totalCost,
+    shortageCost,
+    coveredCost: Math.max(0, totalCost - shortageCost),
+    coverageByValue,
+    maxModules: Math.max(0, maxModules),
+    categories: [...byCategory].map(([name, value]) => ({ name, value }))
+      .filter((entry) => entry.value > 0).sort((a, b) => b.value - a.value),
+  };
+}
