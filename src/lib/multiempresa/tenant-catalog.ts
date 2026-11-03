@@ -19,7 +19,6 @@ export const tenantQueryKeys = {
   orders: (companyId: string) => ["tenant", companyId, "purchase-orders"] as const,
   movements: (companyId: string) => ["tenant", companyId, "movements"] as const,
   acceptedServices: (companyId: string) => ["tenant", companyId, "accepted-services"] as const,
-  orderKinds: (companyId: string) => ["tenant", companyId, "order-kinds"] as const,
   receiptLines: (companyId: string, orderId: string) =>
     ["tenant", companyId, "receipt-lines", orderId] as const,
   orderReceipts: (companyId: string, orderId: string) =>
@@ -53,7 +52,7 @@ export async function listCompanyPurchaseOrders(companyId: string) {
   const { data, error } = await db
     .from("purchase_orders")
     .select(
-      "id,company_id,order_number,approval_status,approved_at,approved_by,status,order_date,total_amount",
+      "id,company_id,order_number,order_kind,approval_status,approved_at,approved_by,status,order_date,total_amount",
     )
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
@@ -129,21 +128,4 @@ export async function listCompanyAcceptedServices(companyId: string) {
     .order("approved_at", { ascending: false });
   if (error) throw error;
   return data;
-}
-
-/** Identify service/product/mixed OCs without trusting the display label as authorization. */
-export async function listCompanyOrderKinds(companyId: string) {
-  await requireCompany(companyId);
-  const { data, error } = await db
-    .from("purchase_order_items")
-    .select("purchase_order_id,item_type")
-    .eq("company_id", companyId);
-  if (error) throw error;
-  const kinds: Record<string, "producto" | "servicio" | "mixta"> = {};
-  for (const item of data) {
-    const kind = item.item_type === "servicio" ? "servicio" : "producto";
-    const previous = kinds[item.purchase_order_id];
-    kinds[item.purchase_order_id] = previous && previous !== kind ? "mixta" : (previous ?? kind);
-  }
-  return kinds;
 }
