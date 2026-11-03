@@ -67,7 +67,7 @@ CREATE TRIGGER require_movement_cancellation_reason BEFORE INSERT OR UPDATE OR D
 ON public.stock_movement_document_cancellations FOR EACH ROW
 EXECUTE FUNCTION private.require_movement_cancellation_reason();
 
-CREATE OR REPLACE FUNCTION public.anular_compra(p_purchase_entry_id uuid, p_reason text)
+CREATE OR REPLACE FUNCTION public.anular_compra(p_purchase_entry_id uuid, p_reason text DEFAULT NULL::text)
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -169,7 +169,7 @@ end;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.anular_entrada_documento(p_movement_ids uuid[], p_reason text)
+CREATE OR REPLACE FUNCTION public.anular_entrada_documento(p_movement_ids uuid[], p_reason text DEFAULT NULL::text)
  RETURNS uuid
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -302,7 +302,7 @@ END;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.anular_salida_documento(p_movement_ids uuid[], p_reason text)
+CREATE OR REPLACE FUNCTION public.anular_salida_documento(p_movement_ids uuid[], p_reason text DEFAULT NULL::text)
  RETURNS uuid
  LANGUAGE plpgsql
  SECURITY DEFINER
