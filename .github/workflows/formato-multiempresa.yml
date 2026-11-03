@@ -32,7 +32,7 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - name: Aplicar Prettier a los 11 archivos detectados
+      - name: Aplicar Prettier a los archivos multiempresa
         run: |
           npx prettier --write \
             src/lib/multiempresa/database.types.ts \
