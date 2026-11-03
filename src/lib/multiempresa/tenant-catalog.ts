@@ -18,6 +18,7 @@ export const tenantQueryKeys = {
   suppliers: (companyId: string) => ["tenant", companyId, "suppliers"] as const,
   orders: (companyId: string) => ["tenant", companyId, "purchase-orders"] as const,
   movements: (companyId: string) => ["tenant", companyId, "movements"] as const,
+  acceptedServices: (companyId: string) => ["tenant", companyId, "accepted-services"] as const,
   receiptLines: (companyId: string, orderId: string) =>
     ["tenant", companyId, "receipt-lines", orderId] as const,
   orderReceipts: (companyId: string, orderId: string) =>
@@ -111,6 +112,20 @@ export async function listCompanyOrderReceipts(companyId: string, orderId: strin
     .eq("purchase_order_id", orderId)
     .eq("type", "entrada")
     .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+/** Company-scoped service acceptance ledger. No stock movements are involved. */
+export async function listCompanyAcceptedServices(companyId: string) {
+  await requireCompany(companyId);
+  const { data, error } = await db
+    .from("accepted_services")
+    .select(
+      "id,company_id,purchase_order_id,purchase_order_item_id,supplier_id,supplier_name,order_number,description,entered_at,approved_at,payment_terms,quantity,measure_unit,net_total,total,status",
+    )
+    .eq("company_id", companyId)
+    .order("approved_at", { ascending: false });
   if (error) throw error;
   return data;
 }
