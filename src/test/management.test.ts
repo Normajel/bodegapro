@@ -4,6 +4,8 @@ import {
   cubicationRequirements,
   simulateCubication,
   summarizeManagement,
+  categoryInventoryBreakdown,
+  managementFlowSeries,
   type ManagementProduct,
 } from "@/lib/management";
 import { hasPermission } from "@/lib/permissions";
@@ -87,6 +89,31 @@ describe("Panel gerencial", () => {
     const scenario = simulateCubication([], [p], 1);
     expect(scenario.maxModules).toBe(0);
     expect(scenario.rows).toEqual([]);
+  });
+  it("sorts categories by value and counts critical and unpriced SKUs", () => {
+    const result = categoryInventoryBreakdown([
+      p,
+      { ...p, id: "b", category: "PINTURA", stock_quantity: 5, unit_cost: 200, min_stock: 10 },
+      { ...p, id: "c", category: "PINTURA", stock_quantity: 2, unit_cost: 0, min_stock: 3 },
+      { ...p, id: "d", category: "OTRA", active: false },
+    ]);
+    expect(result.rows.map((row) => row.name)).toEqual(["ESTRUCTURA", "PINTURA"]);
+    expect(result.rows[1]).toMatchObject({ productCount: 2, criticalCount: 2, unpricedCount: 1, value: 1000 });
+    expect(result.rows[0]!.share).toBeCloseTo(60000 / 61000 * 100);
+  });
+  it("fills zero-activity days and calculates net and cumulative values correctly", () => {
+    const days = [
+      { name: "2026-11-01", Entradas: 500, Salidas: 100 },
+      { name: "2026-11-03", Entradas: 0, Salidas: 300 },
+    ];
+    expect(managementFlowSeries(days, "2026-11-01", "2026-11-03")).toEqual([
+      { name: "2026-11-01", Entradas: 500, Salidas: 100, Neto: 400 },
+      { name: "2026-11-02", Entradas: 0, Salidas: 0, Neto: 0 },
+      { name: "2026-11-03", Entradas: 0, Salidas: 300, Neto: -300 },
+    ]);
+    expect(managementFlowSeries(days, "2026-11-01", "2026-11-03", true)[2]).toEqual(
+      { name: "2026-11-03", Entradas: 500, Salidas: 400, Neto: 100 },
+    );
   });
   it("does not price historical movements at current costs or include unrelated categories", () => {
     const movements = [
