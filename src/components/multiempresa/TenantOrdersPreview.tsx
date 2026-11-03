@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TenantReceiptPreview } from "./TenantReceiptPreview";
-import { loadMyCompanies } from "@/lib/multiempresa/company-api";
+import { useActiveCompany } from "@/lib/multiempresa/company-context";
 import { listCompanyPurchaseOrders, tenantQueryKeys } from "@/lib/multiempresa/tenant-catalog";
 
 const clp = (n: number) =>
@@ -12,39 +12,13 @@ const clp = (n: number) =>
   }).format(n);
 
 export function TenantOrdersPreview() {
-  const [companyId, setCompanyId] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
+  const companyId = useActiveCompany();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    const onCompanyChange = (event: Event) => {
-      const id = (event as CustomEvent<{ companyId?: string }>).detail?.companyId;
-      setCompanyId(id || null);
-      setSelectedOrderId(null);
-    };
-    window.addEventListener("integrastock:company-changed", onCompanyChange);
-    void loadMyCompanies()
-      .then((options) => {
-        if (!mounted) return;
-        setCompanyId(
-          (current) => current ?? (options.length === 1 ? (options[0]?.company.id ?? null) : null),
-        );
-        setReady(true);
-      })
-      .catch(() => {
-        if (mounted) setReady(true);
-      });
-    return () => {
-      mounted = false;
-      window.removeEventListener("integrastock:company-changed", onCompanyChange);
-    };
-  }, []);
 
   const orders = useQuery({
     queryKey: tenantQueryKeys.orders(companyId ?? ""),
     queryFn: () => listCompanyPurchaseOrders(companyId!),
-    enabled: ready && !!companyId,
+    enabled: !!companyId,
     staleTime: 0,
   });
 
@@ -54,8 +28,8 @@ export function TenantOrdersPreview() {
       <p className="mb-6 mt-1 text-sm text-slate-600">
         Historial de solo lectura. Aprobación, recepción y edición permanecen bloqueadas.
       </p>
-      {!ready && <p role="status">Verificando empresas…</p>}
-      {ready && !companyId && <p role="status">Selecciona una empresa para ver sus órdenes.</p>}
+      
+      {!companyId && <p role="status">Selecciona una empresa para ver sus órdenes.</p>}
       {companyId && orders.isPending && <p role="status">Cargando órdenes…</p>}
       {companyId && orders.isError && (
         <p role="alert">No se pudieron consultar las órdenes de esta empresa.</p>
