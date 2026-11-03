@@ -23,9 +23,7 @@ export function CompanySelector() {
       queryClient.clear();
       setCompanies([]);
       setSelected("");
-      window.dispatchEvent(
-        new CustomEvent(COMPANY_CONTEXT_EVENT, { detail: { companyId: "" } }),
-      );
+      window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, { detail: { companyId: "" } }));
     }
 
     async function refresh() {
