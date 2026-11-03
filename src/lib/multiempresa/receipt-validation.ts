@@ -2,10 +2,7 @@
  * Client-side validation for a draft OC receipt.
  * Supabase must always repeat all authorization and quantity checks.
  */
-export function validateReceiptDraft(
-  input: string,
-  pendingQuantity: number,
-): string | null {
+export function validateReceiptDraft(input: string, pendingQuantity: number): string | null {
   if (!/^\d+$/.test(input.trim())) {
     return "Ingresa una cantidad entera positiva.";
   }

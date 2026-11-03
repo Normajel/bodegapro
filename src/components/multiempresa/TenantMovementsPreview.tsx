@@ -77,7 +77,7 @@ export function TenantMovementsPreview() {
                 <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Cantidad</th>
                 <th className="px-4 py-3">Origen / OC</th>
-                  <th className="px-4 py-3">Referencia</th>
+                <th className="px-4 py-3">Referencia</th>
               </tr>
             </thead>
             <tbody>

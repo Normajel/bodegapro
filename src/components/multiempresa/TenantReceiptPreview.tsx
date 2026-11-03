@@ -87,9 +87,7 @@ export function TenantReceiptPreview({ companyId, orderId, orderNumber }: Props)
           Cada recepción corresponde a un movimiento de entrada del inventario de esta empresa.
         </p>
         {receipts.isPending && <p role="status">Consultando movimientos asociados…</p>}
-        {receipts.isError && (
-          <p role="alert">No se pudo consultar el historial de recepciones.</p>
-        )}
+        {receipts.isError && <p role="alert">No se pudo consultar el historial de recepciones.</p>}
         {receipts.isSuccess && (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -110,12 +108,12 @@ export function TenantReceiptPreview({ companyId, orderId, orderNumber }: Props)
                       {new Date(entry.created_at).toLocaleDateString("es-CL")}
                     </td>
                     <td className="px-3 py-2">
-                      {lines.data?.find((line) => line.purchase_order_item_id === entry.purchase_order_item_id)?.description ?? "Producto vinculado"}
+                      {lines.data?.find(
+                        (line) => line.purchase_order_item_id === entry.purchase_order_item_id,
+                      )?.description ?? "Producto vinculado"}
                     </td>
                     <td className="px-3 py-2">{entry.quantity}</td>
-                    <td className="px-3 py-2">
-                      {entry.reference ?? entry.document_number ?? "—"}
-                    </td>
+                    <td className="px-3 py-2">{entry.reference ?? entry.document_number ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
