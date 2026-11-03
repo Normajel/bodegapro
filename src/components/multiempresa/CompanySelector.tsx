@@ -3,8 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 import type { CompanyOption } from "@/lib/multiempresa/tenant";
-
-export const COMPANY_CONTEXT_EVENT = "integrastock:company-changed";
+import { publishActiveCompany } from "@/lib/multiempresa/company-context";
 
 export function CompanySelector() {
   const queryClient = useQueryClient();
@@ -23,7 +22,7 @@ export function CompanySelector() {
       queryClient.clear();
       setCompanies([]);
       setSelected("");
-      window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, { detail: { companyId: "" } }));
+      publishActiveCompany(null);
     }
 
     async function refresh() {
@@ -50,11 +49,7 @@ export function CompanySelector() {
         setSignedIn(true);
         const initialCompanyId = available.length === 1 ? (available[0]?.company.id ?? "") : "";
         setSelected(initialCompanyId);
-        window.dispatchEvent(
-          new CustomEvent(COMPANY_CONTEXT_EVENT, {
-            detail: { companyId: initialCompanyId },
-          }),
-        );
+        publishActiveCompany(initialCompanyId);
       } catch {
         if (live && requestId === generation) {
           clearTenantContext();
@@ -114,11 +109,7 @@ export function CompanySelector() {
             if (nextCompany && !companies.some(({ company }) => company.id === nextCompany)) return;
             queryClient.clear();
             setSelected(nextCompany);
-            window.dispatchEvent(
-              new CustomEvent(COMPANY_CONTEXT_EVENT, {
-                detail: { companyId: nextCompany },
-              }),
-            );
+            publishActiveCompany(nextCompany);
           }}
         >
           <option value="">Selecciona una empresa</option>
