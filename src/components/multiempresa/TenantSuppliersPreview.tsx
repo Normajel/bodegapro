@@ -11,7 +11,7 @@ export function TenantSuppliersPreview() {
     let live = true;
     void loadMyCompanies().then((options) => {
       if (!live) return;
-      setCompanyId(options.length === 1 ? options[0].company.id : null);
+      setCompanyId(options.length === 1 ? (options[0]?.company.id ?? null) : null);
       setReady(true);
     }).catch(() => { if (live) setReady(true); });
 
