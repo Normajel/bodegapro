@@ -152,7 +152,10 @@ function ManagementPanel() {
     .filter((state) => state.key !== "cancelled")
     .reduce((total, state) => total + state.amount, 0);
   const orderShare = (count: number) =>
-    orderCount > 0 ? ((count / orderCount) * 100).toFixed(1) : "0,0";
+    (orderCount > 0 ? (count / orderCount) * 100 : 0).toLocaleString("es-CL", {
+      maximumFractionDigits: 1,
+      minimumFractionDigits: 1,
+    });
 
   const costTooltip = (v: number) => money(v);
   return (
@@ -320,24 +323,85 @@ function ManagementPanel() {
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
-            <ChartCard
-              title="Diez productos con mayor valor de salida · CLP"
-              empty={!summary.topExits.length}
-            >
-              <ResponsiveContainer>
-                <BarChart
-                  layout="vertical"
-                  data={summary.topExits}
-                  margin={{ left: 15, right: 20 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" tickFormatter={compact} />
-                  <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={costTooltip} />
-                  <Bar dataKey="value" name="Salidas" fill="#2563eb" />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartCard>
+            <section className="card min-w-0 space-y-4 p-4" aria-labelledby="top-exits-title">
+              <div>
+                <h2 id="top-exits-title" className="font-semibold">
+                  Diez productos con mayor valor de salida · CLP
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Valor histórico de movimientos de salida en el período seleccionado
+                </p>
+              </div>
+              {!summary.topExits.length ? (
+                <p className="flex min-h-64 items-center justify-center text-sm text-muted-foreground">
+                  Sin salidas valorizadas para esta selección.
+                </p>
+              ) : (
+                <>
+                  <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+                    <div className="relative mx-auto h-64 w-full max-w-sm"
+                      role="img" aria-label="Distribución del valor de salida de los productos principales">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={summary.topExits}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius="64%"
+                            outerRadius="88%"
+                            paddingAngle={summary.topExits.length > 1 ? 2 : 0}
+                            stroke="none"
+                          >
+                            {summary.topExits.map((item, index) => (
+                              <Cell
+                                key={item.name}
+                                fill={["#0d9488","#2563eb","#f59e0b","#8b5cf6","#ef4444",
+                                  "#06b6d4","#65a30d","#f97316","#d946ef","#64748b"][index % 10]}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => money(Number(value))} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-lg font-bold tabular-nums">
+                          {money(summary.topExits.reduce((total, item) => total + item.value, 0))}
+                        </span>
+                        <span className="text-xs text-muted-foreground">total representado</span>
+                      </div>
+                    </div>
+                    <ol className="space-y-2" aria-label="Valor de salida por producto">
+                      {summary.topExits.map((item, index) => {
+                        const total = summary.topExits.reduce((sum, row) => sum + row.value, 0);
+                        const percent = total > 0 ? item.value / total * 100 : 0;
+                        return (
+                          <li key={item.name} className="flex items-start gap-3 rounded-lg border border-border p-3">
+                            <span aria-hidden="true" className="mt-1.5 h-3 w-3 shrink-0 rounded-full"
+                              style={{ backgroundColor: ["#0d9488","#2563eb","#f59e0b","#8b5cf6","#ef4444",
+                                "#06b6d4","#65a30d","#f97316","#d946ef","#64748b"][index % 10] }} />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                                <p className="min-w-0 flex-1 break-words text-sm font-medium">{item.name}</p>
+                                <span className="shrink-0 text-sm font-bold tabular-nums">{money(item.value)}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {percent.toLocaleString("es-CL", { maximumFractionDigits: 1 })}% del top 10
+                              </p>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    El porcentaje corresponde únicamente a los productos de este ranking.
+                    Incluye ajustes y reversas registrados como salidas; no representa ventas netas facturadas.
+                  </p>
+                </>
+              )}
+            </section>
             <section className="card min-w-0 space-y-4 p-4" aria-labelledby="orders-status-title">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
