@@ -91,4 +91,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "style: aplicar Prettier solo a archivos multiempresa"
+          # The branch can move while formatting is running.
+          git fetch origin multiempresa-desarrollo
+          git rebase origin/multiempresa-desarrollo
           git push origin HEAD:multiempresa-desarrollo
