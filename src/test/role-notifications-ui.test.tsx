@@ -4,14 +4,28 @@ import { RoleNotifications } from "@/components/role-notifications";
 const mocks = vi.hoisted(() => ({
   warning: vi.fn(),
   dismiss: vi.fn(),
+  refetch: vi.fn(),
+  invalidateQueries: vi.fn(),
+  channelOn: vi.fn().mockReturnThis(),
+  subscribe: vi.fn(),
+  removeChannel: vi.fn(),
   result: {
     data: { approvals_pending: true, receipts_pending: true, low_stock: true },
     isLoading: false,
     isError: false,
+    refetch: vi.fn(),
   },
 }));
-vi.mock("@tanstack/react-query", () => ({ useQuery: () => mocks.result }));
-vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
+vi.mock("@tanstack/react-query", () => ({
+  useQuery: () => mocks.result,
+  useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
+}));
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: {
+    channel: () => ({ on: mocks.channelOn, subscribe: mocks.subscribe }),
+    removeChannel: mocks.removeChannel,
+  },
+}));
 vi.mock("sonner", () => ({ toast: { warning: mocks.warning, dismiss: mocks.dismiss } }));
 afterEach(() => {
   cleanup();
@@ -21,6 +35,17 @@ afterEach(() => {
   mocks.result.isError = false;
 });
 describe("notification bell and popup", () => {
+  it("refetches when the management user opens the bell", () => {
+    render(<RoleNotifications access={{ name: "GERENCIA", permissions: {}, userId: "manager-refresh" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Notificaciones: 2 sin leer" }));
+    expect(mocks.result.refetch).toHaveBeenCalled();
+  });
+  it("re-enables outstanding approval alerts on a new session", () => {
+    const access = { name: "GERENCIA", permissions: {}, userId: "manager-new-session" };
+    localStorage.setItem("integrastock-notice-read:manager-new-session:GERENCIA", JSON.stringify(["approvals"]));
+    render(<RoleNotifications access={access} />);
+    expect(screen.getByRole("button", { name: "Notificaciones: 2 sin leer" })).toBeInTheDocument();
+  });
   it("shows the correct bell count and does not repeat unchanged notices", () => {
     const { rerender } = render(
       <RoleNotifications access={{ name: "GERENCIA", permissions: {} }} />,
