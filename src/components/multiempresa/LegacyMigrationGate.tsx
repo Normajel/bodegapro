@@ -17,15 +17,25 @@ export function LegacyMigrationGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let alive = true;
-    void supabase.auth.getUser().then(({ data }) => {
-      if (alive) setAuth(data.user ? "signed-in" : "signed-out");
-    }).catch(() => { if (alive) setAuth("signed-out"); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    void supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (alive) setAuth(data.user ? "signed-in" : "signed-out");
+      })
+      .catch(() => {
+        if (alive) setAuth("signed-out");
+      });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
       if (!alive) return;
       if (event === "SIGNED_IN") setAuth("signed-in");
       if (event === "SIGNED_OUT") setAuth("signed-out");
     });
-    return () => { alive = false; subscription.unsubscribe(); };
+    return () => {
+      alive = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   if (auth === "checking") return <p className="p-6 text-sm">Verificando sesión…</p>;
@@ -38,14 +48,20 @@ export function LegacyMigrationGate({ children }: { children: ReactNode }) {
 
   // Gate all authenticated legacy pages, including nested routes.
   // Only the public landing/auth pages remain available.
-  if (pathname !== "/" && pathname !== "/login" && pathname !== "/registro" && pathname !== "/recuperar-contrasena" && pathname !== "/mfa") {
+  if (
+    pathname !== "/" &&
+    pathname !== "/login" &&
+    pathname !== "/registro" &&
+    pathname !== "/recuperar-contrasena" &&
+    pathname !== "/mfa"
+  ) {
     return (
       <main className="mx-auto max-w-2xl px-5 py-12" role="status">
         <h1 className="text-2xl font-bold">Módulo en adaptación multiempresa</h1>
         <p className="mt-3 text-sm text-slate-600">
-          Esta pantalla utiliza consultas de BodegaPro que todavía no están limitadas
-          a una empresa. Su acceso está temporalmente deshabilitado para impedir
-          que se mezclen datos entre organizaciones.
+          Esta pantalla utiliza consultas de BodegaPro que todavía no están limitadas a una empresa.
+          Su acceso está temporalmente deshabilitado para impedir que se mezclen datos entre
+          organizaciones.
         </p>
       </main>
     );

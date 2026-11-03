@@ -26,7 +26,9 @@ export function CompanySelector() {
         if (!data.user) {
           setCompanies([]);
           setSelected("");
-          window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, { detail: { companyId: "" } }));
+          window.dispatchEvent(
+            new CustomEvent(COMPANY_CONTEXT_EVENT, { detail: { companyId: "" } }),
+          );
           return;
         }
         const available = await loadMyCompanies();
@@ -35,9 +37,11 @@ export function CompanySelector() {
         const initialCompanyId = available.length === 1 ? (available[0]?.company.id ?? "") : "";
         setSelected(initialCompanyId);
         queryClient.clear();
-        window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, {
-          detail: { companyId: initialCompanyId },
-        }));
+        window.dispatchEvent(
+          new CustomEvent(COMPANY_CONTEXT_EVENT, {
+            detail: { companyId: initialCompanyId },
+          }),
+        );
         setError("");
       } catch {
         if (live) {
@@ -50,7 +54,9 @@ export function CompanySelector() {
       }
     }
     void refresh();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
         setSignedIn(false);
         setCompanies([]);
@@ -61,7 +67,10 @@ export function CompanySelector() {
         void refresh();
       }
     });
-    return () => { live = false; subscription.unsubscribe(); };
+    return () => {
+      live = false;
+      subscription.unsubscribe();
+    };
   }, [queryClient]);
 
   // Public login and landing pages are unaffected.
@@ -69,7 +78,10 @@ export function CompanySelector() {
   if (loading) return <div className="border-b p-3 text-sm">Verificando empresa…</div>;
 
   return (
-    <section className="border-b border-slate-200 bg-slate-50 px-4 py-3" aria-label="Empresa activa">
+    <section
+      className="border-b border-slate-200 bg-slate-50 px-4 py-3"
+      aria-label="Empresa activa"
+    >
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3">
         <label htmlFor="active-company" className="text-sm font-semibold text-slate-800">
           Empresa activa
@@ -85,18 +97,28 @@ export function CompanySelector() {
             if (nextCompany && !companies.some(({ company }) => company.id === nextCompany)) return;
             queryClient.clear();
             setSelected(nextCompany);
-            window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, {
-              detail: { companyId: nextCompany },
-            }));
+            window.dispatchEvent(
+              new CustomEvent(COMPANY_CONTEXT_EVENT, {
+                detail: { companyId: nextCompany },
+              }),
+            );
           }}
         >
           <option value="">Selecciona una empresa</option>
           {companies.map(({ company, role }) => (
-            <option key={company.id} value={company.id}>{company.name} · {role}</option>
+            <option key={company.id} value={company.id}>
+              {company.name} · {role}
+            </option>
           ))}
         </select>
-        {error && <span role="alert" className="text-sm text-red-700">{error}</span>}
-        {!error && companies.length === 0 && <span className="text-sm text-amber-800">No tienes empresas habilitadas.</span>}
+        {error && (
+          <span role="alert" className="text-sm text-red-700">
+            {error}
+          </span>
+        )}
+        {!error && companies.length === 0 && (
+          <span className="text-sm text-amber-800">No tienes empresas habilitadas.</span>
+        )}
         <span className="text-xs text-amber-800">
           Módulos antiguos aún no adaptados: no usar con datos reales.
         </span>

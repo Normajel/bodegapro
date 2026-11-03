@@ -9,7 +9,10 @@ const enabledReadOnlyPaths = new Set(["/productos", "/contactos", "/compras", "/
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location }) => {
-    const { data: { user }, error } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
     if (error || !user) throw redirect({ to: "/auth" });
     if (!enabledReadOnlyPaths.has(location.pathname.replace(/\/$/, ""))) {
       throw redirect({ to: "/" });
