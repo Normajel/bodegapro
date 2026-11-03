@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
-import { listCompanyMovements, tenantQueryKeys } from "@/lib/multiempresa/tenant-catalog";
+import {
+  listCompanyMovements,
+  listCompanyPurchaseOrders,
+  tenantQueryKeys,
+} from "@/lib/multiempresa/tenant-catalog";
 
 export function TenantMovementsPreview() {
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -39,6 +43,17 @@ export function TenantMovementsPreview() {
     staleTime: 0,
   });
 
+  const linkedOrders = useQuery({
+    queryKey: tenantQueryKeys.orders(companyId ?? ""),
+    queryFn: () => listCompanyPurchaseOrders(companyId!),
+    enabled: ready && !!companyId,
+    staleTime: 0,
+  });
+
+  const orderNumbers = new Map(
+    (linkedOrders.data ?? []).map((order) => [order.id, order.order_number]),
+  );
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="text-2xl font-bold">Movimientos · Multiempresa</h1>
@@ -61,7 +76,8 @@ export function TenantMovementsPreview() {
                 <th className="px-4 py-3">Fecha</th>
                 <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Cantidad</th>
-                <th className="px-4 py-3">Referencia</th>
+                <th className="px-4 py-3">Origen / OC</th>
+                  <th className="px-4 py-3">Referencia</th>
               </tr>
             </thead>
             <tbody>
@@ -74,6 +90,11 @@ export function TenantMovementsPreview() {
                   <td className="px-4 py-3">{m.type}</td>
                   <td className="px-4 py-3">
                     {m.quantity} {m.measure_unit ?? ""}
+                  </td>
+                  <td className="px-4 py-3">
+                    {m.purchase_order_id
+                      ? `OC ${orderNumbers.get(m.purchase_order_id) ?? m.purchase_order_id}`
+                      : "Sin OC vinculada"}
                   </td>
                   <td className="px-4 py-3">{m.reference ?? m.document_number ?? "—"}</td>
                 </tr>
