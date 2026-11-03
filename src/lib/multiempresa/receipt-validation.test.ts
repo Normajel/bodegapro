@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateReceiptDraft } from "./receipt-validation";
+import { validateReceiptDraft, validateReceiptDocument } from "./receipt-validation";
 
 describe("validateReceiptDraft", () => {
   it("accepts a partial or complete receipt", () => {
@@ -20,5 +20,16 @@ describe("validateReceiptDraft", () => {
   it("rejects unsafe integers or corrupt pending quantities", () => {
     expect(validateReceiptDraft("999999999999999999", 20)).not.toBeNull();
     expect(validateReceiptDraft("1", -1)).not.toBeNull();
+  });
+});
+
+describe("validateReceiptDocument", () => {
+  it("requires a valid guide or invoice number", () => {
+    expect(validateReceiptDocument("guia", "1234")).toBeNull();
+    expect(validateReceiptDocument("factura", "FAC-123")).toBeNull();
+    expect(validateReceiptDocument("guia", "  ")).not.toBeNull();
+    expect(validateReceiptDocument("otro", "123")).not.toBeNull();
+    expect(validateReceiptDocument("guia", "N° <script>")).not.toBeNull();
+    expect(validateReceiptDocument("guia", "A".repeat(61))).not.toBeNull();
   });
 });
