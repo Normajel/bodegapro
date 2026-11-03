@@ -61,7 +61,7 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
 
   const preview = validDraft
     ? prepareReceiptBatch(
-        { companyId, orderId, documentType, documentNumber, notes, quantities },
+        {\n          companyId,\n          orderId,\n          documentType,\n          documentNumber,\n          notes,\n          quantities: Object.fromEntries(\n            selected.map((line) => [line.purchase_order_item_id, quantities[line.purchase_order_item_id]]),\n          ),\n        },
         lines,
       )
     : null;
