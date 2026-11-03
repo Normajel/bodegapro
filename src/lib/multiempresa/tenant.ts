@@ -55,7 +55,7 @@ export function resolveActiveCompany(
     const match = options.find(({ company }) => company.id === requestedCompanyId);
     if (match) return match;
   }
-  return options.length === 1 ? options[0] : null;
+  return options.length === 1 ? (options[0] ?? null) : null;
 }
 
 /** Call on sign-out and whenever authentication user changes. */
