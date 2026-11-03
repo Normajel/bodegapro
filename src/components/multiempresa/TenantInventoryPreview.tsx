@@ -1,37 +1,15 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { loadMyCompanies } from "@/lib/multiempresa/company-api";
+import { useActiveCompany } from "@/lib/multiempresa/company-context";
 import { listCompanyProducts, tenantQueryKeys } from "@/lib/multiempresa/tenant-catalog";
 
 export function TenantInventoryPreview() {
-  const [companyId, setCompanyId] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    let live = true;
-    void loadMyCompanies()
-      .then((options) => {
-        if (!live) return;
-        setCompanyId(options.length === 1 ? (options[0]?.company.id ?? null) : null);
-        setReady(true);
-      })
-      .catch(() => {
-        if (live) setReady(true);
-      });
-    function handleCompanyChanged(event: Event) {
-      const selected = (event as CustomEvent<{ companyId?: string }>).detail?.companyId;
-      setCompanyId(selected || null);
-    }
-    window.addEventListener("integrastock:company-changed", handleCompanyChanged);
-    return () => {
-      live = false;
-      window.removeEventListener("integrastock:company-changed", handleCompanyChanged);
-    };
-  }, []);
+  const companyId = useActiveCompany();
 
   const inventory = useQuery({
     queryKey: tenantQueryKeys.products(companyId ?? ""),
     queryFn: () => listCompanyProducts(companyId!),
-    enabled: ready && !!companyId,
+    enabled: !!companyId,
     staleTime: 0,
   });
 
@@ -44,8 +22,8 @@ export function TenantInventoryPreview() {
           migración.
         </p>
       </header>
-      {!ready && <p role="status">Verificando empresas autorizadas…</p>}
-      {ready && !companyId && (
+      
+      {!companyId && (
         <p role="status">Selecciona una empresa habilitada para consultar su inventario.</p>
       )}
       {companyId && inventory.isPending && <p role="status">Cargando inventario…</p>}
