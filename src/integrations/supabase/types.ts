@@ -350,6 +350,9 @@ export type Database = {
           sent_at: string | null;
           sent_to: string | null;
           completed_at: string | null;
+          cancellation_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
           approval_status: string;
           approved_at: string | null;
           approved_by: string | null;
@@ -376,6 +379,9 @@ export type Database = {
           sent_at?: string | null;
           sent_to?: string | null;
           completed_at?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           approval_status?: string;
           approved_at?: string | null;
           approved_by?: string | null;
@@ -402,6 +408,9 @@ export type Database = {
           sent_at?: string | null;
           sent_to?: string | null;
           completed_at?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           approval_status?: string;
           approved_at?: string | null;
           approved_by?: string | null;
@@ -895,7 +904,7 @@ export type Database = {
         Returns: Database["public"]["Tables"]["stock_movements"]["Row"][];
       };
       cancel_purchase_order: {
-        Args: { p_order_id: string };
+        Args: { p_order_id: string; p_reason: string };
         Returns: undefined;
       };
       save_cubication_template: {
