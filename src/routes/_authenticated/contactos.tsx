@@ -361,7 +361,7 @@ function ContactosPage() {
             setSupplierImportPreview(null);
           }}
         >
-          Nombre maestro
+          Maestros
         </button>
       </div>
 
