@@ -59,7 +59,8 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - name: Revisar archivos multiempresa
-        run: npx eslint src/lib/multiempresa src/components/multiempresa src/routes/_authenticated/route.tsx --rule "prettier/prettier: off"
+        run: |
+          npx eslint src/lib/multiempresa src/components/multiempresa src/routes/_authenticated/route.tsx --rule "prettier/prettier: off"
 
   format-multiempresa:
     name: Formato Prettier multiempresa
