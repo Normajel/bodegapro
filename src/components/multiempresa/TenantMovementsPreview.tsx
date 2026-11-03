@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { TenantServicesLedger } from "./TenantServicesLedger";
 import { useActiveCompany } from "@/lib/multiempresa/company-context";
 import {
   listCompanyMovements,
@@ -87,6 +88,7 @@ export function TenantMovementsPreview() {
           )}
         </div>
       )}
+      {companyId && <TenantServicesLedger companyId={companyId} />}
     </main>
   );
 }
