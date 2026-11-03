@@ -1243,6 +1243,10 @@ function MovimientosPage() {
         `Indica el motivo para anular el documento ${purchase.document_number}:`,
       );
       if (reason === null) return;
+      if (reason.trim().length < 10) {
+        toast.error("Debes indicar un motivo de anulación de al menos 10 caracteres");
+        return;
+      }
       if (
         !window.confirm(
           `¿Confirmas la anulación de la venta ${purchase.document_number}? Se repondrán las cantidades al stock.`,
@@ -1293,6 +1297,10 @@ function MovimientosPage() {
     );
 
     if (reason === null) return;
+      if (reason.trim().length < 10) {
+        toast.error("Debes indicar un motivo de anulación de al menos 10 caracteres");
+        return;
+      }
 
     if (
       !window.confirm(
