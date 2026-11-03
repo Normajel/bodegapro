@@ -169,3 +169,46 @@ export function simulateCubication(
       .filter((entry) => entry.value > 0).sort((a, b) => b.value - a.value),
   };
 }
+
+/** Current inventory valuation grouped by category; excludes inactive products. */
+export function categoryInventoryBreakdown(products: ManagementProduct[], category = "", productId = "") {
+  const groups = new Map<string, { name: string; value: number; productCount: number; criticalCount: number; unpricedCount: number }>();
+  for (const p of products) {
+    if (!p.active || (category && p.category !== category) || (productId && p.id !== productId)) continue;
+    const name = p.category || "Sin categoría";
+    const row = groups.get(name) ?? { name, value: 0, productCount: 0, criticalCount: 0, unpricedCount: 0 };
+    row.value += stockOf(p) * numberValue(p.unit_cost);
+    row.productCount += 1;
+    if (stockOf(p) <= numberValue(p.min_stock)) row.criticalCount += 1;
+    if (stockOf(p) > 0 && numberValue(p.unit_cost) <= 0) row.unpricedCount += 1;
+    groups.set(name, row);
+  }
+  const rows = [...groups.values()].sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+  const total = rows.reduce((sum, row) => sum + row.value, 0);
+  return { rows: rows.map((row) => ({ ...row, share: total > 0 ? row.value / total * 100 : 0 })), total };
+}
+
+export type ManagementFlowDay = { name: string; Entradas: number; Salidas: number };
+/** Adds zero-activity days and derives daily or running totals without treating entries as revenue. */
+export function managementFlowSeries(days: ManagementFlowDay[], from: string, to: string, cumulative = false) {
+  const byDay = new Map(days.map((day) => [day.name, day]));
+  const result: Array<{ name: string; Entradas: number; Salidas: number; Neto: number }> = [];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || from > to) return result;
+  const start = new Date(from + "T12:00:00Z");
+  const end = new Date(to + "T12:00:00Z");
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return result;
+  let totalIn = 0;
+  let totalOut = 0;
+  for (let day = start.getTime(), i = 0; day <= end.getTime() && i < 367; day += 86400000, i++) {
+    const name = new Date(day).toISOString().slice(0, 10);
+    const row = byDay.get(name);
+    const entries = numberValue(row?.Entradas);
+    const exits = numberValue(row?.Salidas);
+    totalIn += entries;
+    totalOut += exits;
+    const inValue = cumulative ? totalIn : entries;
+    const outValue = cumulative ? totalOut : exits;
+    result.push({ name, Entradas: inValue, Salidas: outValue, Neto: inValue - outValue });
+  }
+  return result;
+}
