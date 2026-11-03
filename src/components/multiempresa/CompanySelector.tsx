@@ -122,6 +122,22 @@ export function CompanySelector() {
         <span className="text-xs text-amber-800">
           Módulos antiguos aún no adaptados: no usar con datos reales.
         </span>
+        <button
+          type="button"
+          className="ml-auto rounded border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
+          onClick={async () => {
+            setError("");
+            const { error: signOutError } = await supabase.auth.signOut();
+            if (signOutError) {
+              setError("No se pudo cerrar sesión. Inténtalo de nuevo.");
+              return;
+            }
+            queryClient.clear();
+            window.location.assign("/auth");
+          }}
+        >
+          Cerrar sesión
+        </button>
       </div>
     </section>
   );
