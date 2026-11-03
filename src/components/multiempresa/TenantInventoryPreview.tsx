@@ -21,7 +21,7 @@ export function TenantInventoryPreview() {
           migración.
         </p>
       </header>
-      
+
       {!companyId && (
         <p role="status">Selecciona una empresa habilitada para consultar su inventario.</p>
       )}

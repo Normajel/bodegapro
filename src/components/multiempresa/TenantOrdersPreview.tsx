@@ -28,7 +28,7 @@ export function TenantOrdersPreview() {
       <p className="mb-6 mt-1 text-sm text-slate-600">
         Historial de solo lectura. Aprobación, recepción y edición permanecen bloqueadas.
       </p>
-      
+
       {!companyId && <p role="status">Selecciona una empresa para ver sus órdenes.</p>}
       {companyId && orders.isPending && <p role="status">Cargando órdenes…</p>}
       {companyId && orders.isError && (

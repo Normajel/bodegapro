@@ -19,7 +19,7 @@ export function TenantSuppliersPreview() {
         Consulta por empresa. Altas, modificaciones y eliminación se habilitarán después de las
         pruebas de permisos.
       </p>
-      
+
       {!companyId && <p role="status">Selecciona una empresa habilitada.</p>}
       {companyId && suppliers.isPending && <p role="status">Cargando proveedores…</p>}
       {companyId && suppliers.isError && (

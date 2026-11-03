@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  getActiveCompany,
-  publishActiveCompany,
-  subscribeActiveCompany,
-} from "./company-context";
+import { getActiveCompany, publishActiveCompany, subscribeActiveCompany } from "./company-context";
 
 afterEach(() => publishActiveCompany(null));
 

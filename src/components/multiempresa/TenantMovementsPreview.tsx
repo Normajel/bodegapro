@@ -34,7 +34,7 @@ export function TenantMovementsPreview() {
         Últimos 100 movimientos de la empresa. Registro, edición y anulación están deshabilitados
         hasta validar las operaciones de stock.
       </p>
-      
+
       {!companyId && <p role="status">Selecciona una empresa.</p>}
       {companyId && movements.isPending && <p role="status">Cargando movimientos…</p>}
       {companyId && movements.isError && (
