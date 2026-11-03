@@ -9,6 +9,7 @@ permissions:
 
 # Esta validación corre después de las correcciones y formato multiempresa.\n# Comprueba TypeScript, ESLint, Vite, Prettier y pruebas unitarias.
 # Etapa 43: validación final tras formatear historial ACEPTADO de servicios.
+# Regla vigente: cada OC corresponde exclusivamente a productos o servicios.
 
 jobs:
   unit-tests:
