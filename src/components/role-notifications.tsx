@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, CheckCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,7 @@ import {
 type ReadState = { owner: string; keys: string[] };
 export function RoleNotifications({ access }: { access: CurrentAccess }) {
   const enabled = receivesRoleNotifications(access.name);
+  const queryClient = useQueryClient();
   const owner = `${access.userId ?? "session"}:${access.name}`;
   const storageKey = access.userId ? `integrastock-notice-read:${owner}` : null;
   const [readState, setReadState] = useState<ReadState>({ owner: "", keys: [] });
@@ -30,15 +31,28 @@ export function RoleNotifications({ access }: { access: CurrentAccess }) {
   const { data, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ["role-notifications", access.userId ?? null, access.name],
     enabled,
-    staleTime: 15000,
+    staleTime: 0,
+    refetchOnMount: "always",
     refetchInterval: 30000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: "always",
     queryFn: async () => {
       const { data, error } = await supabase.rpc("get_role_notifications");
       if (error) throw error;
       return notificationSummarySchema.parse(data);
     },
   });
+  useEffect(() => {
+    if (!enabled) return;
+    const channel = supabase
+      .channel(`role-notifications-orders-${access.userId ?? "session"}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "purchase_orders" }, () => {
+        void queryClient.invalidateQueries({ queryKey: ["role-notifications"] });
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [access.userId, enabled, queryClient]);
   useEffect(() => {
     if (currentOwner.current !== owner) {
       announced.current.clear();
@@ -50,13 +64,18 @@ export function RoleNotifications({ access }: { access: CurrentAccess }) {
         const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? "[]");
         if (Array.isArray(saved))
           keys = saved.filter((key): key is string => typeof key === "string");
+        // Al ingresar nuevamente, los pendientes de aprobación deben volver a avisar.
+        if (["GERENCIA", "GERENTE"].includes(access.name.trim().toUpperCase())) {
+          keys = keys.filter((key) => key !== "approvals");
+          localStorage.setItem(storageKey, JSON.stringify(keys));
+        }
       } catch {
         /* In-memory read status still works when storage is unavailable. */
       }
     }
     setReadState({ owner, keys });
     setShowRead(false);
-  }, [owner, storageKey]);
+  }, [access.name, owner, storageKey]);
   const persist = useCallback(
     (keys: string[]) => {
       setReadState({ owner, keys });
@@ -137,6 +156,7 @@ export function RoleNotifications({ access }: { access: CurrentAccess }) {
       <PopoverTrigger asChild>
         <button
           type="button"
+          onClick={() => void refetch()}
           className="btn btn-ghost relative h-11 w-11 shrink-0 p-2"
           aria-label={
             isError ? "Notificaciones no disponibles" : `Notificaciones: ${count} sin leer`
