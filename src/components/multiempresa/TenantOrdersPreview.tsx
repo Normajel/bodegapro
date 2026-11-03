@@ -21,7 +21,7 @@ export function TenantOrdersPreview() {
     window.addEventListener("integrastock:company-changed", onCompanyChange);
     void loadMyCompanies().then(options => {
       if (!mounted) return;
-      setCompanyId(current => current ?? (options.length === 1 ? options[0].company.id : null));
+      setCompanyId(current => current ?? (options.length === 1 ? options[0]?.company.id ?? null : null));
       setReady(true);
     }).catch(() => { if (mounted) setReady(true); });
     return () => { mounted = false; window.removeEventListener("integrastock:company-changed", onCompanyChange); };
