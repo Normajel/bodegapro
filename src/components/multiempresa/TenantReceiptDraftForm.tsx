@@ -68,7 +68,10 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
           documentNumber,
           notes,
           quantities: Object.fromEntries(
-            selected.map((line) => [line.purchase_order_item_id, quantities[line.purchase_order_item_id] ?? ""]),
+            selected.map((line) => [
+              line.purchase_order_item_id,
+              quantities[line.purchase_order_item_id] ?? "",
+            ]),
           ),
         },
         lines,
@@ -205,13 +208,19 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
         </div>
       </div>
       {review && preview && (
-        <section aria-label="Revisión de recepción" className="mt-4 rounded border border-slate-200 bg-white p-3">
+        <section
+          aria-label="Revisión de recepción"
+          className="mt-4 rounded border border-slate-200 bg-white p-3"
+        >
           <h4 className="font-semibold">Resumen previo al registro</h4>
-          <p className="mt-2 text-sm">Documento: {preview.p_document_type} N° {preview.p_document_number}</p>
+          <p className="mt-2 text-sm">
+            Documento: {preview.p_document_type} N° {preview.p_document_number}
+          </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
             {preview.p_items.map((item) => (
               <li key={item.item_id}>
-                {lines.find((line) => line.purchase_order_item_id === item.item_id)?.description ?? "Producto"}
+                {lines.find((line) => line.purchase_order_item_id === item.item_id)?.description ??
+                  "Producto"}
                 : {item.quantity} unidad(es)
               </li>
             ))}

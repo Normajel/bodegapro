@@ -33,12 +33,14 @@ describe("prepareReceiptBatch", () => {
 
   it("rejects service items and unknown products", () => {
     expect(() => prepareReceiptBatch({ ...draft, quantities: { "i-s": "1" } }, lines)).toThrow();
-    expect(() => prepareReceiptBatch({ ...draft, quantities: { "other": "1" } }, lines)).toThrow();
+    expect(() => prepareReceiptBatch({ ...draft, quantities: { other: "1" } }, lines)).toThrow();
   });
 
   it("rejects excess, negative, decimals, empty batches and invalid documents", () => {
     for (const value of ["6", "-1", "1.5", "0"]) {
-      expect(() => prepareReceiptBatch({ ...draft, quantities: { "i-a": value } }, lines)).toThrow();
+      expect(() =>
+        prepareReceiptBatch({ ...draft, quantities: { "i-a": value } }, lines),
+      ).toThrow();
     }
     expect(() => prepareReceiptBatch({ ...draft, quantities: {} }, lines)).toThrow();
     expect(() => prepareReceiptBatch({ ...draft, documentNumber: "" }, lines)).toThrow();

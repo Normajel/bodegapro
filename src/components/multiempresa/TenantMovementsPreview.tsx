@@ -36,12 +36,11 @@ export function TenantMovementsPreview() {
         hasta validar las operaciones de stock.
       </p>
       <p className="mb-6 text-sm text-slate-700">
-        Para preparar una entrada vinculada a una OC, utiliza el
-        {" "}
+        Para preparar una entrada vinculada a una OC, utiliza el{" "}
         <Link to="/compras" className="font-semibold text-teal-700 underline">
           módulo Órdenes de compra
-        </Link>.
-        El registro definitivo será una operación única compartida entre ambos módulos.
+        </Link>
+        . El registro definitivo será una operación única compartida entre ambos módulos.
       </p>
 
       {!companyId && <p role="status">Selecciona una empresa.</p>}
