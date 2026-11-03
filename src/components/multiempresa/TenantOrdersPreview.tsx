@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TenantReceiptPreview } from "./TenantReceiptPreview";
+import { TenantServicesLedger } from "./TenantServicesLedger";
 import { useActiveCompany } from "@/lib/multiempresa/company-context";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 import {
@@ -129,6 +130,7 @@ export function TenantOrdersPreview() {
               orderNumber={o.order_number}
             />
           ))}
+      {companyId && <TenantServicesLedger companyId={companyId} />}
       {companyId &&
         orders.isSuccess &&
         orders.data.some((o) => o.id === selectedOrderId && o.approval_status !== "aprobada") && (
