@@ -32,7 +32,7 @@ export function CompanySelector() {
         const available = await loadMyCompanies();
         if (!live) return;
         setCompanies(available);
-        const initialCompanyId = available.length === 1 ? available[0].company.id : "";
+        const initialCompanyId = available.length === 1 ? (available[0]?.company.id ?? "") : "";
         setSelected(initialCompanyId);
         queryClient.clear();
         window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, {
@@ -81,8 +81,10 @@ export function CompanySelector() {
           disabled={!!error || companies.length === 0}
           onChange={(event) => {
             // Clear the prior tenant cache before publishing the next context.
-            setSelected(event.target.value);
-            void queryClient.cancelQueries().then(() => queryClient.clear());
+            const nextCompany = event.target.value;
+            if (nextCompany && !companies.some(({ company }) => company.id === nextCompany)) return;
+            queryClient.clear();
+            setSelected(nextCompany);
             window.dispatchEvent(new CustomEvent(COMPANY_CONTEXT_EVENT, {
               detail: { companyId: nextCompany },
             }));
