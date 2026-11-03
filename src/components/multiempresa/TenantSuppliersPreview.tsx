@@ -1,39 +1,15 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { loadMyCompanies } from "@/lib/multiempresa/company-api";
+import { useActiveCompany } from "@/lib/multiempresa/company-context";
 import { listCompanySuppliers, tenantQueryKeys } from "@/lib/multiempresa/tenant-catalog";
 
 export function TenantSuppliersPreview() {
-  const [companyId, setCompanyId] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    void loadMyCompanies()
-      .then((options) => {
-        if (!live) return;
-        setCompanyId(options.length === 1 ? (options[0]?.company.id ?? null) : null);
-        setReady(true);
-      })
-      .catch(() => {
-        if (live) setReady(true);
-      });
-
-    const onChange = (event: Event) => {
-      const id = (event as CustomEvent<{ companyId?: string }>).detail?.companyId;
-      setCompanyId(id || null);
-    };
-    window.addEventListener("integrastock:company-changed", onChange);
-    return () => {
-      live = false;
-      window.removeEventListener("integrastock:company-changed", onChange);
-    };
-  }, []);
+  const companyId = useActiveCompany();
 
   const suppliers = useQuery({
     queryKey: tenantQueryKeys.suppliers(companyId ?? ""),
     queryFn: () => listCompanySuppliers(companyId!),
-    enabled: ready && !!companyId,
+    enabled: !!companyId,
     staleTime: 0,
   });
 
@@ -44,8 +20,8 @@ export function TenantSuppliersPreview() {
         Consulta por empresa. Altas, modificaciones y eliminación se habilitarán después de las
         pruebas de permisos.
       </p>
-      {!ready && <p role="status">Verificando acceso…</p>}
-      {ready && !companyId && <p role="status">Selecciona una empresa habilitada.</p>}
+      
+      {!companyId && <p role="status">Selecciona una empresa habilitada.</p>}
       {companyId && suppliers.isPending && <p role="status">Cargando proveedores…</p>}
       {companyId && suppliers.isError && (
         <p role="alert">No se pudieron consultar los proveedores.</p>
