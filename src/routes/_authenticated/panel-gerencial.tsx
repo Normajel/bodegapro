@@ -30,7 +30,7 @@ import { useAppAccess } from "@/lib/permissions";
 import { money, dateKey } from "@/lib/warehouse";
 
 export const Route = createFileRoute("/_authenticated/panel-gerencial")({
-  head: () => ({ meta: [{ title: "Panel Gerencial — INTEGRASTOCK" }] }),
+  head: () => ({ meta: [{ title: "IntegraStock | Panel Gerencial" }] }),
   component: ManagementPage,
 });
 const compact = (value: number) =>
