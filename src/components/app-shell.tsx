@@ -197,7 +197,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen bg-background">
       {/* Sidebar desktop */}
       <aside className="sticky top-0 h-dvh w-64 shrink-0 overflow-y-auto hidden flex-col gap-6 border-r border-sidebar-border bg-sidebar p-4 md:flex">
-        <Link to="/dashboard" className="flex items-center gap-2 px-2">
+        <Link to="/dashboard" className="flex items-center gap-2 px-2 text-white">
           <PanelIdentity name={branding?.panel_name} logoUrl={panelLogoUrl} />
         </Link>
         <div className="flex flex-col gap-1">
