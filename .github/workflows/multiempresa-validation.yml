@@ -81,3 +81,5 @@ jobs:
         run: npx prettier --check src/lib/multiempresa src/components/multiempresa src/routes/_authenticated/route.tsx src/routes/_authenticated/documento-cubicacion.tsx src/routes/_authenticated/notas-venta.tsx
 
 # Etapa 46: dashboard gerencial multiempresa, notificaciones y consultas paginadas.
+
+# Etapa 49: validar NV multiempresa, snapshots, servicio cerrado y árbol de rutas regenerado.
