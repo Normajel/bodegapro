@@ -61,3 +61,10 @@ export function TenantProductionPlanner({ companyId, units }: { companyId: strin
           onChange={(e) => { setNotes(e.target.value); setReview(null); }}
           className="mt-1 block w-full rounded border bg-white p-2"/>
       </label>
+      {error && <p className="mt-3 text-xs text-amber-900">{error}</p>}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" disabled={!!error}
+          onClick={() => setReview({ ...draft })}
+          className="rounded border border-teal-700 px-3 py-2 text-sm font-semibold text-teal-800 disabled:opacity-50">
+          Revisar planificación
+        </button>
