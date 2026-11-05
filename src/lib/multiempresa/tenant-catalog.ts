@@ -16,6 +16,7 @@ async function requireCompany(companyId: string) {
 
 export const tenantQueryKeys = {
   products: (companyId: string) => ["tenant", companyId, "products"] as const,
+  inventoryAdjustmentCorrections: (companyId: string) => ["tenant", companyId, "inventory-adjustment-corrections"] as const,
   inventoryAdjustments: (companyId: string) =>
     ["tenant", companyId, "inventory-adjustments"] as const,
   suppliers: (companyId: string) => ["tenant", companyId, "suppliers"] as const,
@@ -467,6 +468,16 @@ export async function listTenantProductionPlanningEvents(companyId: string, unit
     .eq("production_unit_id", unitId)
     .order("occurred_at", { ascending: false })
     .limit(100);
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Read-only corrections are always scoped to the selected tenant and RLS. */
+export async function listCompanyInventoryAdjustmentCorrections(companyId: string) {
+  await requireCompany(companyId);
+  const { data, error } = await db.from("tenant_inventory_adjustment_corrections")
+    .select("id,company_id,original_adjustment_id,product_id,previous_stock,corrected_stock,reason,corrected_by,corrected_at")
+    .eq("company_id", companyId).order("corrected_at", { ascending: false }).limit(100);
   if (error) throw error;
   return data ?? [];
 }
