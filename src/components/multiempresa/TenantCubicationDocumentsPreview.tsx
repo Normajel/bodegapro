@@ -95,7 +95,7 @@ async function loadCompanyDocument(companyId: string, kind: "normal" | "especial
     };
   });
   const ctx = document.data.context;
-  const context = ctx && typeof ctx === "object" && !Array.isArray(ctx) ? ctx : {};
+  const context: Record<string, unknown> = ctx && typeof ctx === "object" && !Array.isArray(ctx) ? ctx : {};
   const text = (key: string) => (typeof context[key] === "string" ? context[key] : "");
   return {
     lines,
