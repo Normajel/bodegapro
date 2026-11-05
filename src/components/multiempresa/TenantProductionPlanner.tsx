@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
+import { listTenantProductionPlanningEvents, tenantQueryKeys } from "@/lib/multiempresa/tenant-catalog";
 import { PRODUCTION_AREAS, PRODUCTION_PLANNING_WRITES_ENABLED, canPlanProduction, validatePlanning, type PlanningDraft } from "@/lib/multiempresa/production-planning";
 
 type Unit = { id: string; company_id: string; sales_note_id: string; unit_code_snapshot: string; module_index: number; status: string };
