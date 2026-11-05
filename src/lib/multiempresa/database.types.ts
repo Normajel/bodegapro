@@ -8,6 +8,51 @@ export type Database = {
   };
   public: {
     Tables: {
+      tenant_inventory_adjustments: {
+        Row: {
+          id: string;
+          company_id: string;
+          product_id: string;
+          description: string | null;
+          category: string | null;
+          initial_stock: number;
+          adjusted_stock: number;
+          reason: string;
+          created_by: string | null;
+          created_at: string;
+          edited_at: string | null;
+          edited_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          product_id: string;
+          description?: string | null;
+          category?: string | null;
+          initial_stock: number;
+          adjusted_stock: number;
+          reason: string;
+          created_by?: string | null;
+          created_at?: string;
+          edited_at?: string | null;
+          edited_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          product_id?: string;
+          description?: string | null;
+          category?: string | null;
+          initial_stock?: number;
+          adjusted_stock?: number;
+          reason?: string;
+          created_by?: string | null;
+          created_at?: string;
+          edited_at?: string | null;
+          edited_by?: string | null;
+        };
+        Relationships: [];
+      };
       accepted_services: {
         Row: {
           approved_at: string | null;
