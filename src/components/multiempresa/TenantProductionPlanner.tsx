@@ -84,6 +84,19 @@ export function TenantProductionPlanner({ companyId, units }: { companyId: strin
         Módulo: {unit?.unit_code_snapshot} · Área: {review.area.replaceAll("_", " ")}
         · Prioridad: {review.priority} · Fecha: {review.plannedDate}
       </p>}
+      {events.isSuccess && events.data.length > 0 && (
+        <div className="mt-4 rounded border bg-white p-3 text-sm">
+          <strong>Historial de programación</strong>
+          <ul className="mt-2 space-y-1">
+            {events.data.map((event) => (
+              <li key={event.id}>
+                {event.new_area.replaceAll("_", " ")} · {event.new_priority} · {event.new_planned_date}
+                {" · "}{event.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }
