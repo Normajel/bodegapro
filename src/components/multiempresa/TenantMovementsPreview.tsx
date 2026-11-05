@@ -135,6 +135,7 @@ export function TenantMovementsPreview() {
                   <th className="p-2">Tipo original</th>
                   <th className="p-2">Cantidad</th>
                   <th className="p-2">Motivo</th>
+                  <th className="p-2">Responsable</th>
                   <th className="p-2">Fecha</th>
                 </tr>
               </thead>
@@ -145,6 +146,7 @@ export function TenantMovementsPreview() {
                     <td className="p-2">{entry.original_type}</td>
                     <td className="p-2">{entry.quantity}</td>
                     <td className="p-2">{entry.reason}</td>
+                    <td className="p-2" title={entry.cancelled_by}>{entry.cancelled_by.slice(0, 8)}</td>
                     <td className="p-2">{new Date(entry.cancelled_at).toLocaleString("es-CL")}</td>
                   </tr>
                 ))}
