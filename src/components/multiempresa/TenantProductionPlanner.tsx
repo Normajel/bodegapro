@@ -29,3 +29,19 @@ export function TenantProductionPlanner({ companyId, units }: { companyId: strin
     <section className="mt-5 rounded-lg border border-teal-200 bg-slate-50 p-4">
       <h3 className="font-semibold">Planificar módulo · borrador</h3>
       <p className="mt-1 text-sm text-slate-600">Esta vista no asigna ni cambia estados reales.</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <label className="text-sm font-semibold">Módulo físico
+          <select value={selected} onChange={(e) => { setSelected(e.target.value); setReview(null); }}
+            className="mt-1 block w-full rounded border bg-white p-2">
+            <option value="">Seleccionar módulo</option>
+            {units.filter((item) => ["PENDIENTE_PLANIFICACION","PROGRAMADA"].includes(item.status)).map((item) => (
+              <option key={item.id} value={item.id}>{item.unit_code_snapshot} · módulo {item.module_index}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm font-semibold">Área inicial
+          <select value={area} onChange={(e) => { setArea(e.target.value as PlanningDraft["area"]); setReview(null); }}
+            className="mt-1 block w-full rounded border bg-white p-2">
+            {PRODUCTION_AREAS.map((item) => <option key={item} value={item}>{item.replaceAll("_", " ")}</option>)}
+          </select>
+        </label>
