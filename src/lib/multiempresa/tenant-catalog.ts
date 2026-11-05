@@ -21,6 +21,8 @@ export const tenantQueryKeys = {
   suppliers: (companyId: string) => ["tenant", companyId, "suppliers"] as const,
   orders: (companyId: string) => ["tenant", companyId, "purchase-orders"] as const,
   movements: (companyId: string) => ["tenant", companyId, "movements"] as const,
+  managementProducts: (companyId: string) => ["tenant", companyId, "management-products"] as const,
+  managementOrders: (companyId: string) => ["tenant", companyId, "management-orders"] as const,
   managementMovements: (companyId: string, from: string, to: string) =>
     ["tenant", companyId, "management-movements", from, to] as const,
   movementCancellations: (companyId: string) =>
@@ -210,4 +212,38 @@ export async function listTenantManagementMovements(companyId: string, from: str
     if (start === 5000) throw new Error("El historial de anulaciones supera el máximo permitido.");
   }
   return rows.filter((movement) => !cancelled.has(movement.id));
+}
+
+/**
+ * Company-only dashboard data; unlike the preview queries these are paginated.
+ * Refuse partial totals if the size limit is reached.
+ */
+export async function listTenantManagementProducts(companyId: string) {
+  await requireCompany(companyId);
+  const rows: Awaited<ReturnType<typeof listCompanyProducts>> = [];
+  for (let start = 0; start <= 5000; start += 1000) {
+    const { data, error } = await db
+      .from("products")
+      .select("id,company_id,sku,name,category,unit,stock,stock_quantity,min_stock,unit_cost,active")
+      .eq("company_id", companyId).order("id").range(start, start + 999);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if ((data?.length ?? 0) < 1000) return rows;
+  }
+  throw new Error("Demasiados productos para este panel. Se necesita un informe de gran volumen.");
+}
+
+export async function listTenantManagementOrders(companyId: string) {
+  await requireCompany(companyId);
+  const rows: Awaited<ReturnType<typeof listCompanyPurchaseOrders>> = [];
+  for (let start = 0; start <= 5000; start += 1000) {
+    const { data, error } = await db
+      .from("purchase_orders")
+      .select("id,company_id,order_number,order_kind,approval_status,approved_at,approved_by,status,order_date,total_amount")
+      .eq("company_id", companyId).order("id").range(start, start + 999);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if ((data?.length ?? 0) < 1000) return rows;
+  }
+  throw new Error("Demasiadas OC para este panel. Se necesita un informe de gran volumen.");
 }
