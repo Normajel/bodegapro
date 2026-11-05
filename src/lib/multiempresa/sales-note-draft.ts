@@ -25,7 +25,8 @@ export function prepareTenantSalesNote(draft: SalesNoteDraft) {
       throw new Error("La cantidad de módulos debe ser un entero positivo.");
     }
     const modules = Number(unit.modules);
-    if (!Number.isSafeInteger(modules) || modules > 1000) throw new Error("Máximo 1.000 módulos por unidad.");
+    if (!Number.isSafeInteger(modules) || modules > 1000)
+      throw new Error("Máximo 1.000 módulos por unidad.");
     totalModules += modules;
     if (totalModules > 1000) throw new Error("Máximo 1.000 módulos por NV.");
     return { kind: unit.kind, document_id: unit.documentId, modules };
@@ -33,7 +34,9 @@ export function prepareTenantSalesNote(draft: SalesNoteDraft) {
   return {
     companyId: draft.companyId,
     customerId: draft.customerId,
-    number, notes: draft.notes.trim() || null,
-    units, totalModules,
+    number,
+    notes: draft.notes.trim() || null,
+    units,
+    totalModules,
   };
 }
