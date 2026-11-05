@@ -1139,21 +1139,6 @@ function ComprasPage() {
                   </div>
                 </div>
 
-                {supplierId && (
-                  <section className="space-y-2" aria-label="Historial de servicios del contratista">
-                    <h3 className="font-semibold">Historial de servicios del contratista</h3>
-                    <div className="overflow-x-auto">
-                      <table className="table-base w-full">
-                        <thead><tr><th>Nombre</th><th>Servicio</th><th>Valor del servicio (neto)</th></tr></thead>
-                        <tbody>
-                          {contractorServiceHistory.length ? contractorServiceHistory.map((service) => (
-                            <tr key={service.service}><td>{service.name}</td><td>{service.service}</td><td>{money(service.value)}</td></tr>
-                          )) : <tr><td colSpan={3}>Este contratista todavía no tiene servicios registrados.</td></tr>}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
-                )}
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="font-semibold">Productos y servicios</h3>
