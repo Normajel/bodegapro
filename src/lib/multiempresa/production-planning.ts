@@ -1,1 +1,2 @@
 export const PRODUCTION_PLANNING_WRITES_ENABLED = false;
+export const PRODUCTION_AREAS = ["ESTRUCTURA", "PINTURA", "CARPINTERIA"] as const;
