@@ -110,7 +110,5 @@ export function downloadTenantCubicationPdf(
     14,
     Math.min(y + 16, 286),
   );
-  pdf.save(
-    `cub icacion-${unitCode.replace(/[^a-z0-9-]/gi, "-")}.pdf`.replace("cub icacion", "cubicacion"),
-  );
+  pdf.save(`cubicacion-${unitCode.replace(/[^a-z0-9-]/gi, "-")}.pdf`);
 }
