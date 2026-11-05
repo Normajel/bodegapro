@@ -4,7 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "./database.types";
 import { loadMyCompanies } from "./company-api";
 import { tenantQueryKeys } from "./tenant-catalog";
-import { prepareTenantSalesNote, SALES_NOTE_WRITES_ENABLED, type SalesNoteDraft } from "./sales-note-draft";
+import {
+  prepareTenantSalesNote,
+  SALES_NOTE_WRITES_ENABLED,
+  type SalesNoteDraft,
+} from "./sales-note-draft";
 
 const db = supabase as unknown as SupabaseClient<Database>;
 
