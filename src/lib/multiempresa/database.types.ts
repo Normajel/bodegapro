@@ -56,6 +56,10 @@ export type Database = {
           created_by: string;
           created_at: string;
           updated_at: string;
+          submitted_at: string | null;
+          submitted_by: string | null;
+          approved_at: string | null;
+          approved_by: string | null;
         };
         Insert: {
           id?: string;
@@ -68,6 +72,10 @@ export type Database = {
           created_by: string;
           created_at?: string;
           updated_at?: string;
+          submitted_at?: string | null;
+          submitted_by?: string | null;
+          approved_at?: string | null;
+          approved_by?: string | null;
         };
         Update: {
           id?: string;
@@ -80,6 +88,76 @@ export type Database = {
           created_by?: string;
           created_at?: string;
           updated_at?: string;
+          submitted_at?: string | null;
+          submitted_by?: string | null;
+          approved_at?: string | null;
+          approved_by?: string | null;
+        };
+        Relationships: [];
+      };
+      tenant_sales_note_events: {
+        Row: {
+          id: string;
+          company_id: string;
+          sales_note_id: string;
+          from_status: string;
+          to_status: string;
+          reason: string | null;
+          actor_id: string;
+          occurred_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          sales_note_id: string;
+          from_status: string;
+          to_status: string;
+          reason?: string | null;
+          actor_id: string;
+          occurred_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          sales_note_id?: string;
+          from_status?: string;
+          to_status?: string;
+          reason?: string | null;
+          actor_id?: string;
+          occurred_at?: string;
+        };
+        Relationships: [];
+      };
+      tenant_production_units: {
+        Row: {
+          id: string;
+          company_id: string;
+          sales_note_id: string;
+          sales_note_unit_id: string;
+          module_index: number;
+          unit_code_snapshot: string;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          sales_note_id: string;
+          sales_note_unit_id: string;
+          module_index: number;
+          unit_code_snapshot: string;
+          status?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          sales_note_id?: string;
+          sales_note_unit_id?: string;
+          module_index?: number;
+          unit_code_snapshot?: string;
+          status?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -1405,6 +1483,14 @@ export type Database = {
       };
       adjust_tenant_inventory_stock: {
         Args: { p_company_id: string; p_product_id: string; p_new_stock: number; p_reason: string };
+        Returns: string;
+      };
+      submit_tenant_sales_note: {
+        Args: { p_company_id: string; p_note_id: string };
+        Returns: string;
+      };
+      approve_tenant_sales_note: {
+        Args: { p_company_id: string; p_note_id: string };
         Returns: string;
       };
       create_tenant_sales_note: {
