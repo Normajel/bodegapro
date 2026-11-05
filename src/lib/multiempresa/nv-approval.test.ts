@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { NV_APPROVAL_WRITES_ENABLED, NV_SUBMISSION_WRITES_ENABLED, canApproveNv, canSubmitNv, nvStatusLabel } from "./nv-approval";
+import {
+  NV_APPROVAL_WRITES_ENABLED,
+  NV_SUBMISSION_WRITES_ENABLED,
+  canApproveNv,
+  canSubmitNv,
+  nvStatusLabel,
+} from "./nv-approval";
 
 describe("tenant NV status permissions", () => {
   it("Ventas can submit a draft but cannot approve it", () => {
