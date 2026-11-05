@@ -22,6 +22,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDocumentoCubicacionRouteImport } from './routes/_authenticated/documento-cubicacion'
 import { Route as AuthenticatedInformesRouteImport } from './routes/_authenticated/informes'
 import { Route as AuthenticatedMovimientosRouteImport } from './routes/_authenticated/movimientos'
+import { Route as AuthenticatedNotasVentaRouteImport } from './routes/_authenticated/notas-venta'
 import { Route as AuthenticatedPanelGerencialRouteImport } from './routes/_authenticated/panel-gerencial'
 import { Route as AuthenticatedProductosRouteImport } from './routes/_authenticated/productos'
 import { Route as AuthenticatedProductosEspecialesRouteImport } from './routes/_authenticated/productos-especiales'
@@ -94,6 +95,11 @@ const AuthenticatedMovimientosRoute =
     path: '/movimientos',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedNotasVentaRoute = AuthenticatedNotasVentaRouteImport.update({
+  id: '/notas-venta',
+  path: '/notas-venta',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPanelGerencialRoute =
   AuthenticatedPanelGerencialRouteImport.update({
     id: '/panel-gerencial',
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/documento-cubicacion': typeof AuthenticatedDocumentoCubicacionRoute
   '/informes': typeof AuthenticatedInformesRoute
   '/movimientos': typeof AuthenticatedMovimientosRoute
+  '/notas-venta': typeof AuthenticatedNotasVentaRoute
   '/panel-gerencial': typeof AuthenticatedPanelGerencialRoute
   '/productos': typeof AuthenticatedProductosRoute
   '/productos-especiales': typeof AuthenticatedProductosEspecialesRoute
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/documento-cubicacion': typeof AuthenticatedDocumentoCubicacionRoute
   '/informes': typeof AuthenticatedInformesRoute
   '/movimientos': typeof AuthenticatedMovimientosRoute
+  '/notas-venta': typeof AuthenticatedNotasVentaRoute
   '/panel-gerencial': typeof AuthenticatedPanelGerencialRoute
   '/productos': typeof AuthenticatedProductosRoute
   '/productos-especiales': typeof AuthenticatedProductosEspecialesRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/_authenticated/documento-cubicacion': typeof AuthenticatedDocumentoCubicacionRoute
   '/_authenticated/informes': typeof AuthenticatedInformesRoute
   '/_authenticated/movimientos': typeof AuthenticatedMovimientosRoute
+  '/_authenticated/notas-venta': typeof AuthenticatedNotasVentaRoute
   '/_authenticated/panel-gerencial': typeof AuthenticatedPanelGerencialRoute
   '/_authenticated/productos': typeof AuthenticatedProductosRoute
   '/_authenticated/productos-especiales': typeof AuthenticatedProductosEspecialesRoute
@@ -188,6 +197,7 @@ export interface FileRouteTypes {
     | '/documento-cubicacion'
     | '/informes'
     | '/movimientos'
+    | '/notas-venta'
     | '/panel-gerencial'
     | '/productos'
     | '/productos-especiales'
@@ -206,6 +216,7 @@ export interface FileRouteTypes {
     | '/documento-cubicacion'
     | '/informes'
     | '/movimientos'
+    | '/notas-venta'
     | '/panel-gerencial'
     | '/productos'
     | '/productos-especiales'
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '/_authenticated/documento-cubicacion'
     | '/_authenticated/informes'
     | '/_authenticated/movimientos'
+    | '/_authenticated/notas-venta'
     | '/_authenticated/panel-gerencial'
     | '/_authenticated/productos'
     | '/_authenticated/productos-especiales'
@@ -331,6 +343,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMovimientosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/notas-venta': {
+      id: '/_authenticated/notas-venta'
+      path: '/notas-venta'
+      fullPath: '/notas-venta'
+      preLoaderRoute: typeof AuthenticatedNotasVentaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/panel-gerencial': {
       id: '/_authenticated/panel-gerencial'
       path: '/panel-gerencial'
@@ -372,6 +391,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDocumentoCubicacionRoute: typeof AuthenticatedDocumentoCubicacionRoute
   AuthenticatedInformesRoute: typeof AuthenticatedInformesRoute
   AuthenticatedMovimientosRoute: typeof AuthenticatedMovimientosRoute
+  AuthenticatedNotasVentaRoute: typeof AuthenticatedNotasVentaRoute
   AuthenticatedPanelGerencialRoute: typeof AuthenticatedPanelGerencialRoute
   AuthenticatedProductosRoute: typeof AuthenticatedProductosRoute
   AuthenticatedProductosEspecialesRoute: typeof AuthenticatedProductosEspecialesRoute
@@ -388,6 +408,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDocumentoCubicacionRoute: AuthenticatedDocumentoCubicacionRoute,
   AuthenticatedInformesRoute: AuthenticatedInformesRoute,
   AuthenticatedMovimientosRoute: AuthenticatedMovimientosRoute,
+  AuthenticatedNotasVentaRoute: AuthenticatedNotasVentaRoute,
   AuthenticatedPanelGerencialRoute: AuthenticatedPanelGerencialRoute,
   AuthenticatedProductosRoute: AuthenticatedProductosRoute,
   AuthenticatedProductosEspecialesRoute: AuthenticatedProductosEspecialesRoute,
