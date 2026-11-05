@@ -160,6 +160,24 @@ export function CompanySelector() {
             Notas de Venta
           </Link>
         )}
+        {selected && (
+          <nav aria-label="Módulos multiempresa disponibles" className="flex flex-wrap items-center gap-2">
+            {([
+              ["/productos", "Inventario"],
+              ["/contactos", "Proveedores"],
+              ["/compras", "Órdenes de compra"],
+              ["/movimientos", "Movimientos"],
+            ] as const).map(([to, label]) => (
+              <Link
+                key={to}
+                to={to}
+                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-800"
+              >
+                {label}
+              </Link>
+            ))}
+          </nav>
+        )}
         {selected && <TenantChatLauncher key={selected} companyId={selected} />}
         {selected &&
           ["ADMIN", "ADMINPRO"].includes(
