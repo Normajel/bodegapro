@@ -40,6 +40,21 @@ export function ServiceLedger() {
       return result;
     },
   });
+  const { data: priceCatalog = [], isError: priceCatalogError } = useQuery({
+    queryKey: ["contractor-service-prices"],
+    queryFn: async () => {
+      const result = await supabase
+        .from("contractor_service_prices" as never)
+        .select("supplier_id,service_name,current_unit_cost")
+        .order("service_name");
+      if (result.error) throw result.error;
+      return (result.data ?? []) as unknown as Array<{
+        supplier_id: string;
+        service_name: string;
+        current_unit_cost: number;
+      }>;
+    },
+  });
   const rows = data?.data ?? [];
   return (
     <section className="space-y-3" aria-label="Servicios contratistas">
@@ -166,6 +181,31 @@ export function ServiceLedger() {
           </table>
         </div>
       )}
+      <section className="space-y-2" aria-label="Historial de servicios">
+        <h2 className="font-semibold">Historial de servicios y valores actuales</h2>
+        <p className="text-sm text-muted-foreground">Cada servicio aparece una vez por contratista. Al cambiar su valor, aquí se muestra el vigente.</p>
+        {priceCatalogError ? (
+          <p className="text-sm text-muted-foreground">El historial de valores no está disponible hasta aplicar la migración de base de datos.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table-base w-full">
+              <thead><tr><th>Nombre</th><th>Servicio</th><th>Valor del servicio (neto)</th></tr></thead>
+              <tbody>
+                {priceCatalog.filter((item) => !provider || item.supplier_id === provider).map((item) => (
+                  <tr key={item.supplier_id + item.service_name}>
+                    <td>{providers.find((supplier) => supplier.supplier_id === item.supplier_id)?.supplier_name ?? "Contratista"}</td>
+                    <td>{item.service_name}</td>
+                    <td>${Number(item.current_unit_cost).toLocaleString("es-CL")}</td>
+                  </tr>
+                ))}
+                {!priceCatalog.some((item) => !provider || item.supplier_id === provider) && (
+                  <tr><td colSpan={3}>No hay servicios registrados.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
       <div className="flex items-center justify-between gap-3 text-sm">
         <span>
           {data?.count ?? 0} servicios · página {page + 1}
