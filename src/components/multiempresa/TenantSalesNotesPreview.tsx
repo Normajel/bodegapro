@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { TenantProductionBoard } from "./TenantProductionBoard";
+import { nvStatusLabel, NV_APPROVAL_WRITES_ENABLED, NV_SUBMISSION_WRITES_ENABLED, canSubmitNv, canApproveNv } from "@/lib/multiempresa/nv-approval";
+
 import { useQuery } from "@tanstack/react-query";
 import { useActiveCompany } from "@/lib/multiempresa/company-context";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
@@ -7,6 +10,7 @@ import {
   listTenantSalesNotes,
   listTenantSalesNoteUnits,
   listTenantCubicationCatalog,
+  listTenantSalesNoteEvents,
   tenantQueryKeys,
 } from "@/lib/multiempresa/tenant-catalog";
 import {
@@ -60,6 +64,13 @@ function SalesNotesForCompany({ companyId }: { companyId: string }) {
   const [units, setUnits] = useState<Unit[]>([{ kind: "normal", documentId: "", modules: "1" }]);
   const [review, setReview] = useState(false);
   const [detailId, setDetailId] = useState("");
+  const events = useQuery({
+    queryKey: tenantQueryKeys.salesNoteEvents(companyId, detailId),
+    queryFn: () => listTenantSalesNoteEvents(companyId, detailId),
+    enabled: !!detailId,
+    staleTime: 0,
+  });
+
   const access = useQuery({
     queryKey: ["tenant", companyId, "sales-note-role"],
     queryFn: async () => {
@@ -307,7 +318,7 @@ function SalesNotesForCompany({ companyId }: { companyId: string }) {
                   <tr key={note.id} className="border-t">
                     <td className="p-2">{note.note_number}</td>
                     <td className="p-2">{note.customer_name_snapshot}</td>
-                    <td className="p-2">{note.status}</td>
+                    <td className="p-2">{nvStatusLabel(note.status)}</td>
                     <td className="p-2">{new Date(note.created_at).toLocaleString("es-CL")}</td>
                     <td className="p-2">
                       <button
@@ -317,15 +328,46 @@ function SalesNotesForCompany({ companyId }: { companyId: string }) {
                       >
                         Ver unidades
                       </button>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={!NV_SUBMISSION_WRITES_ENABLED || !canSubmitNv("VENTAS", note.status)}
+                          className="cursor-not-allowed rounded border px-2 py-1 text-xs disabled:opacity-50"
+                          title="Envío de NV pendiente de validar Auth"
+                        >Enviar a Gerencia</button>
+                        <button
+                          type="button"
+                          disabled={!NV_APPROVAL_WRITES_ENABLED || !canApproveNv("GERENCIA", note.status, null)}
+                          className="cursor-not-allowed rounded border px-2 py-1 text-xs disabled:opacity-50"
+                          title="Aprobación pendiente de probar Gerencia y MFA"
+                        >Aprobar NV</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             {detailId && <SavedSalesNoteUnits companyId={companyId} noteId={detailId} />}
+            {detailId && events.isSuccess && (
+              <div className="mt-3 rounded border border-slate-200 p-3 text-sm">
+                <h3 className="font-semibold">Historial de aprobación</h3>
+                {events.data.length === 0 ? <p className="mt-2 text-slate-600">Sin cambios de estado registrados.</p> : (
+                  <ul className="mt-2 space-y-1">
+                    {events.data.map((event) => (
+                      <li key={event.id}>
+                        {event.from_status} → {event.to_status} · {new Date(event.occurred_at).toLocaleString("es-CL")}
+                        {" · Responsable: "}{event.actor_id.slice(0, 8)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            {detailId && events.isError && <p role="alert">No se pudo consultar el historial de aprobación.</p>}
           </div>
         )}
       </section>
+      <TenantProductionBoard companyId={companyId} />
     </div>
   );
 }
