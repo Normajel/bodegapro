@@ -12,7 +12,7 @@ export function validatePlanning(d: PlanningDraft, unit: { id: string; company_i
   if (!PRODUCTION_AREAS.includes(d.area)) return "Área inválida";
   if (!["URGENTE", "ALTA", "NORMAL", "BAJA"].includes(d.priority)) return "Prioridad inválida";
   if (d.notes.length > 500) return "Observaciones demasiado largas";
-  const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(d.plannedDate);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d.plannedDate);
   if (!match) return "Fecha inválida";
   const y = Number(match[1]), m = Number(match[2]), day = Number(match[3]);
   const date = new Date(Date.UTC(y, m - 1, day));
