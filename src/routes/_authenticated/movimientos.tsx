@@ -1055,6 +1055,31 @@ function MovimientosPage() {
       setSaving(true);
 
       try {
+        // Verificar stock real en Supabase antes de registrar salidas nuevas.
+        // La caché del listado puede estar desactualizada; agrupar SKU repetidos evita
+        // una salida superior al disponible al agregar el mismo producto varias veces.
+        if (!editingRegisteredMovementIds && !editingBatchId && !editingId) {
+          const required = new Map<string, number>();
+          for (const item of validItems) {
+            required.set(item.product_id, (required.get(item.product_id) ?? 0) + item.quantity);
+          }
+          const { data: currentStock, error: stockError } = await supabase
+            .from("products")
+            .select("id,sku,name,stock,active")
+            .in("id", [...required.keys()]);
+          if (stockError) throw stockError;
+          const liveProducts = new Map((currentStock ?? []).map((product) => [product.id, product]));
+          for (const [productId, requested] of required) {
+            const actual = liveProducts.get(productId);
+            if (!actual || actual.active !== true) {
+              throw new Error("Uno de los productos seleccionados ya no está disponible. Vuelve a seleccionarlo.");
+            }
+            const available = Number(actual.stock);
+            if (!Number.isFinite(available) || available < requested) {
+              throw new Error(`Stock insuficiente para ${actual.name} (${actual.sku}): disponible ${available}, solicitado ${requested}. Actualiza el formulario.`);
+            }
+          }
+        }
         const selectedMaster = customers.find((customer) => customer.id === form.customer_id);
         const payload = {
           type: "salida",
@@ -1137,7 +1162,13 @@ function MovimientosPage() {
           queryClient.invalidateQueries({ queryKey: ["registered-document-movements"] }),
         ]);
       } catch (err) {
-        toast.error(getMovementErrorMessage(err, "Error al registrar la salida"));
+        const message = getMovementErrorMessage(err, "Error al registrar la salida");
+        if (message.includes("Producto inexistente o stock insuficiente")) {
+          toast.error("Supabase rechazó la salida por stock. Actualiza el listado y vuelve a seleccionar el producto; si persiste, revisa los datos enviados y el stock actual.");
+        } else {
+          toast.error(message);
+        }
+        await queryClient.invalidateQueries({ queryKey: ["products"] });
       } finally {
         setSaving(false);
       }
