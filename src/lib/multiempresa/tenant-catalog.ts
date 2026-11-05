@@ -390,7 +390,9 @@ export async function listTenantSalesNotes(companyId: string) {
   await requireCompany(companyId);
   const { data, error } = await db
     .from("tenant_sales_notes")
-    .select("id,company_id,note_number,customer_name_snapshot,status,created_by,created_at,notes,submitted_at,submitted_by,approved_at,approved_by")
+    .select(
+      "id,company_id,note_number,customer_name_snapshot,status,created_by,created_at,notes,submitted_at,submitted_by,approved_at,approved_by",
+    )
     .eq("company_id", companyId)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -435,13 +437,17 @@ export async function listTenantProductionUnits(companyId: string) {
   await requireCompany(companyId);
   const { data, error } = await db
     .from("tenant_production_units")
-    .select("id,company_id,sales_note_id,sales_note_unit_id,module_index,unit_code_snapshot,status,created_at")
+    .select(
+      "id,company_id,sales_note_id,sales_note_unit_id,module_index,unit_code_snapshot,status,created_at",
+    )
     .eq("company_id", companyId)
     .order("created_at", { ascending: false })
     .limit(1001);
   if (error) throw error;
   if ((data?.length ?? 0) > 1000) {
-    throw new Error("Hay demasiadas unidades para el tablero. Reduce el período en una versión posterior.");
+    throw new Error(
+      "Hay demasiadas unidades para el tablero. Reduce el período en una versión posterior.",
+    );
   }
   return data ?? [];
 }
