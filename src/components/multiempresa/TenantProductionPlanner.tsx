@@ -20,6 +20,12 @@ export function TenantProductionPlanner({ companyId, units }: { companyId: strin
     },
     staleTime: 0,
   });
+  const events = useQuery({
+    queryKey: tenantQueryKeys.productionPlanningEvents(companyId, selected),
+    queryFn: () => listTenantProductionPlanningEvents(companyId, selected),
+    enabled: !!selected && access.data === true,
+    staleTime: 0,
+  });
   const unit = units.find((item) => item.id === selected);
   const draft: PlanningDraft = { productionUnitId: selected, area, priority, plannedDate: date, notes };
   const error = unit ? validatePlanning(draft, unit, companyId) : "Selecciona un módulo";
