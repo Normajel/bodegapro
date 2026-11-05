@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 import {
   listCompanyInventoryAdjustments,
+  listCompanyInventoryAdjustmentCorrections,
   tenantQueryKeys,
 } from "@/lib/multiempresa/tenant-catalog";
 
@@ -23,6 +24,12 @@ export function TenantInventoryAdjustmentHistory({ companyId }: { companyId: str
   const history = useQuery({
     queryKey: tenantQueryKeys.inventoryAdjustments(companyId),
     queryFn: () => listCompanyInventoryAdjustments(companyId),
+    enabled: !!companyId && access.data === true,
+    staleTime: 0,
+  });
+  const corrections = useQuery({
+    queryKey: tenantQueryKeys.inventoryAdjustmentCorrections(companyId),
+    queryFn: () => listCompanyInventoryAdjustmentCorrections(companyId),
     enabled: !!companyId && access.data === true,
     staleTime: 0,
   });
@@ -83,6 +90,50 @@ export function TenantInventoryAdjustmentHistory({ companyId }: { companyId: str
           )}
         </div>
       )}
+      <div className="mt-5 border-t pt-4">
+        <h3 className="font-semibold">Correcciones posteriores de ajustes</h3>
+        <p className="mt-1 text-xs text-slate-600">
+          El ajuste original nunca se reescribe. Una corrección crea un nuevo evento y actualiza
+          el stock actual, sin reproducir movimientos históricos.
+        </p>
+        {corrections.isPending && <p role="status" className="mt-2">Consultando correcciones…</p>}
+        {corrections.isError && <p role="alert" className="mt-2 text-red-700">
+          No se pudieron consultar las correcciones de la empresa.
+        </p>}
+        {corrections.isSuccess && (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="p-2">Ajuste original</th>
+                  <th className="p-2">Stock previo</th>
+                  <th className="p-2">Stock corregido</th>
+                  <th className="p-2">Motivo</th>
+                  <th className="p-2">Fecha / responsable</th>
+                </tr>
+              </thead>
+              <tbody>
+                {corrections.data.map((item) => (
+                  <tr key={item.id} className="border-t">
+                    <td className="p-2" title={item.original_adjustment_id}>
+                      {item.original_adjustment_id.slice(0, 8)}
+                    </td>
+                    <td className="p-2">{item.previous_stock}</td>
+                    <td className="p-2">{item.corrected_stock}</td>
+                    <td className="p-2">{item.reason}</td>
+                    <td className="p-2">
+                      {new Date(item.corrected_at).toLocaleString("es-CL")} · {item.corrected_by.slice(0, 8)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!corrections.data.length && (
+              <p className="p-3 text-sm text-slate-600">No hay correcciones posteriores registradas.</p>
+            )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
