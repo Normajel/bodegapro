@@ -113,7 +113,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "style: aplicar Prettier solo a archivos multiempresa"
-          # The branch can move while formatting is running.
-          git fetch origin multiempresa-desarrollo
-          git rebase origin/multiempresa-desarrollo
-          git push origin HEAD:multiempresa-desarrollo
+          # The branch can move between fetch and push. Retry without force-pushing.
+          for attempt in 1 2 3 4 5; do
+            git fetch origin multiempresa-desarrollo
+            git rebase origin/multiempresa-desarrollo
+            if git push origin HEAD:multiempresa-desarrollo; then
+              exit 0
+            fi
+            echo "La rama cambió durante el envío; reintentando (${attempt}/5)."
+            sleep 2
+          done
+          echo "No fue posible publicar el formato sin sobrescribir cambios ajenos."
+          exit 1
