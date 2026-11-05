@@ -4,7 +4,7 @@ import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 
 // Restrict legacy routes before their content renders. Unadapted pages must not
 // run against the new multi-company schema.
-const enabledReadOnlyPaths = new Set(["/productos", "/contactos", "/compras", "/movimientos"]);
+const enabledReadOnlyPaths = new Set(["/productos", "/contactos", "/compras", "/movimientos", "/documento-cubicacion"]);
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
