@@ -11,6 +11,7 @@ const enabledReadOnlyPaths = new Set([
   "/movimientos",
   "/documento-cubicacion",
   "/panel-gerencial",
+  "/notas-venta",
 ]);
 
 export const Route = createFileRoute("/_authenticated")({
