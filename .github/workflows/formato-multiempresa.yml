@@ -10,6 +10,7 @@ on:
       - src/routes/auth.tsx
       - src/routes/__root.tsx
       - src/routes/_authenticated/documento-cubicacion.tsx
+      - src/routes/_authenticated/panel-gerencial.tsx
   workflow_dispatch:
 
 permissions:
@@ -54,6 +55,8 @@ jobs:
             src/lib/multiempresa/new-order-service.ts \
             src/lib/multiempresa/stock-audit.ts \
             src/lib/multiempresa/stock-audit.test.ts \
+            src/lib/multiempresa/management-summary.ts \
+            src/lib/multiempresa/management-summary.test.ts \
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
@@ -68,9 +71,11 @@ jobs:
             src/components/multiempresa/TenantChatRoleControls.tsx \
             src/components/multiempresa/TenantCubicationDocumentsPreview.tsx \
             src/components/multiempresa/TenantNewOrderDraft.tsx \
+            src/components/multiempresa/TenantManagementDashboard.tsx \
             src/routes/_authenticated/route.tsx \
             src/routes/auth.tsx \
             src/routes/_authenticated/documento-cubicacion.tsx \
+            src/routes/_authenticated/panel-gerencial.tsx \
             src/routes/__root.tsx
       - name: Guardar solo los cambios de formato
         run: |
@@ -92,6 +97,8 @@ jobs:
             src/lib/multiempresa/new-order-service.ts \
             src/lib/multiempresa/stock-audit.ts \
             src/lib/multiempresa/stock-audit.test.ts \
+            src/lib/multiempresa/management-summary.ts \
+            src/lib/multiempresa/management-summary.test.ts \
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
@@ -106,9 +113,11 @@ jobs:
             src/components/multiempresa/TenantChatRoleControls.tsx \
             src/components/multiempresa/TenantCubicationDocumentsPreview.tsx \
             src/components/multiempresa/TenantNewOrderDraft.tsx \
+            src/components/multiempresa/TenantManagementDashboard.tsx \
             src/routes/_authenticated/route.tsx \
             src/routes/auth.tsx \
             src/routes/_authenticated/documento-cubicacion.tsx \
+            src/routes/_authenticated/panel-gerencial.tsx \
             src/routes/__root.tsx
           if git diff --cached --quiet; then
             echo "Sin cambios de formato."
