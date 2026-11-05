@@ -149,7 +149,7 @@ export async function listCompanyInventoryAdjustments(companyId: string) {
 }
 
 /**
- * Only company-authorized managers may view cancellation explanations.
+ * Only users with active membership may view cancellation explanations.
  * The cancellation itself remains a staged SQL RPC inaccessible from the web.
  */
 export async function listCompanyMovementCancellations(companyId: string) {
