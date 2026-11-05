@@ -637,23 +637,6 @@ function DashboardPage() {
                       <td>{formatCLP(total)}</td>
                     </tr>
                   );
-                }).format(new Date(movement.created_at))}
-                      </td>
-                      <td className="font-medium">{movement.products?.name ?? "—"}</td>
-                      <td>
-                        {movement.document_type || movement.document_number ? (
-                          <>
-                            {documentLabel}
-                            {movement.document_number ? ` N.º ${movement.document_number}` : ""}
-                          </>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td>{unitLabel}</td>
-                      <td>{formatCLP(total)}</td>
-                    </tr>
-                  );
                 })
               )}
             </tbody>
