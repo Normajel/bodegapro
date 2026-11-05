@@ -165,7 +165,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "style: aplicar Prettier solo a archivos multiempresa"
-          # The branch can move between fetch and push. Retry without force-pushing.
+          # Clean generated but untracked worktree differences after the scoped commit.\n          git reset --hard HEAD\n          # The branch can move between fetch and push. Retry without force-pushing.
           for attempt in 1 2 3 4 5; do
             git fetch origin multiempresa-desarrollo
             git rebase origin/multiempresa-desarrollo
