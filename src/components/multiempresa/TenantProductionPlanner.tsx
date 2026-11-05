@@ -68,3 +68,8 @@ export function TenantProductionPlanner({ companyId, units }: { companyId: strin
           className="rounded border border-teal-700 px-3 py-2 text-sm font-semibold text-teal-800 disabled:opacity-50">
           Revisar planificación
         </button>
+        <button type="button" disabled={!PRODUCTION_PLANNING_WRITES_ENABLED}
+          className="rounded bg-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 disabled:opacity-50">
+          Guardar programación (pendiente)
+        </button>
+      </div>
