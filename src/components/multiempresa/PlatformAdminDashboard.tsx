@@ -1,9 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useAdminProCompanyUsers } from "@/lib/multiempresa/platform-admin-service";
 import { Link } from "@tanstack/react-router";
 import { Building2, Crown, CreditCard, ShieldCheck, Users, ArrowUpRight } from "lucide-react";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 
 export function PlatformAdminDashboard() {
+  const [usersCompanyId, setUsersCompanyId] = useState<string | null>(null);
+  const users = useAdminProCompanyUsers(usersCompanyId);
   const memberships = useQuery({
     queryKey: ["platform", "my-adminpro-companies"],
     queryFn: loadMyCompanies,
@@ -37,6 +41,35 @@ export function PlatformAdminDashboard() {
             </article>
           ))}
         </div>
+      </section>
+      <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5" aria-label="Usuarios de empresas">
+        <div>
+          <h2 className="text-xl font-bold">Usuarios y perfiles</h2>
+          <p className="mt-1 text-sm text-slate-600">Consulta protegida por empresa. Solo se muestran usuarios de una compañía en la que eres AdminPro.</p>
+        </div>
+        <label className="block max-w-md text-sm font-medium">
+          Empresa
+          <select
+            value={usersCompanyId ?? ""}
+            onChange={(e) => setUsersCompanyId(e.target.value || null)}
+            className="mt-1 block w-full rounded-lg border border-slate-300 bg-white p-2"
+          >
+            <option value="">Seleccionar empresa</option>
+            {managed.map(({ company }) => <option key={company.id} value={company.id}>{company.name}</option>)}
+          </select>
+        </label>
+        {usersCompanyId && users.isPending && <p role="status">Consultando perfiles autorizados…</p>}
+        {usersCompanyId && users.isError && <p role="alert" className="text-sm text-red-700">No se pudo consultar el personal de esta empresa.</p>}
+        {usersCompanyId && users.isSuccess && (
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50"><tr><th className="p-3">Correo</th><th className="p-3">Perfil</th><th className="p-3">Estado</th></tr></thead>
+              <tbody>{users.data.map((user) => <tr key={user.user_id} className="border-t"><td className="p-3">{user.email}</td><td className="p-3">{user.role_code}</td><td className="p-3">{user.status === "active" ? "Activo" : "Inactivo"}</td></tr>)}</tbody>
+            </table>
+            {users.data.length === 0 && <p className="p-4 text-sm text-slate-500">Sin usuarios registrados para esta empresa.</p>}
+          </div>
+        )}
+        <p className="text-xs text-amber-800">La creación y modificación de perfiles continúa restringida hasta incorporar invitaciones verificadas y auditoría de cambios.</p>
       </section>
       <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
         <ShieldCheck className="shrink-0" size={20}/>
