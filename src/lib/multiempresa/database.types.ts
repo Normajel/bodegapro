@@ -1198,6 +1198,19 @@ export type Database = {
         Args: { p_order_id: string };
         Returns: undefined;
       };
+      create_tenant_purchase_order: {
+        Args: {
+          p_company_id: string;
+          p_order_id: string;
+          p_order_kind: "producto" | "servicio";
+          p_supplier_id: string;
+          p_order_number: string;
+          p_payment_terms: string;
+          p_notes: string | null;
+          p_items: Json;
+        };
+        Returns: string;
+      };
       approve_tenant_purchase_order: {
         Args: { p_company_id: string; p_order_id: string };
         Returns: string;
