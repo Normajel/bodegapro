@@ -50,6 +50,7 @@ export function LegacyMigrationGate({ children }: { children: ReactNode }) {
   // Only the public landing/auth pages remain available.
   if (
     pathname !== "/" &&
+    pathname !== "/auth" &&
     pathname !== "/login" &&
     pathname !== "/registro" &&
     pathname !== "/recuperar-contrasena" &&
