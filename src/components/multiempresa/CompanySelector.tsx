@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 import type { CompanyOption } from "@/lib/multiempresa/tenant";
@@ -132,6 +133,14 @@ export function CompanySelector() {
         <span className="text-xs text-amber-800">
           Módulos antiguos aún no adaptados: no usar con datos reales.
         </span>
+        {selected && (
+          <Link
+            to="/documento-cubicacion"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700"
+          >
+            Documentos de cubicación
+          </Link>
+        )}
         {selected && <TenantChatLauncher key={selected} companyId={selected} />}
         {selected &&
           ["ADMIN", "ADMINPRO"].includes(
