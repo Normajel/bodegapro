@@ -22,3 +22,10 @@ export function TenantProductionPlanner({ companyId, units }: { companyId: strin
   const unit = units.find((item) => item.id === selected);
   const draft: PlanningDraft = { productionUnitId: selected, area, priority, plannedDate: date, notes };
   const error = unit ? validatePlanning(draft, unit, companyId) : "Selecciona un módulo";
+  if (access.isPending) return <p role="status">Verificando permisos de planificación…</p>;
+  if (access.isError) return <p role="alert">No fue posible verificar los permisos.</p>;
+  if (!access.data) return null;
+  return (
+    <section className="mt-5 rounded-lg border border-teal-200 bg-slate-50 p-4">
+      <h3 className="font-semibold">Planificar módulo · borrador</h3>
+      <p className="mt-1 text-sm text-slate-600">Esta vista no asigna ni cambia estados reales.</p>
