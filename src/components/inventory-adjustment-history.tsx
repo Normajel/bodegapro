@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import type { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 
 const PAGE_SIZE = 10;
@@ -13,7 +14,8 @@ const dateFormat = new Intl.DateTimeFormat("es-CL", {
 export function InventoryAdjustmentHistory({ canEdit }: { canEdit: boolean }) {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Pick<Tables<"inventory_adjustments">, "id" | "reason" | "adjusted_stock"> | null>(null);
+  const [adjustedStock, setAdjustedStock] = useState("");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const query = useQuery({
@@ -31,30 +33,40 @@ export function InventoryAdjustmentHistory({ canEdit }: { canEdit: boolean }) {
     },
   });
 
-  async function saveReason(event: FormEvent<HTMLFormElement>, id: string, previous: string) {
+  async function saveAdjustment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canEdit || saving || !reason.trim()) return;
+    if (!canEdit || !editing || saving || !reason.trim()) return;
+    const quantity = Number(adjustedStock);
+    if (!adjustedStock.trim() || !Number.isSafeInteger(quantity) || quantity < 0) {
+      toast.error("Ingresa un stock ajustado entero igual o mayor a cero");
+      return;
+    }
     setSaving(true);
     try {
       const { data, error } = await supabase
         .from("inventory_adjustments")
-        .update({ reason: reason.trim() })
-        .eq("id", id)
-        .eq("reason", previous)
+        .update({ reason: reason.trim(), adjusted_stock: quantity })
+        .eq("id", editing.id)
+        .eq("reason", editing.reason)
+        .eq("adjusted_stock", editing.adjusted_stock)
         .select("id")
         .maybeSingle();
       if (error) throw error;
       if (!data) {
-        setEditingId(null);
+        setEditing(null);
         await queryClient.invalidateQueries({ queryKey: ["inventory-adjustments"] });
-        toast.error("El registro cambió. Vuelve a abrirlo para editar el motivo.");
+        toast.error("El registro cambió. Vuelve a abrirlo para editar el ajuste.");
         return;
       }
-      setEditingId(null);
+      setEditing(null);
       await queryClient.invalidateQueries({ queryKey: ["inventory-adjustments"] });
-      toast.success("Motivo actualizado");
-    } catch {
-      toast.error("No se pudo actualizar el motivo del ajuste");
+      await queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast.success("Ajuste actualizado");
+    } catch (error) {
+      const message = error && typeof error === "object" && "message" in error
+        ? String(error.message)
+        : "No se pudo actualizar el ajuste";
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -89,11 +101,27 @@ export function InventoryAdjustmentHistory({ canEdit }: { canEdit: boolean }) {
                   <td className="p-2">{row.description}</td>
                   <td className="p-2">{row.category}</td>
                   <td className="p-2">{row.initial_stock.toLocaleString("es-CL")}</td>
-                  <td className="p-2">{row.adjusted_stock.toLocaleString("es-CL")}</td>
+                  <td className="p-2">
+                    {canEdit && editing?.id === row.id ? (
+                      <input
+                        aria-label="Stock ajustado"
+                        form="edit-inventory-adjustment"
+                        className="input w-28"
+                        type="number"
+                        min={0}
+                        step={1}
+                        required
+                        value={adjustedStock}
+                        onChange={(event) => setAdjustedStock(event.target.value)}
+                      />
+                    ) : (
+                      row.adjusted_stock.toLocaleString("es-CL")
+                    )}
+                  </td>
                   <td className="whitespace-nowrap p-2">{dateFormat.format(new Date(row.created_at))}</td>
                   <td className="max-w-xs whitespace-pre-wrap break-words p-2">
-                    {canEdit && editingId === row.id ? (
-                      <form className="space-y-2" onSubmit={(event) => void saveReason(event, row.id, row.reason)}>
+                    {canEdit && editing?.id === row.id ? (
+                      <form id="edit-inventory-adjustment" className="space-y-2" onSubmit={(event) => void saveAdjustment(event)}>
                         <textarea
                           aria-label="Motivo del ajuste"
                           className="input w-full"
@@ -104,7 +132,7 @@ export function InventoryAdjustmentHistory({ canEdit }: { canEdit: boolean }) {
                         />
                         <div className="flex flex-wrap gap-2">
                           <button className="btn btn-primary" disabled={saving || !reason.trim()}>Guardar</button>
-                          <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => setEditingId(null)}>Cancelar</button>
+                          <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => setEditing(null)}>Cancelar</button>
                         </div>
                       </form>
                     ) : row.reason}
@@ -114,13 +142,14 @@ export function InventoryAdjustmentHistory({ canEdit }: { canEdit: boolean }) {
                       <button
                         type="button"
                         className="btn btn-secondary whitespace-nowrap"
-                        disabled={saving || editingId === row.id}
+                        disabled={saving || editing?.id === row.id}
                         onClick={() => {
                           setReason(row.reason);
-                          setEditingId(row.id);
+                          setAdjustedStock(String(row.adjusted_stock));
+                          setEditing(row);
                         }}
                       >
-                        Editar motivo
+                        Editar ajuste
                       </button>
                     </td>
                   )}
@@ -133,10 +162,10 @@ export function InventoryAdjustmentHistory({ canEdit }: { canEdit: boolean }) {
       {(page > 0 || rows.length > PAGE_SIZE) && (
         <div className="flex items-center gap-2 text-sm">
           <button type="button" className="btn btn-secondary" disabled={saving || page === 0}
-            onClick={() => { setEditingId(null); setPage(page - 1); }}>Anterior</button>
+            onClick={() => { setEditing(null); setPage(page - 1); }}>Anterior</button>
           <span>Página {page + 1}</span>
           <button type="button" className="btn btn-secondary" disabled={saving || rows.length <= PAGE_SIZE}
-            onClick={() => { setEditingId(null); setPage(page + 1); }}>Siguiente</button>
+            onClick={() => { setEditing(null); setPage(page + 1); }}>Siguiente</button>
         </div>
       )}
     </section>
