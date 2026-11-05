@@ -44,7 +44,11 @@ function TenantAuthPage() {
         setMessage("La cuenta no tiene una empresa activa asignada. Contacta a Administración.");
         return;
       }
-      await navigate({ to: allowed.some((membership) => membership.role === "ADMINPRO") ? "/adminpro" : "/dashboard" });
+      await navigate({
+        to: allowed.some((membership) => membership.role === "ADMINPRO")
+          ? "/adminpro"
+          : "/dashboard",
+      });
     } catch {
       setMessage(
         "No se pudo iniciar sesión. Verifica tus credenciales o consulta al administrador.",

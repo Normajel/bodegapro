@@ -134,12 +134,18 @@ export function CompanySelector() {
           Módulos antiguos aún no adaptados: no usar con datos reales.
         </span>
         {companies.some(({ role }) => role === "ADMINPRO") && (
-          <Link to="/adminpro" className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">
+          <Link
+            to="/adminpro"
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"
+          >
             Panel central AdminPro
           </Link>
         )}
         {selected && (
-          <Link to="/dashboard" className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-bold text-white hover:bg-teal-800">
+          <Link
+            to="/dashboard"
+            className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-bold text-white hover:bg-teal-800"
+          >
             ERP de la empresa
           </Link>
         )}
