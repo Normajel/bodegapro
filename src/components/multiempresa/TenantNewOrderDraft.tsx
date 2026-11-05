@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { loadMyCompanies } from "@/lib/multiempresa/company-api";
+import { createCompanyPurchaseOrder } from "@/lib/multiempresa/order-write-service";
 import {
   listCompanyProducts,
   listCompanySuppliers,
@@ -8,6 +10,7 @@ import {
 import {
   prepareNewOrder,
   type NewOrderDraft,
+  type PreparedNewOrder,
   type NewOrderLine,
   type PurchaseOrderKind,
 } from "@/lib/multiempresa/new-order";
@@ -27,8 +30,10 @@ const clp = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
-/** Draft-only UI. No mutation and no RPC is invoked by this component. */
+/** Creates one atomic, company-scoped OC through a role-checked SQL RPC. */
 export function TenantNewOrderDraft({ companyId }: { companyId: string }) {
+  const queryClient = useQueryClient();
+  const [savedNumber, setSavedNumber] = useState("");
   const [kind, setKind] = useState<PurchaseOrderKind>("producto");
   const [supplierId, setSupplierId] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
@@ -36,6 +41,28 @@ export function TenantNewOrderDraft({ companyId }: { companyId: string }) {
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<NewOrderLine[]>([blankLine()]);
   const [showReview, setShowReview] = useState(false);
+
+  const access = useQuery({
+    queryKey: ["tenant", companyId, "create-order-access"],
+    queryFn: async () => (await loadMyCompanies()).find(({ company }) => company.id === companyId)?.role ?? null,
+    staleTime: 0,
+  });
+  const mayCreate = access.isSuccess && ["ADMIN", "ADMINPRO"].includes(access.data ?? "");
+  const saveOrder = useMutation({
+    mutationFn: (order: PreparedNewOrder) => createCompanyPurchaseOrder(order),
+    onSuccess: async (_orderId, order) => {
+      setSavedNumber(order.orderNumber);
+      setKind("producto");
+      setSupplierId("");
+      setOrderNumber("");
+      setPaymentTerms("contado");
+      setNotes("");
+      setLines([blankLine()]);
+      setShowReview(false);
+      await queryClient.invalidateQueries({ queryKey: tenantQueryKeys.orders(companyId) });
+      await queryClient.invalidateQueries({ queryKey: ["tenant", companyId, "management-orders"] });
+    },
+  });
 
   const suppliers = useQuery({
     queryKey: tenantQueryKeys.suppliers(companyId),
@@ -87,8 +114,8 @@ export function TenantNewOrderDraft({ companyId }: { companyId: string }) {
     >
       <h2 className="text-lg font-semibold">Preparar nueva orden de compra</h2>
       <p className="mt-1 text-sm text-slate-600">
-        Borrador de prueba. No se guarda ni se envía a Gerencia. Las OC de productos y servicios son
-        independientes.
+        Las OC de productos y servicios son independientes. Al registrar, quedan pendientes de aprobación
+        por Gerencia. No se descuentan existencias al crear la orden.
       </p>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="block text-sm font-medium">
@@ -290,13 +317,21 @@ export function TenantNewOrderDraft({ companyId }: { companyId: string }) {
         </button>
         <button
           type="button"
-          disabled
-          title="Guardado pendiente de validación con usuarios Auth reales"
-          className="cursor-not-allowed rounded bg-slate-300 px-4 py-2 text-sm font-semibold text-slate-600"
+          disabled={!prepared || !mayCreate || saveOrder.isPending}
+          title={!mayCreate ? "Solo Administración y AdminPro pueden crear OC" : undefined}
+          onClick={() => {
+            if (!prepared || saveOrder.isPending) return;
+            setSavedNumber("");
+            saveOrder.mutate(prepared);
+          }}
+          className="rounded bg-teal-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Crear OC (próximamente)
+          {saveOrder.isPending ? "Registrando…" : "Crear orden de compra"}
         </button>
       </div>
+      {savedNumber && <p role="status" className="mt-3 rounded bg-teal-50 p-3 text-sm text-teal-900">OC {savedNumber} creada correctamente. Pendiente de aprobación.</p>}
+      {saveOrder.isError && <p role="alert" className="mt-3 text-sm text-red-700">{saveOrder.error instanceof Error ? saveOrder.error.message : "No se pudo registrar la OC."}</p>}
+      {access.isError && <p role="alert">No se pudieron verificar permisos para crear OC.</p>}
       {showReview && prepared && (
         <div className="mt-4 rounded border border-teal-200 bg-teal-50 p-3 text-sm">
           <strong>Resumen de OC {prepared.orderNumber}</strong>
