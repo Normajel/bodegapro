@@ -152,6 +152,11 @@ export type Database = {
           module_index: number;
           unit_code_snapshot: string;
           status?: string;
+          planned_area?: string | null;
+          priority?: string | null;
+          planned_date?: string | null;
+          planned_by?: string | null;
+          planned_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -162,6 +167,11 @@ export type Database = {
           module_index?: number;
           unit_code_snapshot?: string;
           status?: string;
+          planned_area?: string | null;
+          priority?: string | null;
+          planned_date?: string | null;
+          planned_by?: string | null;
+          planned_at?: string | null;
           created_at?: string;
         };
         Relationships: [];
