@@ -47,6 +47,8 @@ jobs:
             src/lib/multiempresa/receipt-service.ts \
             src/lib/multiempresa/approval-service.ts \
             src/lib/multiempresa/approval-service.test.ts \
+            src/lib/multiempresa/new-order.ts \
+            src/lib/multiempresa/new-order.test.ts \
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
@@ -56,6 +58,7 @@ jobs:
             src/components/multiempresa/TenantReceiptDraftForm.tsx \
             src/components/multiempresa/TenantSuppliersPreview.tsx \
             src/components/multiempresa/TenantServicesLedger.tsx \
+            src/components/multiempresa/TenantNewOrderDraft.tsx \
             src/routes/_authenticated/route.tsx \
             src/routes/auth.tsx
       - name: Guardar solo los cambios de formato
@@ -73,6 +76,8 @@ jobs:
             src/lib/multiempresa/receipt-service.ts \
             src/lib/multiempresa/approval-service.ts \
             src/lib/multiempresa/approval-service.test.ts \
+            src/lib/multiempresa/new-order.ts \
+            src/lib/multiempresa/new-order.test.ts \
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
@@ -82,6 +87,7 @@ jobs:
             src/components/multiempresa/TenantReceiptDraftForm.tsx \
             src/components/multiempresa/TenantSuppliersPreview.tsx \
             src/components/multiempresa/TenantServicesLedger.tsx \
+            src/components/multiempresa/TenantNewOrderDraft.tsx \
             src/routes/_authenticated/route.tsx \
             src/routes/auth.tsx
           if git diff --cached --quiet; then
