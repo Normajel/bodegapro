@@ -46,37 +46,79 @@ export type Database = {
       };
       tenant_sales_notes: {
         Row: {
-          id: string; company_id: string; note_number: string; customer_id: string;
-          customer_name_snapshot: string; status: string; notes: string | null;
-          created_by: string; created_at: string; updated_at: string;
+          id: string;
+          company_id: string;
+          note_number: string;
+          customer_id: string;
+          customer_name_snapshot: string;
+          status: string;
+          notes: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
         };
         Insert: {
-          id?: string; company_id: string; note_number: string; customer_id: string;
-          customer_name_snapshot: string; status?: string; notes?: string | null;
-          created_by: string; created_at?: string; updated_at?: string;
+          id?: string;
+          company_id: string;
+          note_number: string;
+          customer_id: string;
+          customer_name_snapshot: string;
+          status?: string;
+          notes?: string | null;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
         };
         Update: {
-          id?: string; company_id?: string; note_number?: string; customer_id?: string;
-          customer_name_snapshot?: string; status?: string; notes?: string | null;
-          created_by?: string; created_at?: string; updated_at?: string;
+          id?: string;
+          company_id?: string;
+          note_number?: string;
+          customer_id?: string;
+          customer_name_snapshot?: string;
+          status?: string;
+          notes?: string | null;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
       tenant_sales_note_units: {
         Row: {
-          id: string; company_id: string; sales_note_id: string; position: number;
-          cubication_kind: "normal" | "especial"; cubication_id: string;
-          unit_code_snapshot: string; modules: number; snapshot: Json; created_at: string;
+          id: string;
+          company_id: string;
+          sales_note_id: string;
+          position: number;
+          cubication_kind: "normal" | "especial";
+          cubication_id: string;
+          unit_code_snapshot: string;
+          modules: number;
+          snapshot: Json;
+          created_at: string;
         };
         Insert: {
-          id?: string; company_id: string; sales_note_id: string; position: number;
-          cubication_kind: "normal" | "especial"; cubication_id: string;
-          unit_code_snapshot: string; modules: number; snapshot: Json; created_at?: string;
+          id?: string;
+          company_id: string;
+          sales_note_id: string;
+          position: number;
+          cubication_kind: "normal" | "especial";
+          cubication_id: string;
+          unit_code_snapshot: string;
+          modules: number;
+          snapshot: Json;
+          created_at?: string;
         };
         Update: {
-          id?: string; company_id?: string; sales_note_id?: string; position?: number;
-          cubication_kind?: "normal" | "especial"; cubication_id?: string;
-          unit_code_snapshot?: string; modules?: number; snapshot?: Json; created_at?: string;
+          id?: string;
+          company_id?: string;
+          sales_note_id?: string;
+          position?: number;
+          cubication_kind?: "normal" | "especial";
+          cubication_id?: string;
+          unit_code_snapshot?: string;
+          modules?: number;
+          snapshot?: Json;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -1367,8 +1409,12 @@ export type Database = {
       };
       create_tenant_sales_note: {
         Args: {
-          p_company_id: string; p_note_id: string; p_number: string;
-          p_customer_id: string; p_notes: string | null; p_units: Json;
+          p_company_id: string;
+          p_note_id: string;
+          p_number: string;
+          p_customer_id: string;
+          p_notes: string | null;
+          p_units: Json;
         };
         Returns: string;
       };
