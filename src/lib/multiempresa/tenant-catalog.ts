@@ -23,6 +23,9 @@ export const tenantQueryKeys = {
   movements: (companyId: string) => ["tenant", companyId, "movements"] as const,
   managementProducts: (companyId: string) => ["tenant", companyId, "management-products"] as const,
   managementOrders: (companyId: string) => ["tenant", companyId, "management-orders"] as const,
+  cubicationCatalog: (companyId: string) => ["tenant", companyId, "cubication-catalog"] as const,
+  cubicationScenario: (companyId: string, kind: string, documentId: string) =>
+    ["tenant", companyId, "cubication-scenario", kind, documentId] as const,
   managementMovements: (companyId: string, from: string, to: string) =>
     ["tenant", companyId, "management-movements", from, to] as const,
   movementCancellations: (companyId: string) =>
@@ -254,4 +257,82 @@ export async function listTenantManagementOrders(companyId: string) {
     if ((data?.length ?? 0) < 1000) return rows;
   }
   throw new Error("Demasiadas OC para este panel. Se necesita un informe de gran volumen.");
+}
+
+/** Returns only saved units belonging to the active company. */
+export async function listTenantCubicationCatalog(companyId: string) {
+  await requireCompany(companyId);
+  const [normal, special] = await Promise.all([
+    db.from("cubication_templates")
+      .select("id,company_id,unit_code,created_at")
+      .eq("company_id", companyId).order("created_at", { ascending: false }).limit(1001),
+    db.from("special_cubication_documents")
+      .select("id,company_id,unit_code,created_at")
+      .eq("company_id", companyId).order("created_at", { ascending: false }).limit(1001),
+  ]);
+  if (normal.error) throw normal.error;
+  if (special.error) throw special.error;
+  if ((normal.data?.length ?? 0) > 1000 || (special.data?.length ?? 0) > 1000)
+    throw new Error("Hay más de 1000 cubicaciones guardadas. Debes filtrar el catálogo.");
+  return [
+    ...(normal.data ?? []).map((item) => ({ ...item, kind: "normal" as const })),
+    ...(special.data ?? []).map((item) => ({ ...item, kind: "especial" as const })),
+  ];
+}
+
+export async function getTenantCubicationScenario(
+  companyId: string,
+  kind: "normal" | "especial",
+  documentId: string,
+) {
+  await requireCompany(companyId);
+  if (!documentId) throw new Error("Selecciona una cubicación.");
+  if (kind === "normal") {
+    const [document, lines] = await Promise.all([
+      db.from("cubication_templates").select("id,company_id,unit_code")
+        .eq("company_id", companyId).eq("id", documentId).single(),
+      db.from("cubication_template_items").select("product_id,quantity")
+        .eq("company_id", companyId).eq("template_id", documentId).limit(1001),
+    ]);
+    if (document.error) throw document.error;
+    if (lines.error) throw lines.error;
+    if ((lines.data?.length ?? 0) > 1000) throw new Error("La cubicación excede 1000 materiales.");
+    return {
+      kind: "normal" as const,
+      unitCode: document.data.unit_code,
+      lines: (lines.data ?? []).map((line) => ({
+        productId: line.product_id, quantity: Number(line.quantity),
+      })),
+    };
+  }
+
+  const [document, lines] = await Promise.all([
+    db.from("special_cubication_documents").select("id,company_id,unit_code")
+      .eq("company_id", companyId).eq("id", documentId).single(),
+    db.from("special_cubication_lines")
+      .select("special_product_id,quantity,unit_cost")
+      .eq("company_id", companyId).eq("document_id", documentId).limit(1001),
+  ]);
+  if (document.error) throw document.error;
+  if (lines.error) throw lines.error;
+  if ((lines.data?.length ?? 0) > 1000) throw new Error("La cubicación especial excede 1000 materiales.");
+  const ids = [...new Set((lines.data ?? []).map((line) => line.special_product_id))];
+  const details = ids.length
+    ? await db.from("special_products").select("id,name,unit,active")
+      .eq("company_id", companyId).in("id", ids).limit(1001)
+    : { data: [], error: null };
+  if (details.error) throw details.error;
+  const names = new Map((details.data ?? []).map((item) => [item.id, item.name]));
+  const missingIds = ids.filter((id) => !names.has(id));
+  if (missingIds.length) throw new Error("La cubicación referencia productos especiales que no se pueden consultar.");
+  return {
+    kind: "especial" as const,
+    unitCode: document.data.unit_code,
+    lines: (lines.data ?? []).map((line) => ({
+      productId: line.special_product_id,
+      name: names.get(line.special_product_id) ?? "Producto especial",
+      quantity: Number(line.quantity),
+      unitCost: Number(line.unit_cost),
+    })),
+  };
 }
