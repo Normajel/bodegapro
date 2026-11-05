@@ -644,6 +644,10 @@ function ComprasPage() {
   }
 
   function printOrder(orderId: string) {
+    if (!canManageServiceOrders && orderItems.some((item) => item.purchase_order_id === orderId && item.item_type === "servicio")) {
+      toast.error("Solo ADMIN y ADMINPRO pueden imprimir OC de servicios");
+      return;
+    }
     setPreviewOrderId(orderId);
     window.requestAnimationFrame(() => window.requestAnimationFrame(() => window.print()));
   }
@@ -1524,10 +1528,12 @@ function ComprasPage() {
           <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/40 p-2 sm:p-4">
             <div className="purchase-order-print card my-2 flex w-full max-w-[210mm] flex-col gap-4 bg-white p-4 sm:my-4 sm:min-h-[297mm] sm:p-[12mm]">
               <div className="purchase-order-print-actions flex justify-end gap-2">
-                <button type="button" className="btn btn-secondary" onClick={() => window.print()}>
-                  <Printer className="h-4 w-4" />
-                  Imprimir
-                </button>
+                {(canManageServiceOrders || !previewOrderItems.some((item) => item.item_type === "servicio")) && (
+                  <button type="button" className="btn btn-secondary" onClick={() => window.print()}>
+                    <Printer className="h-4 w-4" />
+                    Imprimir
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn btn-ghost p-1.5"
