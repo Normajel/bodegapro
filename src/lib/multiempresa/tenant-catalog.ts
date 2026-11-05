@@ -15,6 +15,7 @@ async function requireCompany(companyId: string) {
 
 export const tenantQueryKeys = {
   products: (companyId: string) => ["tenant", companyId, "products"] as const,
+  inventoryAdjustments: (companyId: string) => ["tenant", companyId, "inventory-adjustments"] as const,
   suppliers: (companyId: string) => ["tenant", companyId, "suppliers"] as const,
   orders: (companyId: string) => ["tenant", companyId, "purchase-orders"] as const,
   movements: (companyId: string) => ["tenant", companyId, "movements"] as const,
@@ -126,6 +127,19 @@ export async function listCompanyAcceptedServices(companyId: string) {
     )
     .eq("company_id", companyId)
     .order("approved_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+/** Read-only audit trail, restricted again by server-side RLS to company admins. */
+export async function listCompanyInventoryAdjustments(companyId: string) {
+  await requireCompany(companyId);
+  const { data, error } = await db
+    .from("tenant_inventory_adjustments")
+    .select("id,company_id,product_id,description,category,initial_stock,adjusted_stock,reason,created_at,created_by,edited_at")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false })
+    .limit(100);
   if (error) throw error;
   return data;
 }
