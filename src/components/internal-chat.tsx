@@ -81,6 +81,16 @@ export function InternalChat({ userId, onClose }: { userId: string; onClose: () 
     event.preventDefault();
     if (peer && draft.trim() && !send.isPending) send.mutate({ recipient: peer, body: draft.trim() });
   }
+  function openConversation(user: string) {
+    setPage(0);
+    if (user === peer) return;
+    setPeer(user);
+    setDraft("");
+    send.reset();
+  }
+
+  const unreadSenders = contacts.data?.filter((contact) => contact.unread_count > 0) ?? [];
+  const selectedContact = contacts.data?.find((contact) => contact.user_id === peer);
   const messages = thread.data?.slice(0, 30).reverse() ?? [];
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -89,12 +99,12 @@ export function InternalChat({ userId, onClose }: { userId: string; onClose: () 
         <DialogDescription>Conversación privada entre dos usuarios de BodegaPro.</DialogDescription>
         <label className="grid gap-1 text-sm">
           Usuario
-          <select className="input w-full" value={peer} disabled={send.isPending} onChange={(event) => {
-            setPeer(event.target.value);
-            setPage(0);
-            setDraft("");
-            send.reset();
-          }}>
+          <select
+            className="input w-full"
+            value={peer}
+            disabled={send.isPending}
+            onChange={(event) => openConversation(event.target.value)}
+          >
             <option value="">Selecciona un usuario</option>
             {contacts.data?.map((contact) => (
               <option key={contact.user_id} value={contact.user_id}>
@@ -104,10 +114,43 @@ export function InternalChat({ userId, onClose }: { userId: string; onClose: () 
             ))}
           </select>
         </label>
+        {unreadSenders.length > 0 && (
+          <section className="space-y-2" aria-labelledby="unread-senders-title">
+            <h3 id="unread-senders-title" className="text-sm font-semibold">
+              Mensajes sin leer
+            </h3>
+            <ul className="space-y-2">
+              {unreadSenders.map((sender) => (
+                <li key={sender.user_id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                  <div className="min-w-0 break-words text-sm">
+                    <p className="font-semibold">{sender.display_name}</p>
+                    <p className="text-muted-foreground">
+                      {sender.role_name} · {sender.unread_count} sin leer
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary min-h-11 shrink-0"
+                    aria-label={`Leer mensajes de ${sender.display_name}`}
+                    disabled={send.isPending}
+                    onClick={() => openConversation(sender.user_id)}
+                  >
+                    Leer
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {contacts.isError && <p role="alert">No se pudieron cargar los usuarios.</p>}
         {contacts.isSuccess && !contacts.data.length && <p>No hay otros usuarios disponibles.</p>}
         {peer && (
           <>
+            {selectedContact && (
+              <h3 className="break-words text-sm font-semibold">
+                Conversación con {selectedContact.display_name}
+              </h3>
+            )}
             <div className="max-h-[35dvh] space-y-2 overflow-y-auto rounded-lg border p-3" aria-label="Historial de la conversación">
               {(thread.data?.length ?? 0) > 30 && (
                 <button type="button" className="btn btn-secondary" onClick={() => setPage(page + 1)}>
