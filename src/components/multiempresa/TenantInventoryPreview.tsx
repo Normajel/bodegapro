@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useActiveCompany } from "@/lib/multiempresa/company-context";
+import { TenantInventoryAdjustmentHistory } from "./TenantInventoryAdjustmentHistory";
 import { listCompanyProducts, tenantQueryKeys } from "@/lib/multiempresa/tenant-catalog";
 
 export function TenantInventoryPreview() {
@@ -60,6 +61,7 @@ export function TenantInventoryPreview() {
           )}
         </div>
       )}
+      {companyId && <TenantInventoryAdjustmentHistory companyId={companyId} />}
     </main>
   );
 }
