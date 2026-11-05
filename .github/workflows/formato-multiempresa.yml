@@ -52,6 +52,8 @@ jobs:
             src/lib/multiempresa/new-order.ts \
             src/lib/multiempresa/new-order.test.ts \
             src/lib/multiempresa/new-order-service.ts \
+            src/lib/multiempresa/stock-audit.ts \
+            src/lib/multiempresa/stock-audit.test.ts \
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
@@ -88,6 +90,8 @@ jobs:
             src/lib/multiempresa/new-order.ts \
             src/lib/multiempresa/new-order.test.ts \
             src/lib/multiempresa/new-order-service.ts \
+            src/lib/multiempresa/stock-audit.ts \
+            src/lib/multiempresa/stock-audit.test.ts \
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
