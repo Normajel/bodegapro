@@ -26,6 +26,7 @@ import {
   summarizeTenantManagement,
   tenantMovementSeries,
 } from "@/lib/multiempresa/management-summary";
+import { tenantManagementAlerts } from "@/lib/multiempresa/management-alerts";
 
 const colors = ["#0d9488", "#2563eb", "#f59e0b", "#8b5cf6", "#64748b", "#ef4444"];
 const clp = (value: number) =>
@@ -54,18 +55,19 @@ export function TenantManagementDashboard() {
   const [category, setCategory] = useState("");
   const [mode, setMode] = useState<"daily" | "cumulative">("daily");
   const [refreshing, setRefreshing] = useState(false);
+  const [dismissed, setDismissed] = useState<string[]>([]);
 
   const access = useQuery({
     queryKey: ["tenant", companyId ?? "", "management-access"],
     queryFn: async () => {
       const list = await loadMyCompanies();
       const role = list.find((item) => item.company.id === companyId)?.role;
-      return role === "ADMIN" || role === "ADMINPRO" || role === "GERENCIA" || role === "GERENTE";
+      return role ?? null;
     },
     enabled: !!companyId,
     staleTime: 0,
   });
-  const authorized = access.data === true;
+  const authorized = ["ADMIN", "ADMINPRO", "GERENCIA", "GERENTE"].includes(access.data ?? "");
   const products = useQuery({
     queryKey: tenantQueryKeys.products(companyId ?? ""),
     queryFn: () => listCompanyProducts(companyId!),
@@ -91,6 +93,8 @@ export function TenantManagementDashboard() {
     ? summarizeTenantManagement(products.data, orders.data, movements.data, category)
     : null;
   const trend = movements.data ? tenantMovementSeries(movements.data, mode === "cumulative") : [];
+  const alerts = summary ? tenantManagementAlerts(access.data, summary) : [];
+  const visibleAlerts = alerts.filter((alert) => !dismissed.includes((companyId ?? "") + ":" + alert.id));
   const categoryRows = summary?.categoryValues.filter((item) => item.value > 0) ?? [];
   const orderRows = summary?.orderGroups.filter((item) => item.count > 0) ?? [];
   const options = [...new Set((products.data ?? []).map((product) => product.category))].sort();
@@ -99,6 +103,7 @@ export function TenantManagementDashboard() {
   async function refresh() {
     if (!companyId) return;
     setRefreshing(true);
+    setDismissed((items) => items.filter((item) => !item.startsWith(companyId + ":")));
     try {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: tenantQueryKeys.products(companyId) }),
@@ -189,6 +194,31 @@ export function TenantManagementDashboard() {
           )}
           {summary && dateValid && (
             <>
+              <section aria-label="Notificaciones de la empresa" className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="font-semibold">Avisos de Gerencia y Administración</h2>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                    {visibleAlerts.length} aviso(s)
+                  </span>
+                </div>
+                {visibleAlerts.length > 0 ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {visibleAlerts.map((alert) => (
+                      <div key={alert.id} className="flex items-start justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">
+                        <p className="text-sm"><strong>{alert.count}</strong> · {alert.label}</p>
+                        <button type="button"
+                          aria-label={`Descartar aviso de ${alert.label}`}
+                          onClick={() => setDismissed((old) => [...old, (companyId ?? "") + ":" + alert.id])}
+                          className="rounded border border-amber-400 px-2 py-1 text-xs font-bold">X</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-600">
+                    No hay avisos pendientes para mostrar. Pulsa Actualizar datos para volver a consultar.
+                  </p>
+                )}
+              </section>
               <section
                 aria-label="Indicadores de inventario y compras"
                 className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
