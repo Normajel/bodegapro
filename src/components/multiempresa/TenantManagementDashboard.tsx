@@ -394,7 +394,7 @@ export function TenantManagementDashboard() {
                 <TenantCubicationSimulator
                   key={companyId}
                   companyId={companyId}
-                  products={products.data}
+                  products={products.data ?? []}
                 />
               )}
             </>
