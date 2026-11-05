@@ -27,6 +27,7 @@ import {
   tenantMovementSeries,
 } from "@/lib/multiempresa/management-summary";
 import { tenantManagementAlerts } from "@/lib/multiempresa/management-alerts";
+import { TenantCubicationSimulator } from "./TenantCubicationSimulator";
 
 const colors = ["#0d9488", "#2563eb", "#f59e0b", "#8b5cf6", "#64748b", "#ef4444"];
 const clp = (value: number) =>
@@ -389,6 +390,13 @@ export function TenantManagementDashboard() {
                   un único volumen físico.
                 </p>
               </section>
+              {companyId && (
+                <TenantCubicationSimulator
+                  key={companyId}
+                  companyId={companyId}
+                  products={products.data}
+                />
+              )}
             </>
           )}
         </>
