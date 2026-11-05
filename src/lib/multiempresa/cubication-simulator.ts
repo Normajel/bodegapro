@@ -28,8 +28,17 @@ export function simulateTenantCubication(
     throw new Error("La cantidad de módulos debe ser un entero entre 1 y 1000.");
   }
   if (requirements.length === 0) {
-    return { rows: [], maxModules: 0, totalCost: 0, shortageCost: 0, coveredCost: 0,
-      missingCount: 0, unpricedCount: 0, missingProductIds: [], coveragePercent: null as number | null };
+    return {
+      rows: [],
+      maxModules: 0,
+      totalCost: 0,
+      shortageCost: 0,
+      coveredCost: 0,
+      missingCount: 0,
+      unpricedCount: 0,
+      missingProductIds: [],
+      coveragePercent: null as number | null,
+    };
   }
   const byId = new Map(materials.map((p) => [p.id, p]));
   const aggregated = new Map<string, number>();
@@ -47,33 +56,53 @@ export function simulateTenantCubication(
     const available = safeNumber(p.available);
     const missing = Math.max(0, required - available);
     const unitCost = safeNumber(p.unitCost);
-    return [{
-      productId, name: p.name, category: p.category, unit: p.unit,
-      perModule, required, available, missing, unitCost,
-      estimatedCost: required * unitCost,
-      shortageCost: missing * unitCost,
-      costAvailable: unitCost > 0,
-    }];
+    return [
+      {
+        productId,
+        name: p.name,
+        category: p.category,
+        unit: p.unit,
+        perModule,
+        required,
+        available,
+        missing,
+        unitCost,
+        estimatedCost: required * unitCost,
+        shortageCost: missing * unitCost,
+        costAvailable: unitCost > 0,
+      },
+    ];
   });
   const totalCost = rows.reduce((sum, row) => sum + row.estimatedCost, 0);
   const shortageCost = rows.reduce((sum, row) => sum + row.shortageCost, 0);
   const coveredCost = Math.max(0, totalCost - shortageCost);
-  const pricedTotal = rows.filter((row) => row.costAvailable).reduce((sum, row) => sum + row.estimatedCost, 0);
-  const pricedShortage = rows.filter((row) => row.costAvailable).reduce((sum, row) => sum + row.shortageCost, 0);
+  const pricedTotal = rows
+    .filter((row) => row.costAvailable)
+    .reduce((sum, row) => sum + row.estimatedCost, 0);
+  const pricedShortage = rows
+    .filter((row) => row.costAvailable)
+    .reduce((sum, row) => sum + row.shortageCost, 0);
   return {
-    rows, maxModules: missingProductIds.length ? 0 : Math.max(0, Math.min(
-      ...rows.map((row) => Math.floor(row.available / row.perModule)),
-    )),
-    totalCost, shortageCost, coveredCost,
+    rows,
+    maxModules: missingProductIds.length
+      ? 0
+      : Math.max(0, Math.min(...rows.map((row) => Math.floor(row.available / row.perModule)))),
+    totalCost,
+    shortageCost,
+    coveredCost,
     missingCount: rows.filter((row) => row.missing > 0).length + missingProductIds.length,
     unpricedCount: rows.filter((row) => !row.costAvailable).length,
     missingProductIds,
-    coveragePercent: pricedTotal > 0 ? Math.max(0, Math.min(100, (1 - pricedShortage / pricedTotal) * 100)) : null,
+    coveragePercent:
+      pricedTotal > 0 ? Math.max(0, Math.min(100, (1 - pricedShortage / pricedTotal) * 100)) : null,
   };
 }
 
 /** Special products have no stock by design; never infer possible production from their inventory. */
-export function simulateTenantSpecialCubication(lines: readonly SimulationSpecialLine[], modules: number) {
+export function simulateTenantSpecialCubication(
+  lines: readonly SimulationSpecialLine[],
+  modules: number,
+) {
   if (!Number.isSafeInteger(modules) || modules < 1 || modules > 1000) {
     throw new Error("La cantidad de módulos debe ser un entero entre 1 y 1000.");
   }
