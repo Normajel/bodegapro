@@ -20,6 +20,8 @@ export const tenantQueryKeys = {
   suppliers: (companyId: string) => ["tenant", companyId, "suppliers"] as const,
   orders: (companyId: string) => ["tenant", companyId, "purchase-orders"] as const,
   movements: (companyId: string) => ["tenant", companyId, "movements"] as const,
+  managementMovements: (companyId: string, from: string, to: string) =>
+    ["tenant", companyId, "management-movements", from, to] as const,
   movementCancellations: (companyId: string) =>
     ["tenant", companyId, "movement-cancellations"] as const,
   acceptedServices: (companyId: string) => ["tenant", companyId, "accepted-services"] as const,
@@ -165,4 +167,45 @@ export async function listCompanyMovementCancellations(companyId: string) {
     .limit(100);
   if (error) throw error;
   return data;
+}
+
+/**
+ * Dashboard retrieves complete dated movement data, not the 100-row preview.
+ * On very large datasets it fails clearly instead of silently showing partial totals.
+ * Cancelled standalone movements are excluded using the tenant audit ledger.
+ */
+export async function listTenantManagementMovements(companyId: string, from: string, to: string) {
+  await requireCompany(companyId);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || from > to) {
+    throw new Error("Selecciona un período válido.");
+  }
+  const rows: Array<{ id: string; type: string; quantity: number; created_at: string }> = [];
+  const cancelled = new Set<string>();
+  for (let start = 0; start <= 5000; start += 1000) {
+    const { data, error } = await db
+      .from("stock_movements")
+      .select("id,type,quantity,created_at")
+      .eq("company_id", companyId)
+      .gte("created_at", from + "T00:00:00-03:00")
+      .lt("created_at", to + "T23:59:59.999-03:00")
+      .order("id")
+      .range(start, start + 999);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if ((data?.length ?? 0) < 1000) break;
+    if (start === 5000) throw new Error("El período supera el máximo de registros del panel; acota las fechas.");
+  }
+  for (let start = 0; start <= 5000; start += 1000) {
+    const { data, error } = await db
+      .from("tenant_movement_cancellations")
+      .select("movement_id")
+      .eq("company_id", companyId)
+      .order("id")
+      .range(start, start + 999);
+    if (error) throw error;
+    for (const entry of data ?? []) cancelled.add(entry.movement_id);
+    if ((data?.length ?? 0) < 1000) break;
+    if (start === 5000) throw new Error("El historial de anulaciones supera el máximo permitido.");
+  }
+  return rows.filter((movement) => !cancelled.has(movement.id));
 }
