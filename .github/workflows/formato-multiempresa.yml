@@ -8,6 +8,8 @@ on:
       - src/components/multiempresa/**
       - src/routes/_authenticated/route.tsx
       - src/routes/auth.tsx
+      - src/routes/__root.tsx
+      - src/routes/_authenticated/documento-cubicacion.tsx
   workflow_dispatch:
 
 permissions:
@@ -61,9 +63,13 @@ jobs:
             src/components/multiempresa/TenantSuppliersPreview.tsx \
             src/components/multiempresa/TenantServicesLedger.tsx \
             src/components/multiempresa/TenantChatPanel.tsx \
+            src/components/multiempresa/TenantChatRoleControls.tsx \
+            src/components/multiempresa/TenantCubicationDocumentsPreview.tsx \
             src/components/multiempresa/TenantNewOrderDraft.tsx \
             src/routes/_authenticated/route.tsx \
-            src/routes/auth.tsx
+            src/routes/auth.tsx \
+            src/routes/_authenticated/documento-cubicacion.tsx \
+            src/routes/__root.tsx
       - name: Guardar solo los cambios de formato
         run: |
           git add -- \
@@ -93,9 +99,13 @@ jobs:
             src/components/multiempresa/TenantSuppliersPreview.tsx \
             src/components/multiempresa/TenantServicesLedger.tsx \
             src/components/multiempresa/TenantChatPanel.tsx \
+            src/components/multiempresa/TenantChatRoleControls.tsx \
+            src/components/multiempresa/TenantCubicationDocumentsPreview.tsx \
             src/components/multiempresa/TenantNewOrderDraft.tsx \
             src/routes/_authenticated/route.tsx \
-            src/routes/auth.tsx
+            src/routes/auth.tsx \
+            src/routes/_authenticated/documento-cubicacion.tsx \
+            src/routes/__root.tsx
           if git diff --cached --quiet; then
             echo "Sin cambios de formato."
             exit 0
