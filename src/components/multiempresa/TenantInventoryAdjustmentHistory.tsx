@@ -93,13 +93,19 @@ export function TenantInventoryAdjustmentHistory({ companyId }: { companyId: str
       <div className="mt-5 border-t pt-4">
         <h3 className="font-semibold">Correcciones posteriores de ajustes</h3>
         <p className="mt-1 text-xs text-slate-600">
-          El ajuste original nunca se reescribe. Una corrección crea un nuevo evento y actualiza
-          el stock actual, sin reproducir movimientos históricos.
+          El ajuste original nunca se reescribe. Una corrección crea un nuevo evento y actualiza el
+          stock actual, sin reproducir movimientos históricos.
         </p>
-        {corrections.isPending && <p role="status" className="mt-2">Consultando correcciones…</p>}
-        {corrections.isError && <p role="alert" className="mt-2 text-red-700">
-          No se pudieron consultar las correcciones de la empresa.
-        </p>}
+        {corrections.isPending && (
+          <p role="status" className="mt-2">
+            Consultando correcciones…
+          </p>
+        )}
+        {corrections.isError && (
+          <p role="alert" className="mt-2 text-red-700">
+            No se pudieron consultar las correcciones de la empresa.
+          </p>
+        )}
         {corrections.isSuccess && (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -122,14 +128,17 @@ export function TenantInventoryAdjustmentHistory({ companyId }: { companyId: str
                     <td className="p-2">{item.corrected_stock}</td>
                     <td className="p-2">{item.reason}</td>
                     <td className="p-2">
-                      {new Date(item.corrected_at).toLocaleString("es-CL")} · {item.corrected_by.slice(0, 8)}
+                      {new Date(item.corrected_at).toLocaleString("es-CL")} ·{" "}
+                      {item.corrected_by.slice(0, 8)}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             {!corrections.data.length && (
-              <p className="p-3 text-sm text-slate-600">No hay correcciones posteriores registradas.</p>
+              <p className="p-3 text-sm text-slate-600">
+                No hay correcciones posteriores registradas.
+              </p>
             )}
           </div>
         )}
