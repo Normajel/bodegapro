@@ -1528,6 +1528,17 @@ export type Database = {
         Args: { p_company_id: string; p_note_id: string };
         Returns: string;
       };
+      plan_tenant_production_unit: {
+        Args: {
+          p_company_id: string;
+          p_production_unit_id: string;
+          p_area: string;
+          p_priority: string;
+          p_planned_date: string;
+          p_reason: string;
+        };
+        Returns: string;
+      };
       approve_tenant_sales_note: {
         Args: { p_company_id: string; p_note_id: string };
         Returns: string;
