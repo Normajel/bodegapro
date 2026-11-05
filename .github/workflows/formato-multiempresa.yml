@@ -60,6 +60,7 @@ jobs:
             src/components/multiempresa/TenantReceiptDraftForm.tsx \
             src/components/multiempresa/TenantSuppliersPreview.tsx \
             src/components/multiempresa/TenantServicesLedger.tsx \
+            src/components/multiempresa/TenantChatPanel.tsx \
             src/components/multiempresa/TenantNewOrderDraft.tsx \
             src/routes/_authenticated/route.tsx \
             src/routes/auth.tsx
@@ -91,6 +92,7 @@ jobs:
             src/components/multiempresa/TenantReceiptDraftForm.tsx \
             src/components/multiempresa/TenantSuppliersPreview.tsx \
             src/components/multiempresa/TenantServicesLedger.tsx \
+            src/components/multiempresa/TenantChatPanel.tsx \
             src/components/multiempresa/TenantNewOrderDraft.tsx \
             src/routes/_authenticated/route.tsx \
             src/routes/auth.tsx
