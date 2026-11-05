@@ -29,3 +29,13 @@ Fecha de revisión: 5 de noviembre de 2026. Origen: rama `main` del repositorio 
 - Crear cuentas de prueba reales y validar RLS y concurrencia con API/navegador.
 
 La rama `main` de Contemar sigue siendo la fuente de referencia, no un destino de modificaciones.
+
+## Actualización de transferencia — 5 de noviembre de 2026
+
+- **Documento de cubicación guardado**: se completó el visor de la empresa, con nombres reales de productos normales y especiales, cantidades, stock de productos normales, costos unitarios, subtotales, fecha, cliente/tipo de unidad/referencia editables solo para la presentación, y descarga PDF de consulta. Los productos especiales se muestran correctamente como **sin stock**. No se concede permiso de edición de cubicaciones ni se realizan cambios en inventario al generar el PDF.
+- **Corrección de ajustes históricos de stock**: se implementó un mecanismo más seguro que editar la fila histórica. La tabla `tenant_inventory_adjustment_corrections` vincula el ajuste original, motivo, responsable, fecha y stock anterior/nuevo; su función `correct_tenant_inventory_adjustment` recalcula únicamente el stock **actual** en una transacción y conserva intactos los movimientos y ajustes históricos. Esta función exige Admin/AdminPro, empresa activa y MFA AAL2 y mantiene `EXECUTE` revocado a clientes web hasta pruebas reales. Un trigger rechaza UPDATE/DELETE en los eventos de corrección.
+- **Historial de Administración**: la vista de ajustes de inventario también muestra las correcciones posteriores vinculadas al ajuste original, sin habilitar botones de escritura.
+- **Pruebas**: se ensayó con `ROLLBACK` la corrección de stock actual, la inmutabilidad del ajuste original y el rechazo de Bodega, otra empresa o una sesión sin MFA.
+- **Pendiente**: no se copió el favicon ICO binario original, porque su transferencia requiere un mecanismo binario verificado. Las pruebas con Auth real y el despliegue independiente también siguen pendientes.
+
+Esta adaptación fue aplicada únicamente a `multiempresa-desarrollo` y al Supabase nuevo `vatpxpzdxstysvchyqqk`; no se modificaron `main` ni la base de Contemar.
