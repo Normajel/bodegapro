@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { TenantProductionPlanner } from "./TenantProductionPlanner";
 import {
   listTenantProductionUnits,
   listTenantSalesNotes,
@@ -84,6 +85,7 @@ export function TenantProductionBoard({ companyId }: { companyId: string }) {
           </table>
         </div>
       )}
+      {units.isSuccess && <TenantProductionPlanner key={companyId} companyId={companyId} units={units.data} />}
       <p className="mt-3 text-xs text-slate-500">
         Vista de consulta por empresa. No programa trabajos, no genera descuentos de inventario y no
         cambia estados de producción.
