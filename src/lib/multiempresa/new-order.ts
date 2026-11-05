@@ -54,11 +54,14 @@ export function prepareNewOrder(
     throw new Error("Selecciona la empresa y el tipo de orden.");
   }
   const supplier = suppliers.find((entry) => entry.id === draft.supplierId);
-  if (!supplier || !(
-    supplier.supplier_kind === "ambos" ||
-    (draft.kind === "producto" && supplier.supplier_kind === "productos") ||
-    (draft.kind === "servicio" && supplier.supplier_kind === "servicios")
-  )) {
+  if (
+    !supplier ||
+    !(
+      supplier.supplier_kind === "ambos" ||
+      (draft.kind === "producto" && supplier.supplier_kind === "productos") ||
+      (draft.kind === "servicio" && supplier.supplier_kind === "servicios")
+    )
+  ) {
     throw new Error("El proveedor no corresponde al tipo de OC.");
   }
   const number = draft.orderNumber.trim();
@@ -73,7 +76,11 @@ export function prepareNewOrder(
   const items = draft.lines.map((line) => {
     const description = line.description.trim();
     const unit = line.unit.trim();
-    if (!/^\d+$/.test(line.quantity.trim()) || !Number.isSafeInteger(Number(line.quantity)) || Number(line.quantity) <= 0) {
+    if (
+      !/^\d+$/.test(line.quantity.trim()) ||
+      !Number.isSafeInteger(Number(line.quantity)) ||
+      Number(line.quantity) <= 0
+    ) {
       throw new Error("La cantidad debe ser un entero positivo.");
     }
     if (!/^\d+$/.test(line.unitCost.trim()) || !Number.isSafeInteger(Number(line.unitCost))) {
@@ -85,7 +92,8 @@ export function prepareNewOrder(
     if (draft.kind === "producto") {
       const product = products.find((entry) => entry.id === line.productId && entry.active);
       if (!product) throw new Error("Selecciona un producto vigente de esta empresa.");
-      if (itemIds.has(product.id)) throw new Error("No repitas el mismo producto; aumenta su cantidad.");
+      if (itemIds.has(product.id))
+        throw new Error("No repitas el mismo producto; aumenta su cantidad.");
       if (description !== product.name || unit !== product.unit) {
         throw new Error("La descripción y unidad deben corresponder al producto del inventario.");
       }
@@ -95,7 +103,8 @@ export function prepareNewOrder(
     }
     const quantity = Number(line.quantity);
     const unit_cost = Number(line.unitCost);
-    if (!Number.isSafeInteger(quantity * unit_cost)) throw new Error("El total excede el rango permitido.");
+    if (!Number.isSafeInteger(quantity * unit_cost))
+      throw new Error("El total excede el rango permitido.");
     return {
       product_id: draft.kind === "producto" ? line.productId : null,
       description,

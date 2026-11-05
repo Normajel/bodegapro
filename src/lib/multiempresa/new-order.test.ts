@@ -13,7 +13,9 @@ const base: NewOrderDraft = {
   orderNumber: " OC-100 ",
   paymentTerms: "30 días",
   notes: "",
-  lines: [{ productId: "p1", description: "Perno", unit: "unidad", quantity: "5", unitCost: "1000" }],
+  lines: [
+    { productId: "p1", description: "Perno", unit: "unidad", quantity: "5", unitCost: "1000" },
+  ],
 };
 
 describe("prepareNewOrder", () => {
@@ -25,16 +27,34 @@ describe("prepareNewOrder", () => {
     expect(result.orderNumber).toBe("OC-100");
   });
   it("accepts service-only lines", () => {
-    const order = { ...base, kind: "servicio" as const, supplierId: "supplier-services",
-      lines: [{ productId: "", description: "Instalación", unit: "servicio", quantity: "2", unitCost: "10000" }] };
+    const order = {
+      ...base,
+      kind: "servicio" as const,
+      supplierId: "supplier-services",
+      lines: [
+        {
+          productId: "",
+          description: "Instalación",
+          unit: "servicio",
+          quantity: "2",
+          unitCost: "10000",
+        },
+      ],
+    };
     expect(prepareNewOrder(order, suppliers, products).items[0]?.product_id).toBeNull();
   });
   it("rejects invalid supplier, mixed line, decimals, zero and repeated products", () => {
-    expect(() => prepareNewOrder({ ...base, supplierId: "supplier-services" }, suppliers, products)).toThrow();
+    expect(() =>
+      prepareNewOrder({ ...base, supplierId: "supplier-services" }, suppliers, products),
+    ).toThrow();
     expect(() => prepareNewOrder({ ...base, kind: "servicio" }, suppliers, products)).toThrow();
     for (const quantity of ["0", "-1", "1.5", ""]) {
-      expect(() => prepareNewOrder({ ...base, lines: [{ ...base.lines[0]!, quantity }] }, suppliers, products)).toThrow();
+      expect(() =>
+        prepareNewOrder({ ...base, lines: [{ ...base.lines[0]!, quantity }] }, suppliers, products),
+      ).toThrow();
     }
-    expect(() => prepareNewOrder({ ...base, lines: [base.lines[0]!, base.lines[0]!] }, suppliers, products)).toThrow();
+    expect(() =>
+      prepareNewOrder({ ...base, lines: [base.lines[0]!, base.lines[0]!] }, suppliers, products),
+    ).toThrow();
   });
 });
