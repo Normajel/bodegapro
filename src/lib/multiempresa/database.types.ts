@@ -54,9 +54,33 @@ export type Database = {
         Relationships: [];
       };
       tenant_chat_messages: {
-        Row: { id: string; company_id: string; sender_id: string; recipient_id: string; body: string; created_at: string; read_at: string | null };
-        Insert: { id?: string; company_id: string; sender_id: string; recipient_id: string; body: string; created_at?: string; read_at?: string | null };
-        Update: { id?: string; company_id?: string; sender_id?: string; recipient_id?: string; body?: string; created_at?: string; read_at?: string | null };
+        Row: {
+          id: string;
+          company_id: string;
+          sender_id: string;
+          recipient_id: string;
+          body: string;
+          created_at: string;
+          read_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          sender_id: string;
+          recipient_id: string;
+          body: string;
+          created_at?: string;
+          read_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          sender_id?: string;
+          recipient_id?: string;
+          body?: string;
+          created_at?: string;
+          read_at?: string | null;
+        };
         Relationships: [];
       };
       tenant_chat_clears: {
