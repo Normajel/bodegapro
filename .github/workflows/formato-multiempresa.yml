@@ -11,6 +11,7 @@ on:
       - src/routes/__root.tsx
       - src/routes/_authenticated/documento-cubicacion.tsx
       - src/routes/_authenticated/panel-gerencial.tsx
+      - src/routes/_authenticated/notas-venta.tsx
   workflow_dispatch:
 
 permissions:
@@ -63,6 +64,8 @@ jobs:
             src/lib/multiempresa/cubication-simulator.test.ts \
             src/lib/multiempresa/sale-simulator.ts \
             src/lib/multiempresa/sale-simulator.test.ts \
+            src/lib/multiempresa/sales-note-draft.ts \
+            src/lib/multiempresa/sales-note-draft.test.ts \
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
@@ -80,10 +83,12 @@ jobs:
             src/components/multiempresa/TenantManagementDashboard.tsx \
             src/components/multiempresa/TenantCubicationSimulator.tsx \
             src/components/multiempresa/TenantSaleSimulator.tsx \
+            src/components/multiempresa/TenantSalesNotesPreview.tsx \
             src/routes/_authenticated/route.tsx \
             src/routes/auth.tsx \
             src/routes/_authenticated/documento-cubicacion.tsx \
             src/routes/_authenticated/panel-gerencial.tsx \
+            src/routes/_authenticated/notas-venta.tsx \
             src/routes/__root.tsx
       - name: Guardar solo los cambios de formato
         run: |
@@ -113,6 +118,8 @@ jobs:
             src/lib/multiempresa/cubication-simulator.test.ts \
             src/lib/multiempresa/sale-simulator.ts \
             src/lib/multiempresa/sale-simulator.test.ts \
+            src/lib/multiempresa/sales-note-draft.ts \
+            src/lib/multiempresa/sales-note-draft.test.ts \
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
@@ -130,10 +137,12 @@ jobs:
             src/components/multiempresa/TenantManagementDashboard.tsx \
             src/components/multiempresa/TenantCubicationSimulator.tsx \
             src/components/multiempresa/TenantSaleSimulator.tsx \
+            src/components/multiempresa/TenantSalesNotesPreview.tsx \
             src/routes/_authenticated/route.tsx \
             src/routes/auth.tsx \
             src/routes/_authenticated/documento-cubicacion.tsx \
             src/routes/_authenticated/panel-gerencial.tsx \
+            src/routes/_authenticated/notas-venta.tsx \
             src/routes/__root.tsx
           if git diff --cached --quiet; then
             echo "Sin cambios de formato."
