@@ -65,6 +65,8 @@ jobs:
             src/lib/multiempresa/management-alerts.test.ts \
             src/lib/multiempresa/cubication-simulator.ts \
             src/lib/multiempresa/cubication-simulator.test.ts \
+            src/lib/multiempresa/cubication-document.ts \
+            src/lib/multiempresa/cubication-document.test.ts \
             src/lib/multiempresa/sale-simulator.ts \
             src/lib/multiempresa/sale-simulator.test.ts \
             src/lib/multiempresa/sales-note-draft.ts \
@@ -128,6 +130,8 @@ jobs:
             src/lib/multiempresa/management-alerts.test.ts \
             src/lib/multiempresa/cubication-simulator.ts \
             src/lib/multiempresa/cubication-simulator.test.ts \
+            src/lib/multiempresa/cubication-document.ts \
+            src/lib/multiempresa/cubication-document.test.ts \
             src/lib/multiempresa/sale-simulator.ts \
             src/lib/multiempresa/sale-simulator.test.ts \
             src/lib/multiempresa/sales-note-draft.ts \
