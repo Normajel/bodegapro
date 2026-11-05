@@ -25,6 +25,9 @@ export const tenantQueryKeys = {
   managementOrders: (companyId: string) => ["tenant", companyId, "management-orders"] as const,
   saleCustomers: (companyId: string) => ["tenant", companyId, "sale-customers"] as const,
   salesNotes: (companyId: string) => ["tenant", companyId, "sales-notes"] as const,
+  salesNoteEvents: (companyId: string, noteId: string) =>
+    ["tenant", companyId, "sales-note-events", noteId] as const,
+  productionUnits: (companyId: string) => ["tenant", companyId, "production-units"] as const,
   salesNoteUnits: (companyId: string, noteId: string) =>
     ["tenant", companyId, "sales-note-units", noteId] as const,
   cubicationCatalog: (companyId: string) => ["tenant", companyId, "cubication-catalog"] as const,
@@ -387,7 +390,7 @@ export async function listTenantSalesNotes(companyId: string) {
   await requireCompany(companyId);
   const { data, error } = await db
     .from("tenant_sales_notes")
-    .select("id,company_id,note_number,customer_name_snapshot,status,created_by,created_at,notes")
+    .select("id,company_id,note_number,customer_name_snapshot,status,created_by,created_at,notes,submitted_at,submitted_by,approved_at,approved_by")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -409,5 +412,36 @@ export async function listTenantSalesNoteUnits(companyId: string, noteId: string
     .limit(51);
   if (error) throw error;
   if ((data?.length ?? 0) > 50) throw new Error("La nota de venta supera el máximo de unidades.");
+  return data ?? [];
+}
+
+/** Status event audit for one note; read-only for users of the selected company. */
+export async function listTenantSalesNoteEvents(companyId: string, noteId: string) {
+  await requireCompany(companyId);
+  if (!noteId) throw new Error("Selecciona una NV para consultar su historial.");
+  const { data, error } = await db
+    .from("tenant_sales_note_events")
+    .select("id,company_id,sales_note_id,from_status,to_status,actor_id,reason,occurred_at")
+    .eq("company_id", companyId)
+    .eq("sales_note_id", noteId)
+    .order("occurred_at", { ascending: true })
+    .limit(100);
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Staged production board: one row per physical module, never cross-tenant. */
+export async function listTenantProductionUnits(companyId: string) {
+  await requireCompany(companyId);
+  const { data, error } = await db
+    .from("tenant_production_units")
+    .select("id,company_id,sales_note_id,sales_note_unit_id,module_index,unit_code_snapshot,status,created_at")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false })
+    .limit(1001);
+  if (error) throw error;
+  if ((data?.length ?? 0) > 1000) {
+    throw new Error("Hay demasiadas unidades para el tablero. Reduce el período en una versión posterior.");
+  }
   return data ?? [];
 }
