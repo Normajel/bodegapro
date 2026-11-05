@@ -73,3 +73,10 @@ export function TenantProductionPlanner({ companyId, units }: { companyId: strin
           Guardar programación (pendiente)
         </button>
       </div>
+      {review && <p className="mt-3 rounded bg-teal-50 p-3 text-sm">
+        Módulo: {unit?.unit_code_snapshot} · Área: {review.area.replaceAll("_", " ")}
+        · Prioridad: {review.priority} · Fecha: {review.plannedDate}
+      </p>}
+    </section>
+  );
+}
