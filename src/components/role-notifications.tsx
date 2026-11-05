@@ -1,3 +1,4 @@
+import { InternalChat, useUnreadInternalMessages } from "@/components/internal-chat";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, CheckCheck, X } from "lucide-react";
@@ -13,6 +14,9 @@ import {
 type ReadState = { owner: string; keys: string[] };
 export function RoleNotifications({ access }: { access: CurrentAccess }) {
   const enabled = receivesRoleNotifications(access.name);
+  const [bellOpen, setBellOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const { data: unreadMessages = 0, isError: chatError } = useUnreadInternalMessages(access.userId ?? undefined);
   const queryClient = useQueryClient();
   const owner = `${access.userId ?? "session"}:${access.name}`;
   const storageKey = access.userId ? `integrastock-notice-read:${owner}` : null;
@@ -148,27 +152,29 @@ export function RoleNotifications({ access }: { access: CurrentAccess }) {
       announced.current.add(notice.key);
     }
   }, [access.name, data, enabled, isError, owner, persist, readState, ready, storageKey]);
-  if (!enabled) return null;
+  if (!enabled && !access.userId) return null;
   const count = isError || !ready ? 0 : unread.length;
   const visible = showRead ? notices : unread;
+  const totalUnread = count + unreadMessages;
   return (
-    <Popover>
+    <>
+    <Popover open={bellOpen} onOpenChange={setBellOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          onClick={() => void refetch()}
+          onClick={() => { if (enabled) void refetch(); }}
           className="btn btn-ghost relative h-11 w-11 shrink-0 p-2"
           aria-label={
-            isError ? "Notificaciones no disponibles" : `Notificaciones: ${count} sin leer`
+            isError ? "Notificaciones no disponibles" : `Notificaciones: ${totalUnread} sin leer`
           }
         >
           <Bell aria-hidden="true" />
-          {count > 0 && (
+          {totalUnread > 0 && (
             <span
               aria-hidden="true"
               className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-xs font-bold text-white"
             >
-              {count}
+              {totalUnread}
             </span>
           )}
           {isError && (
@@ -184,16 +190,25 @@ export function RoleNotifications({ access }: { access: CurrentAccess }) {
       >
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-semibold">Notificaciones</h2>
-          <button
+          {enabled && <button
             type="button"
             className="btn btn-ghost text-xs"
             onClick={() => void refetch()}
             disabled={isFetching}
           >
             {isFetching ? "Actualizando…" : "Actualizar"}
-          </button>
+          </button>}
         </div>
-        {isLoading || !ready ? (
+        {access.userId && (
+          <button type="button" className="btn btn-secondary mb-3 w-full text-sm" onClick={() => {
+            setBellOpen(false);
+            setChatOpen(true);
+          }}>
+            Mensajes{unreadMessages > 0 ? ` · ${unreadMessages} sin leer` : ""}
+          </button>
+        )}
+        {chatError && <p role="alert" className="text-sm">No se pudo consultar el contador de mensajes.</p>}
+        {enabled && (isLoading || !ready ? (
           <p role="status" className="text-sm">
             Consultando avisos…
           </p>
@@ -281,8 +296,10 @@ export function RoleNotifications({ access }: { access: CurrentAccess }) {
               </button>
             )}
           </>
-        )}
+        ))}
       </PopoverContent>
     </Popover>
+    {chatOpen && access.userId && <InternalChat key={access.userId} userId={access.userId} onClose={() => setChatOpen(false)} />}
+    </>
   );
 }

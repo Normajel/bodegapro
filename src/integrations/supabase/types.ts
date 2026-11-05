@@ -8,6 +8,33 @@ export type Database = {
   };
   public: {
     Tables: {
+      internal_messages: {
+        Row: {
+          id: string;
+          sender_id: string;
+          recipient_id: string;
+          body: string;
+          created_at: string;
+          read_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          sender_id: string;
+          recipient_id: string;
+          body: string;
+          created_at?: string;
+          read_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          sender_id?: string;
+          recipient_id?: string;
+          body?: string;
+          created_at?: string;
+          read_at?: string | null;
+        };
+        Relationships: [];
+      };
       special_product_parameters: {
         Row: { id: string; kind: string; label: string; active: boolean };
         Insert: { id?: string; kind: string; label: string; active?: boolean };
@@ -814,6 +841,10 @@ export type Database = {
       };
     };
     Functions: {
+      internal_chat_contacts: {
+        Args: Record<PropertyKey, never>;
+        Returns: { user_id: string; display_name: string; role_name: string; unread_count: number }[];
+      };
       get_special_product_history: { Args: { p_product_id: string }; Returns: Json };
       save_special_cubication: {
         Args: {
