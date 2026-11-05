@@ -1,8 +1,18 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
-  ComposedChart, Bar, Line, CartesianGrid, XAxis, YAxis,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  ComposedChart,
+  Bar,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
 } from "recharts";
 import { useActiveCompany } from "@/lib/multiempresa/company-context";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
@@ -12,15 +22,27 @@ import {
   listTenantManagementMovements,
   tenantQueryKeys,
 } from "@/lib/multiempresa/tenant-catalog";
-import { summarizeTenantManagement, tenantMovementSeries } from "@/lib/multiempresa/management-summary";
+import {
+  summarizeTenantManagement,
+  tenantMovementSeries,
+} from "@/lib/multiempresa/management-summary";
 
 const colors = ["#0d9488", "#2563eb", "#f59e0b", "#8b5cf6", "#64748b", "#ef4444"];
 const clp = (value: number) =>
-  new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(value);
+  new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    maximumFractionDigits: 0,
+  }).format(value);
 
 function initialDates() {
   const now = new Date();
-  const to = now.toLocaleDateString("en-CA", { timeZone: "America/Santiago", year: "numeric", month: "2-digit", day: "2-digit" });
+  const to = now.toLocaleDateString("en-CA", {
+    timeZone: "America/Santiago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
   const monthStart = to.slice(0, 7) + "-01";
   return { from: monthStart, to };
 }
@@ -92,9 +114,13 @@ export function TenantManagementDashboard() {
   return (
     <main className="mx-auto max-w-7xl space-y-5 px-4 py-8">
       <header className="rounded-xl bg-gradient-to-r from-slate-900 to-teal-700 p-6 text-white">
-        <p className="text-xs font-semibold uppercase tracking-wider text-teal-100">INTEGRASTOCK · Multiempresa</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-teal-100">
+          INTEGRASTOCK · Multiempresa
+        </p>
         <h1 className="mt-1 text-2xl font-bold">Panel Gerencial</h1>
-        <p className="mt-2 text-sm text-teal-100">Indicadores de inventario y órdenes, exclusivos de la empresa activa.</p>
+        <p className="mt-2 text-sm text-teal-100">
+          Indicadores de inventario y órdenes, exclusivos de la empresa activa.
+        </p>
       </header>
 
       {!companyId && <p role="status">Selecciona una empresa para consultar sus indicadores.</p>}
@@ -106,27 +132,49 @@ export function TenantManagementDashboard() {
 
       {authorized && (
         <>
-          <section className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Filtros gerenciales">
+          <section
+            className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4"
+            aria-label="Filtros gerenciales"
+          >
             <label className="text-sm font-medium">
               Desde
-              <input type="date" value={dates.from} onChange={(e) => setDates((old) => ({ ...old, from: e.target.value }))}
-                className="mt-1 block w-full rounded border border-slate-300 p-2"/>
+              <input
+                type="date"
+                value={dates.from}
+                onChange={(e) => setDates((old) => ({ ...old, from: e.target.value }))}
+                className="mt-1 block w-full rounded border border-slate-300 p-2"
+              />
             </label>
             <label className="text-sm font-medium">
               Hasta
-              <input type="date" value={dates.to} onChange={(e) => setDates((old) => ({ ...old, to: e.target.value }))}
-                className="mt-1 block w-full rounded border border-slate-300 p-2"/>
+              <input
+                type="date"
+                value={dates.to}
+                onChange={(e) => setDates((old) => ({ ...old, to: e.target.value }))}
+                className="mt-1 block w-full rounded border border-slate-300 p-2"
+              />
             </label>
             <label className="text-sm font-medium">
               Categoría (stock)
-              <select value={currentCategory} onChange={(e) => setCategory(e.target.value)}
-                className="mt-1 block w-full rounded border border-slate-300 bg-white p-2">
+              <select
+                value={currentCategory}
+                onChange={(e) => setCategory(e.target.value)}
+                className="mt-1 block w-full rounded border border-slate-300 bg-white p-2"
+              >
                 <option value="">Todas</option>
-                {options.map((item) => <option key={item} value={item}>{item}</option>)}
+                {options.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
               </select>
             </label>
-            <button type="button" onClick={() => void refresh()} disabled={refreshing}
-              className="self-end rounded bg-teal-700 p-2.5 text-sm font-semibold text-white disabled:opacity-50">
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              disabled={refreshing}
+              className="self-end rounded bg-teal-700 p-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            >
               {refreshing ? "Actualizando…" : "Actualizar datos"}
             </button>
           </section>
@@ -141,14 +189,32 @@ export function TenantManagementDashboard() {
           )}
           {summary && dateValid && (
             <>
-              <section aria-label="Indicadores de inventario y compras" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <section
+                aria-label="Indicadores de inventario y compras"
+                className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+              >
                 {[
                   { title: "Inventario valorizado", value: clp(summary.inventoryValue) },
-                  { title: "Productos activos", value: summary.activeProducts.toLocaleString("es-CL") },
-                  { title: "Stock crítico", value: summary.criticalProducts.toLocaleString("es-CL") },
-                  { title: "OC por aprobar", value: summary.pendingApproval.toLocaleString("es-CL") },
-                  { title: "Productos por recepcionar (OC)", value: summary.pendingReceipt.toLocaleString("es-CL") },
-                  { title: "Servicios ACEPTADOS", value: summary.acceptedServices.toLocaleString("es-CL") },
+                  {
+                    title: "Productos activos",
+                    value: summary.activeProducts.toLocaleString("es-CL"),
+                  },
+                  {
+                    title: "Stock crítico",
+                    value: summary.criticalProducts.toLocaleString("es-CL"),
+                  },
+                  {
+                    title: "OC por aprobar",
+                    value: summary.pendingApproval.toLocaleString("es-CL"),
+                  },
+                  {
+                    title: "Productos por recepcionar (OC)",
+                    value: summary.pendingReceipt.toLocaleString("es-CL"),
+                  },
+                  {
+                    title: "Servicios ACEPTADOS",
+                    value: summary.acceptedServices.toLocaleString("es-CL"),
+                  },
                   { title: "Entradas (unidades)", value: summary.entries.toLocaleString("es-CL") },
                   { title: "Salidas (unidades)", value: summary.exits.toLocaleString("es-CL") },
                 ].map((item) => (
@@ -159,9 +225,10 @@ export function TenantManagementDashboard() {
                 ))}
               </section>
               <p className="text-xs text-amber-800">
-                La valorización usa costos unitarios actuales. Entradas y salidas se expresan en cantidades
-                físicas, no en CLP históricos. {summary.noCostProducts} productos con stock carecen de precio
-                unitario positivo. No se combinan servicios con productos en las OC.
+                La valorización usa costos unitarios actuales. Entradas y salidas se expresan en
+                cantidades físicas, no en CLP históricos. {summary.noCostProducts} productos con
+                stock carecen de precio unitario positivo. No se combinan servicios con productos en
+                las OC.
               </p>
               <div className="grid gap-4 lg:grid-cols-2">
                 <section className="rounded-lg border border-slate-200 bg-white p-4">
@@ -170,19 +237,33 @@ export function TenantManagementDashboard() {
                     <div className="mt-3 h-72 w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={categoryRows} nameKey="name" dataKey="value" cx="45%" cy="48%" outerRadius={95}>
-                            {categoryRows.map((item, i) => <Cell key={item.name} fill={colors[i % colors.length]} />)}
+                          <Pie
+                            data={categoryRows}
+                            nameKey="name"
+                            dataKey="value"
+                            cx="45%"
+                            cy="48%"
+                            outerRadius={95}
+                          >
+                            {categoryRows.map((item, i) => (
+                              <Cell key={item.name} fill={colors[i % colors.length]} />
+                            ))}
                           </Pie>
-                          <Tooltip formatter={(value) => clp(Number(value))}/>
+                          <Tooltip formatter={(value) => clp(Number(value))} />
                           <Legend />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                  ) : <p className="mt-3 text-sm text-slate-600">Sin inventario valorizado.</p>}
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-600">Sin inventario valorizado.</p>
+                  )}
                   <ul className="mt-3 space-y-1 text-sm">
-                    {categoryRows.map((item) => <li key={item.name} className="flex justify-between gap-3">
-                      <span>{item.name}</span><strong>{clp(item.value)}</strong>
-                    </li>)}
+                    {categoryRows.map((item) => (
+                      <li key={item.name} className="flex justify-between gap-3">
+                        <span>{item.name}</span>
+                        <strong>{clp(item.value)}</strong>
+                      </li>
+                    ))}
                   </ul>
                 </section>
                 <section className="rounded-lg border border-slate-200 bg-white p-4">
@@ -191,19 +272,32 @@ export function TenantManagementDashboard() {
                     <div className="mt-3 h-72 w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={orderRows} nameKey="name" dataKey="count" innerRadius={48} outerRadius={95}>
-                            {orderRows.map((item, i) => <Cell key={item.name} fill={colors[i % colors.length]} />)}
+                          <Pie
+                            data={orderRows}
+                            nameKey="name"
+                            dataKey="count"
+                            innerRadius={48}
+                            outerRadius={95}
+                          >
+                            {orderRows.map((item, i) => (
+                              <Cell key={item.name} fill={colors[i % colors.length]} />
+                            ))}
                           </Pie>
                           <Tooltip />
                           <Legend />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                  ) : <p className="mt-3 text-sm text-slate-600">Sin órdenes registradas.</p>}
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-600">Sin órdenes registradas.</p>
+                  )}
                   <ul className="mt-3 space-y-1 text-sm">
-                    {orderRows.map((item) => <li key={item.name} className="flex justify-between gap-3">
-                      <span>{item.name}</span><strong>{item.count}</strong>
-                    </li>)}
+                    {orderRows.map((item) => (
+                      <li key={item.name} className="flex justify-between gap-3">
+                        <span>{item.name}</span>
+                        <strong>{item.count}</strong>
+                      </li>
+                    ))}
                   </ul>
                 </section>
               </div>
@@ -212,8 +306,11 @@ export function TenantManagementDashboard() {
                   <h2 className="font-semibold">Flujo de bodega · unidades por fecha</h2>
                   <label className="text-sm">
                     Presentación
-                    <select value={mode} onChange={(e) => setMode(e.target.value as "daily" | "cumulative")}
-                      className="ml-2 rounded border border-slate-300 bg-white p-2">
+                    <select
+                      value={mode}
+                      onChange={(e) => setMode(e.target.value as "daily" | "cumulative")}
+                      className="ml-2 rounded border border-slate-300 bg-white p-2"
+                    >
                       <option value="daily">Diario</option>
                       <option value="cumulative">Acumulado</option>
                     </select>
@@ -237,11 +334,15 @@ export function TenantManagementDashboard() {
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>
-                ) : <p className="mt-3 text-sm text-slate-600">Sin movimientos en el período seleccionado.</p>}
+                ) : (
+                  <p className="mt-3 text-sm text-slate-600">
+                    Sin movimientos en el período seleccionado.
+                  </p>
+                )}
                 <p className="mt-2 text-xs text-slate-600">
-                  Los movimientos individuales anulados se excluyen. Las cantidades de artículos
-                  con diferentes unidades de medida se agregan como unidades registradas;
-                  no equivalen a un único volumen físico.
+                  Los movimientos individuales anulados se excluyen. Las cantidades de artículos con
+                  diferentes unidades de medida se agregan como unidades registradas; no equivalen a
+                  un único volumen físico.
                 </p>
               </section>
             </>

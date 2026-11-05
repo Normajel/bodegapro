@@ -3,15 +3,53 @@ import { summarizeTenantManagement, tenantMovementSeries } from "./management-su
 
 describe("tenant-specific management summaries", () => {
   const products = [
-    { id: "a", category: "Pintura", active: true, stock_quantity: 5, min_stock: 2, unit_cost: 1000 },
-    { id: "b", category: "Pintura", active: true, stock_quantity: 1, min_stock: 3, unit_cost: 2000 },
+    {
+      id: "a",
+      category: "Pintura",
+      active: true,
+      stock_quantity: 5,
+      min_stock: 2,
+      unit_cost: 1000,
+    },
+    {
+      id: "b",
+      category: "Pintura",
+      active: true,
+      stock_quantity: 1,
+      min_stock: 3,
+      unit_cost: 2000,
+    },
     { id: "c", category: "Pisos", active: true, stock_quantity: 2, min_stock: 0, unit_cost: 0 },
   ];
   const orders = [
-    { id: "1", order_kind: "producto", status: "pendiente", approval_status: "por_aprobar", total_amount: 100 },
-    { id: "2", order_kind: "producto", status: "parcial", approval_status: "aprobada", total_amount: 200 },
-    { id: "3", order_kind: "servicio", status: "ACEPTADO", approval_status: "aprobada", total_amount: 300 },
-    { id: "4", order_kind: "producto", status: "anulada", approval_status: "por_aprobar", total_amount: 400 },
+    {
+      id: "1",
+      order_kind: "producto",
+      status: "pendiente",
+      approval_status: "por_aprobar",
+      total_amount: 100,
+    },
+    {
+      id: "2",
+      order_kind: "producto",
+      status: "parcial",
+      approval_status: "aprobada",
+      total_amount: 200,
+    },
+    {
+      id: "3",
+      order_kind: "servicio",
+      status: "ACEPTADO",
+      approval_status: "aprobada",
+      total_amount: 300,
+    },
+    {
+      id: "4",
+      order_kind: "producto",
+      status: "anulada",
+      approval_status: "por_aprobar",
+      total_amount: 400,
+    },
   ];
   const movements = [
     { id: "1", type: "entrada", quantity: 3, created_at: "2026-11-01T12:00:00Z" },
@@ -38,7 +76,9 @@ describe("tenant-specific management summaries", () => {
       { date: "2026-11-02", Entradas: 4, Salidas: 0 },
     ]);
     expect(tenantMovementSeries(movements, true)[1]).toEqual({
-      date: "2026-11-02", Entradas: 7, Salidas: 2,
+      date: "2026-11-02",
+      Entradas: 7,
+      Salidas: 2,
     });
   });
 });

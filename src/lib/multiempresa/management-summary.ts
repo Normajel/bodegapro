@@ -20,14 +20,10 @@ export type DashboardOrder = {
   total_amount: number;
 };
 
-const numeric = (value: number): number =>
-  Number.isFinite(Number(value)) ? Number(value) : 0;
+const numeric = (value: number): number => (Number.isFinite(Number(value)) ? Number(value) : 0);
 
 /** Counts movements by quantity, not CLP: historical prices may be unavailable. */
-export function tenantMovementSeries(
-  movements: readonly DashboardMovement[],
-  cumulative = false,
-) {
+export function tenantMovementSeries(movements: readonly DashboardMovement[], cumulative = false) {
   const days = new Map<string, { date: string; Entradas: number; Salidas: number }>();
   for (const movement of movements) {
     const date = movement.created_at.slice(0, 10);
@@ -54,20 +50,27 @@ export function summarizeTenantManagement(
   movements: readonly DashboardMovement[],
   category = "",
 ) {
-  const selected = products.filter((product) => product.active && (!category || product.category === category));
+  const selected = products.filter(
+    (product) => product.active && (!category || product.category === category),
+  );
   const inventoryValue = selected.reduce(
-    (sum, product) => sum + numeric(product.stock_quantity) * numeric(product.unit_cost), 0,
+    (sum, product) => sum + numeric(product.stock_quantity) * numeric(product.unit_cost),
+    0,
   );
   const categoryValues = new Map<string, number>();
   for (const product of selected) {
     const key = product.category || "Sin categoría";
-    categoryValues.set(key, (categoryValues.get(key) ?? 0) + numeric(product.stock_quantity) * numeric(product.unit_cost));
+    categoryValues.set(
+      key,
+      (categoryValues.get(key) ?? 0) + numeric(product.stock_quantity) * numeric(product.unit_cost),
+    );
   }
   const pendingApproval = orders.filter(
     (order) => order.status !== "anulada" && order.approval_status === "por_aprobar",
   );
   const pendingReceipt = orders.filter(
-    (order) => order.order_kind === "producto" &&
+    (order) =>
+      order.order_kind === "producto" &&
       order.approval_status === "aprobada" &&
       (order.status === "pendiente" || order.status === "parcial"),
   );
@@ -78,20 +81,35 @@ export function summarizeTenantManagement(
     { name: "Por aprobar", count: pendingApproval.length },
     { name: "Pendiente de recepción", count: pendingReceipt.length },
     { name: "Servicios aceptados", count: acceptedServices.length },
-    { name: "Productos recibidos", count: orders.filter((order) => order.order_kind === "producto" && order.status === "completa").length },
+    {
+      name: "Productos recibidos",
+      count: orders.filter(
+        (order) => order.order_kind === "producto" && order.status === "completa",
+      ).length,
+    },
     { name: "Anuladas", count: orders.filter((order) => order.status === "anulada").length },
   ];
   return {
     activeProducts: selected.length,
     inventoryValue,
-    criticalProducts: selected.filter((product) => numeric(product.stock_quantity) <= numeric(product.min_stock)).length,
-    noCostProducts: selected.filter((product) => numeric(product.stock_quantity) > 0 && numeric(product.unit_cost) <= 0).length,
+    criticalProducts: selected.filter(
+      (product) => numeric(product.stock_quantity) <= numeric(product.min_stock),
+    ).length,
+    noCostProducts: selected.filter(
+      (product) => numeric(product.stock_quantity) > 0 && numeric(product.unit_cost) <= 0,
+    ).length,
     pendingApproval: pendingApproval.length,
     pendingReceipt: pendingReceipt.length,
     acceptedServices: acceptedServices.length,
     orderGroups,
-    categoryValues: [...categoryValues].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
-    entries: movements.filter((m) => m.type === "entrada").reduce((sum, m) => sum + numeric(m.quantity), 0),
-    exits: movements.filter((m) => m.type === "salida").reduce((sum, m) => sum + numeric(m.quantity), 0),
+    categoryValues: [...categoryValues]
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value),
+    entries: movements
+      .filter((m) => m.type === "entrada")
+      .reduce((sum, m) => sum + numeric(m.quantity), 0),
+    exits: movements
+      .filter((m) => m.type === "salida")
+      .reduce((sum, m) => sum + numeric(m.quantity), 0),
   };
 }
