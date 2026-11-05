@@ -20,6 +20,7 @@ import {
   canApprovePurchaseOrder,
   canSendPurchaseOrder,
   hasPermission,
+  isAdminRole,
   useAppAccess,
 } from "@/lib/permissions";
 import { COMPANY_QUERY_KEY } from "@/components/company-settings-form";
@@ -120,6 +121,7 @@ function ComprasPage() {
   const specialAccess = canAccessSpecialProducts(access?.name);
   const canCreate = hasPermission(access?.name, access?.permissions, "purchases", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "purchases", "edit");
+  const canManageServiceOrders = isAdminRole(access?.name) && canEdit;
   const canDelete = hasPermission(access?.name, access?.permissions, "purchases", "delete");
   const canSend = canSendPurchaseOrder(access?.name, access?.permissions);
   const canReceive = canReceivePurchaseOrder(access?.name, access?.permissions);
@@ -149,7 +151,6 @@ function ComprasPage() {
     if (window.location.hash === "#recepciones")
       document.getElementById("recepciones")?.scrollIntoView({ block: "start" });
   }, []);
-  const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<OrderItemDraft[]>([newLine()]);
   const [documentType, setDocumentType] = useState<"factura" | "guia_despacho">("factura");
   const [documentNumber, setDocumentNumber] = useState("");
@@ -192,6 +193,28 @@ function ComprasPage() {
       return data;
     },
   });
+
+  const contractorServiceHistory = useMemo(() => {
+    if (!supplierId) return [];
+    const related = new Map(orders.filter((o) => o.supplier_id === supplierId && o.status !== "anulada").map((o) => [o.id, o]));
+    const latest = new Map<string, { name: string; service: string; value: number; date: string }>();
+    for (const item of orderItems) {
+      if (item.item_type !== "servicio") continue;
+      const order = related.get(item.purchase_order_id);
+      if (!order) continue;
+      const service = item.description.trim();
+      const key = service.toLocaleLowerCase("es-CL");
+      const date = order.updated_at || order.created_at;
+      const old = latest.get(key);
+      if (!old || date > old.date) latest.set(key, {
+        name: suppliers.find((p) => p.id === supplierId)?.name ?? "Contratista",
+        service,
+        value: Number(item.unit_cost),
+        date,
+      });
+    }
+    return [...latest.values()].sort((a, b) => a.service.localeCompare(b.service, "es-CL"));
+  }, [supplierId, orders, orderItems, suppliers]);
 
   const { data: company } = useQuery({
     queryKey: COMPANY_QUERY_KEY,
@@ -322,7 +345,6 @@ function ComprasPage() {
     setPaymentTerms("contado");
     setPaymentTermsOther("");
     setDescription("");
-    setNotes("");
     setLines([newLine()]);
     setFormOpen(true);
   }
@@ -330,6 +352,8 @@ function ComprasPage() {
   function openEditOrder(orderId: string) {
     const order = orders.find((item) => item.id === orderId);
     if (!order) return;
+    const hasService = orderItems.some((item) => item.purchase_order_id === orderId && item.item_type === "servicio");
+    if (hasService && !canManageServiceOrders) return;
     setEditingOrderId(order.id);
     setSupplierId(order.supplier_id);
     setCostCenterId(order.cost_center_id ?? "");
@@ -337,7 +361,6 @@ function ComprasPage() {
     setPaymentTerms(order.payment_terms as PaymentTerms);
     setPaymentTermsOther(order.payment_terms_other ?? "");
     setDescription(order.description ?? "");
-    setNotes(order.notes ?? "");
     setLines(
       orderItems
         .filter((item) => item.purchase_order_id === order.id)
@@ -394,6 +417,10 @@ function ComprasPage() {
 
   async function saveOrder(event: React.FormEvent) {
     event.preventDefault();
+    if (editingOrderId && orderItems.some((item) => item.purchase_order_id === editingOrderId && item.item_type === "servicio") && !canManageServiceOrders) {
+      toast.error("Solo ADMIN y ADMINPRO pueden editar órdenes de servicios");
+      return;
+    }
     const selected = lines.filter((line) =>
       line.item_type === "producto"
         ? line.product_id || line.special_product_id
@@ -441,7 +468,7 @@ function ComprasPage() {
         p_payment_terms: paymentTerms,
         p_payment_terms_other: paymentTerms === "otro" ? paymentTermsOther.trim() : null,
         p_description: description.trim() || null,
-        p_notes: notes.trim() || null,
+        p_notes: null,
         p_lines: selected.map((line) => ({
           item_type: line.item_type,
           description: line.description.trim(),
@@ -913,10 +940,10 @@ function ComprasPage() {
                               <Eye className="h-4 w-4" />
                               Vista previa
                             </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => printOrder(order.id)}>
+                            {(serviceItems.length === 0 || canManageServiceOrders) && <DropdownMenuItem onSelect={() => printOrder(order.id)}>
                               <Printer className="h-4 w-4" />
                               Imprimir
-                            </DropdownMenuItem>
+                            </DropdownMenuItem>}
                             <DropdownMenuItem onSelect={() => setTrackingOrderId(order.id)}>
                               Historial / plazo de entrega
                             </DropdownMenuItem>
@@ -931,6 +958,7 @@ function ComprasPage() {
                               </DropdownMenuItem>
                             )}
                             {canEdit &&
+                              (serviceItems.length === 0 || canManageServiceOrders) &&
                               status === "pendiente" &&
                               approvalStatus === "por_aprobar" && (
                                 <DropdownMenuItem onSelect={() => openEditOrder(order.id)}>
@@ -1093,14 +1121,7 @@ function ComprasPage() {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="label">Observaciones</label>
-                    <input
-                      className="input"
-                      value={notes}
-                      onChange={(event) => setNotes(event.target.value)}
-                    />
-                  </div>
+
                   <div className="sm:col-span-2">
                     <label className="label">Descripción general</label>
                     <textarea
@@ -1114,9 +1135,25 @@ function ComprasPage() {
                   </div>
                 </div>
 
+                {supplierId && (
+                  <section className="space-y-2" aria-label="Historial de servicios del contratista">
+                    <h3 className="font-semibold">Historial de servicios del contratista</h3>
+                    <div className="overflow-x-auto">
+                      <table className="table-base w-full">
+                        <thead><tr><th>Nombre</th><th>Servicio</th><th>Valor del servicio (neto)</th></tr></thead>
+                        <tbody>
+                          {contractorServiceHistory.length ? contractorServiceHistory.map((service) => (
+                            <tr key={service.service}><td>{service.name}</td><td>{service.service}</td><td>{money(service.value)}</td></tr>
+                          )) : <tr><td colSpan={3}>Este contratista todavía no tiene servicios registrados.</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                )}
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="font-semibold">Productos y servicios</h3>
+                    <span className="text-xs text-muted-foreground">Los servicios anteriores aparecen al seleccionar un contratista.</span>
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -1231,7 +1268,19 @@ function ComprasPage() {
                         ) : (
                           <div>
                             <label className="label">Detalle del servicio *</label>
-                            <textarea
+                            {contractorServiceHistory.length > 0 && (
+                               <select className="input mb-2" aria-label="Seleccionar servicio anterior" value=""
+                                 onChange={(event) => {
+                                   const chosen = contractorServiceHistory.find((service) => service.service === event.target.value);
+                                   if (chosen) updateLine(line.key, { description: chosen.service, unit_cost: chosen.value });
+                                 }}>
+                                 <option value="">Seleccionar servicio anterior…</option>
+                                 {contractorServiceHistory.map((service) => (
+                                   <option key={service.service} value={service.service}>{service.service} · {money(service.value)}</option>
+                                 ))}
+                               </select>
+                             )}
+                             <textarea
                               className="input min-h-0"
                               value={line.description}
                               onChange={(event) =>
