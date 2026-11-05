@@ -8,6 +8,42 @@ export type Database = {
   };
   public: {
     Tables: {
+      tenant_movement_cancellations: {
+        Row: {
+          id: string;
+          company_id: string;
+          movement_id: string;
+          reason: string;
+          original_type: string;
+          quantity: number;
+          product_id: string;
+          cancelled_by: string;
+          cancelled_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          movement_id: string;
+          reason: string;
+          original_type: string;
+          quantity: number;
+          product_id: string;
+          cancelled_by: string;
+          cancelled_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          movement_id?: string;
+          reason?: string;
+          original_type?: string;
+          quantity?: number;
+          product_id?: string;
+          cancelled_by?: string;
+          cancelled_at?: string;
+        };
+        Relationships: [];
+      };
       tenant_inventory_adjustments: {
         Row: {
           id: string;
@@ -1284,6 +1320,14 @@ export type Database = {
       approve_purchase_order: {
         Args: { p_order_id: string };
         Returns: undefined;
+      };
+      cancel_tenant_stock_movement: {
+        Args: { p_company_id: string; p_movement_id: string; p_reason: string };
+        Returns: string;
+      };
+      adjust_tenant_inventory_stock: {
+        Args: { p_company_id: string; p_product_id: string; p_new_stock: number; p_reason: string };
+        Returns: string;
       };
       create_tenant_purchase_order: {
         Args: {
