@@ -161,13 +161,18 @@ export function CompanySelector() {
           </Link>
         )}
         {selected && (
-          <nav aria-label="Módulos multiempresa disponibles" className="flex flex-wrap items-center gap-2">
-            {([
-              ["/productos", "Inventario"],
-              ["/contactos", "Proveedores"],
-              ["/compras", "Órdenes de compra"],
-              ["/movimientos", "Movimientos"],
-            ] as const).map(([to, label]) => (
+          <nav
+            aria-label="Módulos multiempresa disponibles"
+            className="flex flex-wrap items-center gap-2"
+          >
+            {(
+              [
+                ["/productos", "Inventario"],
+                ["/contactos", "Proveedores"],
+                ["/compras", "Órdenes de compra"],
+                ["/movimientos", "Movimientos"],
+              ] as const
+            ).map(([to, label]) => (
               <Link
                 key={to}
                 to={to}
