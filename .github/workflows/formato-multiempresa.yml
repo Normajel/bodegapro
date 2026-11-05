@@ -154,6 +154,7 @@ jobs:
             src/components/multiempresa/TenantSaleSimulator.tsx \
             src/components/multiempresa/TenantSalesNotesPreview.tsx \
             src/components/multiempresa/TenantProductionBoard.tsx \
+            src/components/multiempresa/TenantProductionPlanner.tsx \
             src/routes/_authenticated/route.tsx \
             src/routes/auth.tsx \
             src/routes/_authenticated/documento-cubicacion.tsx \
