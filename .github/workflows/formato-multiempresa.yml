@@ -107,6 +107,7 @@ jobs:
             src/lib/multiempresa/database.types.ts \
             src/lib/multiempresa/tenant-catalog.ts \
             src/lib/multiempresa/tenant.test.ts \
+            src/lib/multiempresa/tenant.ts \
             src/lib/multiempresa/company-context.ts \
             src/lib/multiempresa/company-context.test.ts \
             src/lib/multiempresa/receipt-validation.ts \
