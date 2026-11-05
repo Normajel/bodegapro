@@ -46,6 +46,12 @@ export function LegacyMigrationGate({ children }: { children: ReactNode }) {
   if (pathname === "/compras") return <TenantOrdersPreview />;
   if (pathname === "/movimientos") return <TenantMovementsPreview />;
 
+  // These routes already render dedicated, company-scoped read-only components.
+  // The authenticated route verifies membership; their own queries enforce company_id and RLS.
+  if (pathname === "/documento-cubicacion" || pathname === "/panel-gerencial") {
+    return <>{children}</>;
+  }
+
   // Gate all authenticated legacy pages, including nested routes.
   // Only the public landing/auth pages remain available.
   if (
