@@ -5,6 +5,7 @@ import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 import type { CompanyOption } from "@/lib/multiempresa/tenant";
 import { publishActiveCompany } from "@/lib/multiempresa/company-context";
 import { TenantChatLauncher } from "./TenantChatPanel";
+import { TenantChatRoleControls } from "./TenantChatRoleControls";
 
 export function CompanySelector() {
   const queryClient = useQueryClient();
@@ -132,6 +133,9 @@ export function CompanySelector() {
           Módulos antiguos aún no adaptados: no usar con datos reales.
         </span>
         {selected && <TenantChatLauncher key={selected} companyId={selected} />}
+        {selected && ["ADMIN", "ADMINPRO"].includes(companies.find(({ company }) => company.id === selected)?.role ?? "") && (
+          <TenantChatRoleControls key={selected} companyId={selected} />
+        )}
         <button
           type="button"
           className="ml-auto rounded border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
