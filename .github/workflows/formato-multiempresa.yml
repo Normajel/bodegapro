@@ -133,6 +133,8 @@ jobs:
             src/lib/multiempresa/sales-note-service.ts \
             src/lib/multiempresa/nv-approval.ts \
             src/lib/multiempresa/nv-approval.test.ts \
+            src/lib/multiempresa/production-planning.ts \
+            src/lib/multiempresa/production-planning.test.ts \
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
