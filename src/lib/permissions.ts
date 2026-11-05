@@ -17,6 +17,7 @@ export const PERMISSION_MODULES = [
     label: "Órdenes de compra y servicios",
     actions: ["view", "create", "edit", "delete", "approve", "receive", "send"],
   },
+  { key: "internal_chat", label: "Mensajes internos", actions: ["view"] },
   { key: "contacts", label: "Contactos", actions: ["view", "create", "edit", "delete"] },
   { key: "reports", label: "Informes", actions: ["view"] },
   { key: "cubication", label: "Cubicación", actions: ["view", "edit"] },

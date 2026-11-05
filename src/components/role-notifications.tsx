@@ -16,7 +16,10 @@ export function RoleNotifications({ access }: { access: CurrentAccess }) {
   const enabled = receivesRoleNotifications(access.name);
   const [bellOpen, setBellOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
-  const { data: unreadMessages = 0, isError: chatError } = useUnreadInternalMessages(access.userId ?? undefined);
+  const chatUserId = hasPermission(access.name, access.permissions, "internal_chat", "view")
+    ? access.userId
+    : undefined;
+  const { data: unreadMessages = 0, isError: chatError } = useUnreadInternalMessages(chatUserId);
   const queryClient = useQueryClient();
   const owner = `${access.userId ?? "session"}:${access.name}`;
   const storageKey = access.userId ? `integrastock-notice-read:${owner}` : null;
@@ -152,7 +155,7 @@ export function RoleNotifications({ access }: { access: CurrentAccess }) {
       announced.current.add(notice.key);
     }
   }, [access.name, data, enabled, isError, owner, persist, readState, ready, storageKey]);
-  if (!enabled && !access.userId) return null;
+  if (!enabled && !chatUserId) return null;
   const count = isError || !ready ? 0 : unread.length;
   const visible = showRead ? notices : unread;
   const totalUnread = count + unreadMessages;
@@ -199,7 +202,7 @@ export function RoleNotifications({ access }: { access: CurrentAccess }) {
             {isFetching ? "Actualizando…" : "Actualizar"}
           </button>}
         </div>
-        {access.userId && (
+        {chatUserId && (
           <button type="button" className="btn btn-secondary mb-3 w-full text-sm" onClick={() => {
             setBellOpen(false);
             setChatOpen(true);
@@ -299,7 +302,7 @@ export function RoleNotifications({ access }: { access: CurrentAccess }) {
         ))}
       </PopoverContent>
     </Popover>
-    {chatOpen && access.userId && <InternalChat key={access.userId} userId={access.userId} onClose={() => setChatOpen(false)} />}
+    {chatOpen && chatUserId && <InternalChat key={chatUserId} userId={chatUserId} onClose={() => setChatOpen(false)} />}
     </>
   );
 }
