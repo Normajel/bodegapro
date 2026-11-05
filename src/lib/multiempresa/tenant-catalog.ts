@@ -23,6 +23,9 @@ export const tenantQueryKeys = {
   movements: (companyId: string) => ["tenant", companyId, "movements"] as const,
   managementProducts: (companyId: string) => ["tenant", companyId, "management-products"] as const,
   managementOrders: (companyId: string) => ["tenant", companyId, "management-orders"] as const,
+  saleCustomers: (companyId: string) => ["tenant", companyId, "sale-customers"] as const,
+  salesNotes: (companyId: string) => ["tenant", companyId, "sales-notes"] as const,
+  salesNoteUnits: (companyId: string, noteId: string) => ["tenant", companyId, "sales-note-units", noteId] as const,
   cubicationCatalog: (companyId: string) => ["tenant", companyId, "cubication-catalog"] as const,
   cubicationScenario: (companyId: string, kind: string, documentId: string) =>
     ["tenant", companyId, "cubication-scenario", kind, documentId] as const,
@@ -363,4 +366,40 @@ export async function getTenantCubicationScenario(
       unitCost: Number(line.unit_cost),
     })),
   };
+}
+
+/** Tenant-only sale customers and read-only staged notes. */
+export async function listTenantSaleCustomers(companyId: string) {
+  await requireCompany(companyId);
+  const { data, error } = await db
+    .from("customers").select("id,company_id,name")
+    .eq("company_id", companyId).order("name").limit(1001);
+  if (error) throw error;
+  if ((data?.length ?? 0) > 1000) throw new Error("Demasiados clientes para el selector.");
+  return data ?? [];
+}
+
+export async function listTenantSalesNotes(companyId: string) {
+  await requireCompany(companyId);
+  const { data, error } = await db
+    .from("tenant_sales_notes")
+    .select("id,company_id,note_number,customer_name_snapshot,status,created_by,created_at,notes")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listTenantSalesNoteUnits(companyId: string, noteId: string) {
+  await requireCompany(companyId);
+  if (!noteId) throw new Error("Selecciona una nota de venta.");
+  const { data, error } = await db
+    .from("tenant_sales_note_units")
+    .select("id,company_id,sales_note_id,position,cubication_kind,cubication_id,unit_code_snapshot,modules,snapshot")
+    .eq("company_id", companyId).eq("sales_note_id", noteId)
+    .order("position").limit(51);
+  if (error) throw error;
+  if ((data?.length ?? 0) > 50) throw new Error("La nota de venta supera el máximo de unidades.");
+  return data ?? [];
 }
