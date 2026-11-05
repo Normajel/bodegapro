@@ -26,7 +26,7 @@ export const getManagementData = createServerFn({ method: "POST" })
       .eq("id", context.userId)
       .single();
     if (error || !canViewManagement(profile?.app_roles?.name, profile?.app_roles?.permissions))
-      throw new Error("Acceso exclusivo para Admin y Gerencia");
+      throw new Error("Acceso exclusivo para Admin, AdminPro y Gerencia");
     if (profile?.app_roles?.name === "ADMIN" && context.claims["aal"] !== "aal2")
       throw new Error("Verifica tu segundo factor");
     for (const module of ["inventory", "movements", "purchases", "cubication"]) {
