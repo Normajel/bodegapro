@@ -438,7 +438,7 @@ export async function listTenantProductionUnits(companyId: string) {
   const { data, error } = await db
     .from("tenant_production_units")
     .select(
-      "id,company_id,sales_note_id,sales_note_unit_id,module_index,unit_code_snapshot,status,created_at",
+      "id,company_id,sales_note_id,sales_note_unit_id,module_index,unit_code_snapshot,status,planned_area,priority,planned_date,planned_by,planned_at,created_at",
     )
     .eq("company_id", companyId)
     .order("created_at", { ascending: false })
