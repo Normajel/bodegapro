@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "./database.types";
 import { loadMyCompanies } from "./company-api";
+import { santiagoDateTimeIso } from "@/lib/warehouse";
 
 const db = supabase as unknown as SupabaseClient<Database>;
 
@@ -186,8 +187,8 @@ export async function listTenantManagementMovements(companyId: string, from: str
       .from("stock_movements")
       .select("id,type,quantity,created_at")
       .eq("company_id", companyId)
-      .gte("created_at", from + "T00:00:00-03:00")
-      .lt("created_at", to + "T23:59:59.999-03:00")
+      .gte("created_at", santiagoDateTimeIso(from))
+      .lt("created_at", santiagoDateTimeIso(to, 24))
       .order("id")
       .range(start, start + 999);
     if (error) throw error;
