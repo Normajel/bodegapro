@@ -6,7 +6,7 @@
  * Database RLS and tenant-scoped RPCs must enforce actual membership.
  */
 
-export type CompanyRole = "ADMIN" | "ADMINPRO" | "GERENCIA" | "GERENTE" | "BODEGA" | "VENTAS";
+export type CompanyRole = "ADMIN" | "ADMINPRO" | "GERENCIA" | "GERENTE" | "BODEGA" | "VENTAS" | "JEFE_PRODUCCION";
 
 export interface CompanyMembership {
   company_id: string;
