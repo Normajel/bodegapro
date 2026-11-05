@@ -27,7 +27,7 @@ export function PlatformAdminDashboard() {
       </header>
       <section className="grid gap-4 md:grid-cols-3" aria-label="Resumen de plataforma">
         <article className="rounded-xl border bg-white p-5"><Building2 className="text-teal-700" /><p className="mt-3 text-sm text-slate-500">Empresas bajo tu administración</p><p className="mt-1 text-3xl font-bold">{managed.length}</p><p className="text-xs text-slate-500">Solo membresías AdminPro autorizadas</p></article>
-        <article className="rounded-xl border bg-white p-5"><Users className="text-teal-700" /><p className="mt-3 text-sm text-slate-500">Gestión de usuarios</p><p className="mt-1 text-base font-semibold">Próxima etapa</p><p className="text-xs text-slate-500">Altas, bajas y perfiles por empresa</p></article>
+        <article className="rounded-xl border bg-white p-5"><Users className="text-teal-700" /><p className="mt-3 text-sm text-slate-500">Gestión de usuarios</p><p className="mt-1 text-base font-semibold">Directorio habilitado</p><p className="text-xs text-slate-500">Consultar usuarios y roles por empresa; cambios de permisos aún restringidos</p></article>
         <article className="rounded-xl border bg-white p-5"><CreditCard className="text-teal-700" /><p className="mt-3 text-sm text-slate-500">Suscripciones y pagos</p><p className="mt-1 text-base font-semibold">Pendiente de integración</p><p className="text-xs text-slate-500">No se muestran cobros ni estados inventados</p></article>
       </section>
       <section>
