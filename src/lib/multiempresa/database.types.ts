@@ -53,6 +53,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      tenant_chat_messages: {
+        Row: { id: string; company_id: string; sender_id: string; recipient_id: string; body: string; created_at: string; read_at: string | null };
+        Insert: { id?: string; company_id: string; sender_id: string; recipient_id: string; body: string; created_at?: string; read_at?: string | null };
+        Update: { id?: string; company_id?: string; sender_id?: string; recipient_id?: string; body?: string; created_at?: string; read_at?: string | null };
+        Relationships: [];
+      };
+      tenant_chat_clears: {
+        Row: { company_id: string; user_id: string; peer_id: string; cleared_at: string };
+        Insert: { company_id: string; user_id: string; peer_id: string; cleared_at?: string };
+        Update: { company_id?: string; user_id?: string; peer_id?: string; cleared_at?: string };
+        Relationships: [];
+      };
+      tenant_chat_role_settings: {
+        Row: { company_id: string; role_code: string; enabled: boolean; updated_at: string };
+        Insert: { company_id: string; role_code: string; enabled?: boolean; updated_at?: string };
+        Update: { company_id?: string; role_code?: string; enabled?: boolean; updated_at?: string };
+        Relationships: [];
+      };
       accepted_services: {
         Row: {
           approved_at: string | null;
@@ -1255,6 +1273,15 @@ export type Database = {
           p_items: Json;
         };
         Returns: string;
+      };
+      tenant_chat_contacts: {
+        Args: { p_company_id: string };
+        Returns: Array<{
+          user_id: string;
+          role_code: string;
+          unread_count: number;
+          last_message_at: string | null;
+        }>;
       };
       approve_tenant_purchase_order: {
         Args: { p_company_id: string; p_order_id: string };
