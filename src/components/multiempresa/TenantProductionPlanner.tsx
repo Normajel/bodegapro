@@ -11,3 +11,14 @@ export function TenantProductionPlanner({ companyId, units }: { companyId: strin
   const [date, setDate] = useState("");
   const [notes, setNotes] = useState("");
   const [review, setReview] = useState<PlanningDraft | null>(null);
+  const access = useQuery({
+    queryKey: ["tenant", companyId, "production-planning-role"],
+    queryFn: async () => {
+      const options = await loadMyCompanies();
+      return canPlanProduction(options.find(({ company }) => company.id === companyId)?.role);
+    },
+    staleTime: 0,
+  });
+  const unit = units.find((item) => item.id === selected);
+  const draft: PlanningDraft = { productionUnitId: selected, area, priority, plannedDate: date, notes };
+  const error = unit ? validatePlanning(draft, unit, companyId) : "Selecciona un módulo";
