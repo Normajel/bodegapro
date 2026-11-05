@@ -141,6 +141,16 @@ export function CompanySelector() {
             Documentos de cubicación
           </Link>
         )}
+        {selected && ["ADMIN", "ADMINPRO", "GERENCIA", "GERENTE"].includes(
+          companies.find(({ company }) => company.id === selected)?.role ?? "",
+        ) && (
+          <Link
+            to="/panel-gerencial"
+            className="rounded border border-teal-600 bg-white px-3 py-2 text-sm font-semibold text-teal-800"
+          >
+            Panel gerencial
+          </Link>
+        )}
         {selected && <TenantChatLauncher key={selected} companyId={selected} />}
         {selected &&
           ["ADMIN", "ADMINPRO"].includes(
