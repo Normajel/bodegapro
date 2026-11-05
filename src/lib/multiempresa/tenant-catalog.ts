@@ -224,8 +224,12 @@ export async function listTenantManagementProducts(companyId: string) {
   for (let start = 0; start <= 5000; start += 1000) {
     const { data, error } = await db
       .from("products")
-      .select("id,company_id,sku,name,category,unit,stock,stock_quantity,min_stock,unit_cost,active")
-      .eq("company_id", companyId).order("id").range(start, start + 999);
+      .select(
+        "id,company_id,sku,name,category,unit,stock,stock_quantity,min_stock,unit_cost,active",
+      )
+      .eq("company_id", companyId)
+      .order("id")
+      .range(start, start + 999);
     if (error) throw error;
     rows.push(...(data ?? []));
     if ((data?.length ?? 0) < 1000) return rows;
@@ -239,8 +243,12 @@ export async function listTenantManagementOrders(companyId: string) {
   for (let start = 0; start <= 5000; start += 1000) {
     const { data, error } = await db
       .from("purchase_orders")
-      .select("id,company_id,order_number,order_kind,approval_status,approved_at,approved_by,status,order_date,total_amount")
-      .eq("company_id", companyId).order("id").range(start, start + 999);
+      .select(
+        "id,company_id,order_number,order_kind,approval_status,approved_at,approved_by,status,order_date,total_amount",
+      )
+      .eq("company_id", companyId)
+      .order("id")
+      .range(start, start + 999);
     if (error) throw error;
     rows.push(...(data ?? []));
     if ((data?.length ?? 0) < 1000) return rows;
