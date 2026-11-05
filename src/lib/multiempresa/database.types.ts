@@ -128,6 +128,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      tenant_production_planning_events: {
+        Row: {
+          id: string; company_id: string; production_unit_id: string;
+          old_area: string | null; new_area: string;
+          old_priority: string | null; new_priority: string;
+          old_planned_date: string | null; new_planned_date: string;
+          reason: string; actor_id: string; occurred_at: string;
+        };
+        Insert: {
+          id?: string; company_id: string; production_unit_id: string;
+          old_area?: string | null; new_area: string;
+          old_priority?: string | null; new_priority: string;
+          old_planned_date?: string | null; new_planned_date: string;
+          reason: string; actor_id: string; occurred_at?: string;
+        };
+        Update: {
+          id?: string; company_id?: string; production_unit_id?: string;
+          old_area?: string | null; new_area?: string;
+          old_priority?: string | null; new_priority?: string;
+          old_planned_date?: string | null; new_planned_date?: string;
+          reason?: string; actor_id?: string; occurred_at?: string;
+        };
+        Relationships: [];
+      };
       tenant_production_units: {
         Row: {
           id: string;
