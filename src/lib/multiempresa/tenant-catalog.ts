@@ -20,6 +20,7 @@ export const tenantQueryKeys = {
   suppliers: (companyId: string) => ["tenant", companyId, "suppliers"] as const,
   orders: (companyId: string) => ["tenant", companyId, "purchase-orders"] as const,
   movements: (companyId: string) => ["tenant", companyId, "movements"] as const,
+  movementCancellations: (companyId: string) => ["tenant", companyId, "movement-cancellations"] as const,
   acceptedServices: (companyId: string) => ["tenant", companyId, "accepted-services"] as const,
   receiptLines: (companyId: string, orderId: string) =>
     ["tenant", companyId, "receipt-lines", orderId] as const,
@@ -142,6 +143,22 @@ export async function listCompanyInventoryAdjustments(companyId: string) {
     )
     .eq("company_id", companyId)
     .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Only company-authorized managers may view cancellation explanations.
+ * The cancellation itself remains a staged SQL RPC inaccessible from the web.
+ */
+export async function listCompanyMovementCancellations(companyId: string) {
+  await requireCompany(companyId);
+  const { data, error } = await db
+    .from("tenant_movement_cancellations")
+    .select("id,company_id,movement_id,product_id,original_type,quantity,reason,cancelled_by,cancelled_at")
+    .eq("company_id", companyId)
+    .order("cancelled_at", { ascending: false })
     .limit(100);
   if (error) throw error;
   return data;
