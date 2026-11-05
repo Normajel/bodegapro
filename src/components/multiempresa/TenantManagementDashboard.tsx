@@ -94,7 +94,9 @@ export function TenantManagementDashboard() {
     : null;
   const trend = movements.data ? tenantMovementSeries(movements.data, mode === "cumulative") : [];
   const alerts = summary ? tenantManagementAlerts(access.data, summary) : [];
-  const visibleAlerts = alerts.filter((alert) => !dismissed.includes((companyId ?? "") + ":" + alert.id));
+  const visibleAlerts = alerts.filter(
+    (alert) => !dismissed.includes((companyId ?? "") + ":" + alert.id),
+  );
   const categoryRows = summary?.categoryValues.filter((item) => item.value > 0) ?? [];
   const orderRows = summary?.orderGroups.filter((item) => item.count > 0) ?? [];
   const options = [...new Set((products.data ?? []).map((product) => product.category))].sort();
@@ -204,18 +206,30 @@ export function TenantManagementDashboard() {
                 {visibleAlerts.length > 0 ? (
                   <div className="grid gap-3 md:grid-cols-2">
                     {visibleAlerts.map((alert) => (
-                      <div key={alert.id} className="flex items-start justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">
-                        <p className="text-sm"><strong>{alert.count}</strong> · {alert.label}</p>
-                        <button type="button"
+                      <div
+                        key={alert.id}
+                        className="flex items-start justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950"
+                      >
+                        <p className="text-sm">
+                          <strong>{alert.count}</strong> · {alert.label}
+                        </p>
+                        <button
+                          type="button"
                           aria-label={`Descartar aviso de ${alert.label}`}
-                          onClick={() => setDismissed((old) => [...old, (companyId ?? "") + ":" + alert.id])}
-                          className="rounded border border-amber-400 px-2 py-1 text-xs font-bold">X</button>
+                          onClick={() =>
+                            setDismissed((old) => [...old, (companyId ?? "") + ":" + alert.id])
+                          }
+                          className="rounded border border-amber-400 px-2 py-1 text-xs font-bold"
+                        >
+                          X
+                        </button>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <p className="text-sm text-slate-600">
-                    No hay avisos pendientes para mostrar. Pulsa Actualizar datos para volver a consultar.
+                    No hay avisos pendientes para mostrar. Pulsa Actualizar datos para volver a
+                    consultar.
                   </p>
                 )}
               </section>
