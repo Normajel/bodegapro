@@ -26,7 +26,10 @@ describe("Panel gerencial", () => {
       expect(canViewManagement(role, { management: { view: true } })).toBe(true);
     expect(canViewManagement("ADMIN", { management: { view: true } })).toBe(true);
     expect(canViewManagement("ADMIN", {})).toBe(false);
-    for (const role of ["BODEGA", "VENTAS", "ADMINPRO", "Admin_1", "Gerencia_1", undefined]) {
+    expect(canViewManagement("ADMINPRO", {})).toBe(true);
+    expect(hasPermission("ADMINPRO", {}, "management")).toBe(true);
+    expect(hasPermission("ADMINPRO", {}, "management", "edit")).toBe(false);
+    for (const role of ["BODEGA", "VENTAS", "Admin_1", "Gerencia_1", undefined]) {
       expect(canViewManagement(role, { management: { view: true } })).toBe(false);
       expect(hasPermission(role, { management: { view: true } }, "management")).toBe(false);
     }
