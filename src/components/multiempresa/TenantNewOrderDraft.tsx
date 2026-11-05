@@ -44,7 +44,8 @@ export function TenantNewOrderDraft({ companyId }: { companyId: string }) {
 
   const access = useQuery({
     queryKey: ["tenant", companyId, "create-order-access"],
-    queryFn: async () => (await loadMyCompanies()).find(({ company }) => company.id === companyId)?.role ?? null,
+    queryFn: async () =>
+      (await loadMyCompanies()).find(({ company }) => company.id === companyId)?.role ?? null,
     staleTime: 0,
   });
   const mayCreate = access.isSuccess && ["ADMIN", "ADMINPRO"].includes(access.data ?? "");
@@ -114,8 +115,8 @@ export function TenantNewOrderDraft({ companyId }: { companyId: string }) {
     >
       <h2 className="text-lg font-semibold">Preparar nueva orden de compra</h2>
       <p className="mt-1 text-sm text-slate-600">
-        Las OC de productos y servicios son independientes. Al registrar, quedan pendientes de aprobación
-        por Gerencia. No se descuentan existencias al crear la orden.
+        Las OC de productos y servicios son independientes. Al registrar, quedan pendientes de
+        aprobación por Gerencia. No se descuentan existencias al crear la orden.
       </p>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="block text-sm font-medium">
@@ -329,8 +330,18 @@ export function TenantNewOrderDraft({ companyId }: { companyId: string }) {
           {saveOrder.isPending ? "Registrando…" : "Crear orden de compra"}
         </button>
       </div>
-      {savedNumber && <p role="status" className="mt-3 rounded bg-teal-50 p-3 text-sm text-teal-900">OC {savedNumber} creada correctamente. Pendiente de aprobación.</p>}
-      {saveOrder.isError && <p role="alert" className="mt-3 text-sm text-red-700">{saveOrder.error instanceof Error ? saveOrder.error.message : "No se pudo registrar la OC."}</p>}
+      {savedNumber && (
+        <p role="status" className="mt-3 rounded bg-teal-50 p-3 text-sm text-teal-900">
+          OC {savedNumber} creada correctamente. Pendiente de aprobación.
+        </p>
+      )}
+      {saveOrder.isError && (
+        <p role="alert" className="mt-3 text-sm text-red-700">
+          {saveOrder.error instanceof Error
+            ? saveOrder.error.message
+            : "No se pudo registrar la OC."}
+        </p>
+      )}
       {access.isError && <p role="alert">No se pudieron verificar permisos para crear OC.</p>}
       {showReview && prepared && (
         <div className="mt-4 rounded border border-teal-200 bg-teal-50 p-3 text-sm">
