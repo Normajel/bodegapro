@@ -1,10 +1,16 @@
 {
-  "name": "BodegaPro",
-  "short_name": "BodegaPro",
-  "description": "Gestión de bodega: inventario, movimientos, contactos e informes.",
-  "start_url": "/dashboard",
+  "name": "INTEGRASTOCK Multiempresa",
+  "short_name": "IntegraStock",
+  "description": "ERP multiempresa: compras, bodega, recepciones e informes.",
+  "start_url": "/compras",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0f172a",
-  "icons": [{ "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon" }]
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
 }
