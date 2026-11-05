@@ -20,12 +20,21 @@ export type TenantDocumentContext = {
 
 export const moneyCLP = (value: number) =>
   new Intl.NumberFormat("es-CL", {
-    style: "currency", currency: "CLP", maximumFractionDigits: 0,
+    style: "currency",
+    currency: "CLP",
+    maximumFractionDigits: 0,
   }).format(value);
 
 export function summarizeTenantCubicationDocument(lines: readonly TenantDocumentLine[]) {
-  if (lines.some((line) => !Number.isFinite(line.quantity) || line.quantity <= 0 ||
-    !Number.isFinite(line.unitCost) || line.unitCost < 0)) {
+  if (
+    lines.some(
+      (line) =>
+        !Number.isFinite(line.quantity) ||
+        line.quantity <= 0 ||
+        !Number.isFinite(line.unitCost) ||
+        line.unitCost < 0,
+    )
+  ) {
     throw new Error("La cubicación contiene cantidades o costos inválidos.");
   }
   const groups = new Map<string, { category: string; subtotal: number; count: number }>();
@@ -41,7 +50,11 @@ export function summarizeTenantCubicationDocument(lines: readonly TenantDocument
     group.count++;
     groups.set(category, group);
   }
-  return { total, missingPrices, groups: [...groups.values()].sort((a, b) => a.category.localeCompare(b.category)) };
+  return {
+    total,
+    missingPrices,
+    groups: [...groups.values()].sort((a, b) => a.category.localeCompare(b.category)),
+  };
 }
 
 /** Exports already authorized company data; never queries another tenant or creates documents. */
@@ -92,6 +105,12 @@ export function downloadTenantCubicationPdf(
     pdf.text(`Atención: ${summary.missingPrices} material(es) sin costo registrado.`, 14, y + 7);
   }
   pdf.setFontSize(8);
-  pdf.text("Documento de consulta: no genera compras ni descuenta inventario.", 14, Math.min(y + 16, 286));
-  pdf.save(`cub icacion-${unitCode.replace(/[^a-z0-9-]/gi, "-")}.pdf`.replace("cub icacion", "cubicacion"));
+  pdf.text(
+    "Documento de consulta: no genera compras ni descuenta inventario.",
+    14,
+    Math.min(y + 16, 286),
+  );
+  pdf.save(
+    `cub icacion-${unitCode.replace(/[^a-z0-9-]/gi, "-")}.pdf`.replace("cub icacion", "cubicacion"),
+  );
 }
