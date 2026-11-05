@@ -160,7 +160,9 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <CompanySelector />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <LegacyMigrationGate><Outlet /></LegacyMigrationGate>
+      <LegacyMigrationGate>
+        <Outlet />
+      </LegacyMigrationGate>
       <Toaster
         richColors
         position="top-center"
