@@ -56,6 +56,7 @@ function DashboardPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["products"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard-movements"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-special-receipts"] }),
         queryClient.invalidateQueries({ queryKey: ["role-notifications"] }),
       ]);
     } finally {
@@ -137,6 +138,30 @@ function DashboardPage() {
     },
   });
 
+  type SpecialReceipt = {
+    id: string;
+    created_at: string;
+    description: string;
+    sku: string;
+    measure_unit: string;
+    document_type: string;
+    document_number: string;
+    quantity: number;
+    unit_cost: number;
+    order_number: string;
+  };
+  const { data: specialReceipts = [], isLoading: specialLoading, isError: specialError } = useQuery({
+    queryKey: ["dashboard-special-receipts", chartStartIso, chartEndIso],
+    queryFn: async (): Promise<SpecialReceipt[]> => {
+      const { data, error } = await (supabase as any).rpc("dashboard_special_receipts", {
+        p_from: chartStartIso,
+        p_to: chartEndIso,
+      });
+      if (error) throw error;
+      return (data ?? []) as SpecialReceipt[];
+    },
+  });
+
   const activeProducts = products.filter((product) => product.active);
   const criticalProducts = activeProducts.filter(
     (product) =>
@@ -154,8 +179,15 @@ function DashboardPage() {
     0,
   );
   const movementsToday = movements.filter((movement) => dateKey(movement.created_at) === todayKey);
-  const todayPagination = pageWindow(movementsToday.length, todayPageSize, todayPage);
-  const pagedTodayMovements = movementsToday.slice(todayPagination.start, todayPagination.end);
+  // Las compras especiales se registran fuera de stock_movements. Solo se unen
+  // para el listado diario; no se incorporan a los KPI de stock ordinario.
+  const todayRows = [
+    ...movementsToday.map((movement) => ({ kind: "stock" as const, id: movement.id, created_at: movement.created_at, movement })),
+    ...specialReceipts.filter((receipt) => dateKey(receipt.created_at) === todayKey)
+      .map((receipt) => ({ kind: "special" as const, id: receipt.id, created_at: receipt.created_at, receipt })),
+  ].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const todayPagination = pageWindow(todayRows.length, todayPageSize, todayPage);
+  const pagedTodayMovements = todayRows.slice(todayPagination.start, todayPagination.end);
   const entriesToday = movementsToday.filter((movement) => movement.type === "entrada");
   const exitsToday = movementsToday.filter((movement) => movement.type === "salida");
   const movementCost = (movement: (typeof movements)[number]) =>
@@ -543,48 +575,69 @@ function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {movementsLoading ? (
+              {movementsLoading || specialLoading ? (
                 <tr>
                   <td colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
                     Cargando movimientos…
                   </td>
                 </tr>
-              ) : movementsError ? (
+              ) : movementsError || specialError ? (
                 <tr>
                   <td colSpan={5} className="py-6 text-center text-sm text-destructive">
                     No se pudieron cargar los movimientos de hoy.
                   </td>
                 </tr>
-              ) : movementsToday.length === 0 ? (
+              ) : todayRows.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
                     No hay movimientos hoy.
                   </td>
                 </tr>
               ) : (
-                pagedTodayMovements.map((movement) => {
-                  const total = movementQuantity(movement) * movementCost(movement);
+                pagedTodayMovements.map((row) => {
+                  const isSpecial = row.kind === "special";
+                  const movement = row.kind === "stock" ? row.movement : null;
+                  const receipt = row.kind === "special" ? row.receipt : null;
+                  const total = receipt
+                    ? finiteNumber(receipt.quantity) * finiteNumber(receipt.unit_cost)
+                    : movement ? movementQuantity(movement) * movementCost(movement) : 0;
+                  const documentType = receipt?.document_type ?? movement?.document_type;
+                  const documentNumber = receipt?.document_number ?? movement?.document_number;
                   const documentLabel =
-                    movement.document_type === "factura"
-                      ? "Factura"
-                      : movement.document_type === "guia_despacho"
-                        ? "Guía de despacho"
-                        : movement.document_type || "Documento";
-                  const unitLabel = movement.unit_type
+                    documentType === "factura" ? "Factura"
+                      : documentType === "guia_despacho" ? "Guía de despacho"
+                      : documentType || "Documento";
+                  const unitLabel = receipt?.measure_unit ?? (movement?.unit_type
                     ? ({
                         stock: "Stock",
                         arriendo: "Arriendo",
                         nota_venta: "Nota de venta",
                       }[movement.unit_type] ?? movement.unit_type)
-                    : movement.measure_unit || movement.products?.unit || "—";
+                    : movement?.measure_unit || movement?.products?.unit || "—");
                   return (
-                    <tr key={movement.id}>
+                    <tr key={`${row.kind}-${row.id}`}>
                       <td className="whitespace-nowrap text-muted-foreground">
                         {new Intl.DateTimeFormat("es-CL", {
                           timeZone: "America/Santiago",
                           hour: "2-digit",
                           minute: "2-digit",
-                        }).format(new Date(movement.created_at))}
+                        }).format(new Date(row.created_at))}
+                      </td>
+                      <td className="font-medium">
+                        {isSpecial && <span className="mr-2 rounded bg-yellow-100 px-1.5 py-0.5 text-xs text-yellow-900">Compra especial</span>}
+                        {receipt?.description ?? movement?.products?.name ?? "—"}
+                      </td>
+                      <td>
+                        {documentType || documentNumber ? (
+                          <>{documentLabel}{documentNumber ? ` N.º ${documentNumber}` : ""}</>
+                        ) : "—"}
+                        {receipt?.order_number && <span className="block text-xs text-muted-foreground">OC {receipt.order_number}</span>}
+                      </td>
+                      <td>{unitLabel}</td>
+                      <td>{formatCLP(total)}</td>
+                    </tr>
+                  );
+                }).format(new Date(movement.created_at))}
                       </td>
                       <td className="font-medium">{movement.products?.name ?? "—"}</td>
                       <td>
@@ -606,11 +659,11 @@ function DashboardPage() {
             </tbody>
           </table>
         </div>
-        {!movementsError && (
+        {!movementsError && !specialError && (
           <TablePagination
             id="panel-today-movements"
             label="Movimientos de hoy"
-            total={movementsToday.length}
+            total={todayRows.length}
             page={todayPagination.page}
             pageSize={todayPageSize}
             onPageChange={setTodayPage}
@@ -618,7 +671,7 @@ function DashboardPage() {
               setTodayPageSize(size);
               setTodayPage(0);
             }}
-            disabled={movementsLoading}
+            disabled={movementsLoading || specialLoading}
           />
         )}
       </section>
