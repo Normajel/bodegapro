@@ -74,6 +74,12 @@ describe("management server authorization", () => {
     await expect(invoke()).rejects.toThrow("segundo factor");
     expect(fixture.reads).toEqual(["profiles"]);
   });
+  it("allows AdminPro to read the dashboard with valid underlying read permissions", async () => {
+    fixture.role = "ADMINPRO";
+    fixture.aal = "aal2";
+    await expect(invoke()).resolves.toMatchObject({ products: [], templates: [], items: [] });
+    expect(fixture.reads).toContain("cubication_template_items");
+  });
   it("denies partial RLS access rather than showing a misleading zero", async () => {
     fixture.role = "GERENCIA";
     fixture.allow = false;
