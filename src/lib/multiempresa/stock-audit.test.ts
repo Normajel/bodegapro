@@ -21,11 +21,15 @@ describe("tenant stock audit release gates and validation", () => {
   });
   it("never proposes cancelling OC-linked, batched or already cancelled movements", () => {
     const standalone = {
-      purchase_order_id: null, purchase_order_item_id: null,
-      batch_id: null, alreadyCancelled: false,
+      purchase_order_id: null,
+      purchase_order_item_id: null,
+      batch_id: null,
+      alreadyCancelled: false,
     };
     expect(canPrepareMovementCancellation(standalone)).toBe(true);
-    expect(canPrepareMovementCancellation({ ...standalone, purchase_order_id: "oc-1" })).toBe(false);
+    expect(canPrepareMovementCancellation({ ...standalone, purchase_order_id: "oc-1" })).toBe(
+      false,
+    );
     expect(canPrepareMovementCancellation({ ...standalone, batch_id: "b-1" })).toBe(false);
     expect(canPrepareMovementCancellation({ ...standalone, alreadyCancelled: true })).toBe(false);
   });

@@ -31,8 +31,10 @@ export type MovementCancellationCandidate = {
 };
 
 export function canPrepareMovementCancellation(movement: MovementCancellationCandidate): boolean {
-  return !movement.alreadyCancelled &&
+  return (
+    !movement.alreadyCancelled &&
     !movement.purchase_order_id &&
     !movement.purchase_order_item_id &&
-    !movement.batch_id;
+    !movement.batch_id
+  );
 }
