@@ -1,7 +1,10 @@
 import { dateKey } from "./warehouse";
 
 export function canViewManagement(role: string | null | undefined, permissions: unknown) {
-  const allowed = ["ADMIN", "GERENCIA", "GERENTE"].includes(role?.trim().toUpperCase() ?? "");
+  const normalizedRole = role?.trim().toUpperCase() ?? "";
+  // AdminPro can always consult management indicators; this does not grant editing rights.
+  if (normalizedRole === "ADMINPRO") return true;
+  const allowed = ["ADMIN", "GERENCIA", "GERENTE"].includes(normalizedRole);
   const value = permissions as { management?: { view?: boolean } } | null;
   return allowed && value?.management?.view === true;
 }
