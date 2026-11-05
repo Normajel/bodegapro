@@ -106,14 +106,12 @@ function TenantChatPanel({
         throw new Error("Elige un destinatario válido.");
       if (!body.trim() || body.trim().length > 2000)
         throw new Error("El mensaje debe tener entre 1 y 2000 caracteres.");
-      const { error } = await db
-        .from("tenant_chat_messages")
-        .insert({
-          company_id: companyId,
-          sender_id: userId,
-          recipient_id: peerId,
-          body: body.trim(),
-        });
+      const { error } = await db.from("tenant_chat_messages").insert({
+        company_id: companyId,
+        sender_id: userId,
+        recipient_id: peerId,
+        body: body.trim(),
+      });
       if (error) throw error;
     },
     onSuccess: async () => {
