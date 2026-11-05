@@ -94,7 +94,10 @@ export function TenantMovementsPreview() {
                   <td className="px-4 py-3">{m.reference ?? m.document_number ?? "—"}</td>
                   <td className="px-4 py-3">
                     {cancelledByMovement.has(m.id) ? (
-                      <span className="font-medium text-amber-800" title={cancelledByMovement.get(m.id)?.reason}>
+                      <span
+                        className="font-medium text-amber-800"
+                        title={cancelledByMovement.get(m.id)?.reason}
+                      >
                         ANULADO
                       </span>
                     ) : cancellations.isPending ? (
@@ -115,10 +118,14 @@ export function TenantMovementsPreview() {
         </div>
       )}
       {companyId && cancellations.isSuccess && cancellations.data.length > 0 && (
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4" aria-label="Historial de anulaciones">
+        <section
+          className="mt-6 rounded-lg border border-slate-200 bg-white p-4"
+          aria-label="Historial de anulaciones"
+        >
           <h2 className="font-semibold">Anulaciones de movimientos</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Cada anulación conserva su motivo, fecha y responsable; no elimina el movimiento original.
+            Cada anulación conserva su motivo, fecha y responsable; no elimina el movimiento
+            original.
           </p>
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-left text-sm">
