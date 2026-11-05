@@ -193,7 +193,8 @@ export async function listTenantManagementMovements(companyId: string, from: str
     if (error) throw error;
     rows.push(...(data ?? []));
     if ((data?.length ?? 0) < 1000) break;
-    if (start === 5000) throw new Error("El período supera el máximo de registros del panel; acota las fechas.");
+    if (start === 5000)
+      throw new Error("El período supera el máximo de registros del panel; acota las fechas.");
   }
   for (let start = 0; start <= 5000; start += 1000) {
     const { data, error } = await db
