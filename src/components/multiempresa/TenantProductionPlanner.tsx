@@ -45,3 +45,9 @@ export function TenantProductionPlanner({ companyId, units }: { companyId: strin
             {PRODUCTION_AREAS.map((item) => <option key={item} value={item}>{item.replaceAll("_", " ")}</option>)}
           </select>
         </label>
+        <label className="text-sm font-semibold">Prioridad
+          <select value={priority} onChange={(e) => { setPriority(e.target.value as PlanningDraft["priority"]); setReview(null); }}
+            className="mt-1 block w-full rounded border bg-white p-2">
+            {["NORMAL", "ALTA", "URGENTE", "BAJA"].map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </label>
