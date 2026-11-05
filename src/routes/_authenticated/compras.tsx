@@ -137,6 +137,8 @@ function ComprasPage() {
   const [editingCostCenterId, setEditingCostCenterId] = useState<string | null>(null);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [supplierId, setSupplierId] = useState("");
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [supplierSearchOpen, setSupplierSearchOpen] = useState(false);
   const [costCenterId, setCostCenterId] = useState("");
   const [costCenterName, setCostCenterName] = useState("");
   const [orderDate, setOrderDate] = useState(localDateValue());
@@ -340,6 +342,8 @@ function ComprasPage() {
   function openNewOrder() {
     setEditingOrderId(null);
     setSupplierId("");
+    setSupplierSearch("");
+    setSupplierSearchOpen(false);
     setCostCenterId("");
     setOrderDate(localDateValue());
     setPaymentTerms("contado");
@@ -356,6 +360,8 @@ function ComprasPage() {
     if (hasService && !canManageServiceOrders) return;
     setEditingOrderId(order.id);
     setSupplierId(order.supplier_id);
+    setSupplierSearch(suppliers.find((supplier) => supplier.id === order.supplier_id)?.name ?? "");
+    setSupplierSearchOpen(false);
     setCostCenterId(order.cost_center_id ?? "");
     setOrderDate(order.order_date);
     setPaymentTerms(order.payment_terms as PaymentTerms);
@@ -1060,27 +1066,56 @@ function ComprasPage() {
                       required
                     />
                   </div>
-                  <div>
-                    <label className="label">Proveedor / contratista *</label>
-                    <select
+                  <div className="relative" onBlur={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                      setSupplierSearchOpen(false);
+                    }
+                  }}>
+                    <label className="label" htmlFor="purchase-order-supplier-search">Proveedor / contratista *</label>
+                    <input
+                      id="purchase-order-supplier-search"
                       className="input"
-                      value={supplierId}
-                      onChange={(event) => setSupplierId(event.target.value)}
+                      type="text"
+                      value={supplierSearch}
+                      placeholder="Escribe para buscar un proveedor o contratista…"
+                      autoComplete="off"
+                      onFocus={() => setSupplierSearchOpen(true)}
+                      onChange={(event) => {
+                        setSupplierSearch(event.target.value);
+                        setSupplierId("");
+                        setSupplierSearchOpen(true);
+                      }}
+                      aria-autocomplete="list"
+                      aria-expanded={supplierSearchOpen}
+                      aria-controls="purchase-order-supplier-results"
                       required
-                    >
-                      <option value="">Selecciona proveedor…</option>
-                      {suppliers.map((supplier) => (
-                        <option key={supplier.id} value={supplier.id}>
-                          {supplier.name} (
-                          {supplier.supplier_kind === "servicios"
-                            ? "Contratista"
-                            : supplier.supplier_kind === "ambos"
-                              ? "Proveedor y contratista"
-                              : "Proveedor"}
-                          )
-                        </option>
-                      ))}
-                    </select>
+                    />
+                    {supplierSearchOpen && (
+                      <div id="purchase-order-supplier-results" role="listbox" className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-background shadow-lg">
+                        {suppliers.filter((supplier) => supplier.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(supplierSearch.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase())).slice(0, 12).map((supplier) => (
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={supplierId === supplier.id}
+                            key={supplier.id}
+                            className="block w-full px-3 py-2 text-left text-sm hover:bg-muted focus:bg-muted"
+                            onClick={() => {
+                              setSupplierId(supplier.id);
+                              setSupplierSearch(supplier.name);
+                              setSupplierSearchOpen(false);
+                            }}
+                          >
+                            <span className="font-medium">{supplier.name}</span>
+                            <span className="block text-xs text-muted-foreground">
+                              {supplier.supplier_kind === "servicios" ? "Contratista" : supplier.supplier_kind === "ambos" ? "Proveedor y contratista" : "Proveedor"}
+                            </span>
+                          </button>
+                        ))}
+                        {suppliers.length > 0 && !suppliers.some((supplier) => supplier.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(supplierSearch.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase())) && (
+                          <p className="p-3 text-sm text-muted-foreground">No se encontraron coincidencias.</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="label">Condiciones de pago *</label>
