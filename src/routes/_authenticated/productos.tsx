@@ -1,3 +1,4 @@
+import { InventoryAdjustmentHistory } from "@/components/inventory-adjustment-history";
 import { NumericInput } from "@/components/numeric-input";
 import { ProductDescriptionField } from "@/components/product-description-field";
 import { PRODUCT_UNITS, type ProductDetails } from "@/lib/product-form";
@@ -87,7 +88,10 @@ function ProductosPage() {
   const canCreate = hasPermission(access?.name, access?.permissions, "inventory", "create");
   const canEdit = hasPermission(access?.name, access?.permissions, "inventory", "edit");
   const canDelete = hasPermission(access?.name, access?.permissions, "inventory", "delete");
-  const isAdmin = (access?.name ?? "").trim().toUpperCase() === "ADMIN";
+  const roleName = (access?.name ?? "").trim().toUpperCase();
+  const canViewAdjustments = roleName === "ADMIN" || roleName === "ADMINPRO";
+  const canAdjustStock = canViewAdjustments && canEdit;
+  const [adjustmentReason, setAdjustmentReason] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [managementFilter, setManagementFilter] = useState<"" | "comprar" | "ok">("");
   const [pageSize, setPageSize] = useState<10 | 20>(10);
@@ -190,6 +194,7 @@ function ProductosPage() {
 
   function openEdit(p: Product) {
     setScanning(false);
+    setAdjustmentReason("");
     setEditing(p);
     const savedUnit = p.unit ?? "unidad";
     if (!unitOptions.some((unit) => unit.toLowerCase() === savedUnit.toLowerCase())) {
@@ -230,6 +235,8 @@ function ProductosPage() {
     toast.success("Unidad agregada al selector");
   }
 
+  const stockChanged = !!editing && canAdjustStock && form.stock !== getProductStock(editing);
+
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
@@ -245,8 +252,12 @@ function ProductosPage() {
       toast.error("El stock crítico debe ser un número igual o mayor a cero");
       return;
     }
-    if (isAdmin && editing && (!Number.isFinite(form.stock) || form.stock < 0)) {
+    if (canAdjustStock && editing && (!Number.isFinite(form.stock) || form.stock < 0)) {
       toast.error("El stock debe ser un número igual o mayor a cero");
+      return;
+    }
+    if (stockChanged && !adjustmentReason.trim()) {
+      toast.error("Indica el motivo del ajuste de inventario");
       return;
     }
     if (!Number.isFinite(form.unit_cost) || form.unit_cost < 0) {
@@ -297,14 +308,17 @@ function ProductosPage() {
         location: form.location.trim() || null,
         unit_cost: Number(form.unit_cost),
         barcode: form.barcode.trim() || null,
-        ...(isAdmin && editing && form.stock !== getProductStock(editing)
-          ? { stock_quantity: Number(form.stock) }
+        ...(stockChanged
+          ? { stock_quantity: form.stock, stock_adjustment_reason: adjustmentReason.trim() }
           : {}),
       };
 
       if (editing) {
-        const { error } = await supabase.from("products").update(payload).eq("id", editing.id);
+        let update = supabase.from("products").update(payload).eq("id", editing.id);
+        if (stockChanged) update = update.eq("stock_quantity", editing.stock_quantity);
+        const { data, error } = await update.select("id").maybeSingle();
         if (error) throw error;
+        if (!data) throw new Error("El producto cambió o ya no está disponible. Vuelve a abrirlo.");
         toast.success(`Producto "${payload.name}" modificado correctamente`);
       } else {
         const { error } = await supabase.from("products").insert(payload);
@@ -317,6 +331,7 @@ function ProductosPage() {
       setScanning(false);
       setEditing(null);
       await queryClient.invalidateQueries({ queryKey: ["products"] });
+      if (stockChanged) await queryClient.invalidateQueries({ queryKey: ["inventory-adjustments"] });
     } catch (err) {
       toast.error(
         `No se pudo ${editing ? "modificar" : "guardar"} el producto: ${getSaveErrorMessage(err)}`,
@@ -354,6 +369,7 @@ function ProductosPage() {
             );
 
             if (matchedProduct) {
+              setAdjustmentReason("");
               setEditing(matchedProduct);
               const savedUnit = matchedProduct.unit || "unidad";
               setUnitOptions((current) =>
@@ -522,11 +538,13 @@ function ProductosPage() {
       const payload = validation.rows.map(({ rowNumber: _rowNumber, ...row }) => ({
         ...row,
         sku: row.sku ?? "",
+        stock_adjustment_reason: "Actualización de stock por importación de inventario Excel",
       }));
       const { error } = await supabase.from("products").upsert(payload, { onConflict: "sku" });
       if (error) throw error;
 
       await queryClient.invalidateQueries({ queryKey: ["products"] });
+      await queryClient.invalidateQueries({ queryKey: ["inventory-adjustments"] });
       toast.success(
         `Inventario cargado: ${validation.newCount} nuevos y ${validation.updateCount} actualizados. Los SKU nuevos se asignaron automáticamente.`,
       );
@@ -828,6 +846,8 @@ function ProductosPage() {
         </div>
       </div>
 
+      {canViewAdjustments && <InventoryAdjustmentHistory canEdit={canAdjustStock} />}
+
       {formOpen && (editing ? canEdit : canCreate) && (
         <div
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto sm:items-center bg-foreground/40 p-4"
@@ -1047,7 +1067,7 @@ function ProductosPage() {
                 </div>
               </div>
 
-              {isAdmin && editing && (
+              {canAdjustStock && editing && (
                 <div className="rounded-md border border-warning/50 bg-warning/10 p-3">
                   <label className="label" htmlFor="product-stock">
                     Stock actual (ajuste de inventario)
@@ -1062,9 +1082,22 @@ function ProductosPage() {
                     onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })}
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Solo administradores. Úsalo para cuadrar el inventario general; no genera un
-                    movimiento.
+                    El cambio quedará registrado en el historial de ajustes.
                   </p>
+                  {stockChanged && (
+                    <div className="mt-3">
+                      <label className="label" htmlFor="stock-adjustment-reason">Motivo del ajuste</label>
+                      <textarea
+                        id="stock-adjustment-reason"
+                        className="input w-full"
+                        placeholder="Ej. Cierre de mes"
+                        required
+                        maxLength={500}
+                        value={adjustmentReason}
+                        onChange={(event) => setAdjustmentReason(event.target.value)}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1190,7 +1223,7 @@ function ProductosPage() {
                   })}
                 </dd>
               </div>
-              {isAdmin && editing && (
+              {canAdjustStock && editing && (
                 <div>
                   <dt className="text-muted-foreground">Stock actual</dt>
                   <dd className="font-medium">

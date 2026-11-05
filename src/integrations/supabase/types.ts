@@ -449,6 +449,48 @@ export type Database = {
           },
         ];
       };
+      inventory_adjustments: {
+        Row: {
+          id: string;
+          product_id: string;
+          description: string;
+          category: string;
+          initial_stock: number;
+          adjusted_stock: number;
+          created_at: string;
+          created_by: string;
+          reason: string;
+          edited_at: string | null;
+          edited_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          description: string;
+          category: string;
+          initial_stock: number;
+          adjusted_stock: number;
+          created_at?: string;
+          created_by: string;
+          reason: string;
+          edited_at?: string | null;
+          edited_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          product_id?: string;
+          description?: string;
+          category?: string;
+          initial_stock?: number;
+          adjusted_stock?: number;
+          created_at?: string;
+          created_by?: string;
+          reason?: string;
+          edited_at?: string | null;
+          edited_by?: string | null;
+        };
+        Relationships: [];
+      };
       products: {
         Row: {
           active: boolean;
@@ -461,6 +503,7 @@ export type Database = {
           name: string;
           sku: string;
           stock: number;
+          stock_adjustment_reason: string | null;
           stock_quantity: number;
           supplier_id: string | null;
           unit: string;
@@ -478,6 +521,7 @@ export type Database = {
           name: string;
           sku: string;
           stock?: number;
+          stock_adjustment_reason?: string | null;
           stock_quantity?: number;
           supplier_id?: string | null;
           unit?: string;
@@ -495,6 +539,7 @@ export type Database = {
           name?: string;
           sku?: string;
           stock?: number;
+          stock_adjustment_reason?: string | null;
           stock_quantity?: number;
           supplier_id?: string | null;
           unit?: string;
