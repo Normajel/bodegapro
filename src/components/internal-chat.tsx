@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -33,7 +34,7 @@ export function InternalChat({ userId, onClose }: { userId: string; onClose: () 
     queryKey: [...key, "contacts"],
     refetchInterval: 10000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("internal_chat_contacts");
+      const { data, error } = await supabase.rpc("internal_chat_inbox");
       if (error) throw error;
       return data ?? [];
     },
@@ -77,9 +78,21 @@ export function InternalChat({ userId, onClose }: { userId: string; onClose: () 
       return cache.invalidateQueries({ queryKey: key });
     },
   });
+  const clear = useMutation({
+    mutationFn: async (recipient: string) => {
+      const { error } = await supabase.rpc("clear_internal_chat", { p_peer_id: recipient });
+      if (error) throw error;
+    },
+    onSuccess: async (_, recipient) => {
+      if (peer === recipient) openConversation("");
+      cache.removeQueries({ queryKey: [...key, "thread", recipient] });
+      await cache.invalidateQueries({ queryKey: key });
+    },
+  });
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (peer && draft.trim() && !send.isPending) send.mutate({ recipient: peer, body: draft.trim() });
+    if (peer && draft.trim() && !send.isPending && !clear.isPending) send.mutate({ recipient: peer, body: draft.trim() });
   }
   function openConversation(user: string) {
     setPage(0);
@@ -89,7 +102,7 @@ export function InternalChat({ userId, onClose }: { userId: string; onClose: () 
     send.reset();
   }
 
-  const unreadSenders = contacts.data?.filter((contact) => contact.unread_count > 0) ?? [];
+  const conversations = contacts.data?.filter((contact) => contact.last_message_at) ?? [];
   const selectedContact = contacts.data?.find((contact) => contact.user_id === peer);
   const messages = thread.data?.slice(0, 30).reverse() ?? [];
   return (
@@ -102,7 +115,7 @@ export function InternalChat({ userId, onClose }: { userId: string; onClose: () 
           <select
             className="input w-full"
             value={peer}
-            disabled={send.isPending}
+            disabled={send.isPending || clear.isPending}
             onChange={(event) => openConversation(event.target.value)}
           >
             <option value="">Selecciona un usuario</option>
@@ -114,34 +127,51 @@ export function InternalChat({ userId, onClose }: { userId: string; onClose: () 
             ))}
           </select>
         </label>
-        {unreadSenders.length > 0 && (
-          <section className="space-y-2" aria-labelledby="unread-senders-title">
-            <h3 id="unread-senders-title" className="text-sm font-semibold">
-              Mensajes sin leer
+        {conversations.length > 0 && (
+          <section className="space-y-2" aria-labelledby="conversations-title">
+            <h3 id="conversations-title" className="text-sm font-semibold">
+              Conversaciones
             </h3>
             <ul className="space-y-2">
-              {unreadSenders.map((sender) => (
+              {conversations.map((sender) => (
                 <li key={sender.user_id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
                   <div className="min-w-0 break-words text-sm">
                     <p className="font-semibold">{sender.display_name}</p>
                     <p className="text-muted-foreground">
-                      {sender.role_name} · {sender.unread_count} sin leer
+                      {sender.role_name}{sender.unread_count > 0 ? ` · ${sender.unread_count} sin leer` : ""}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary min-h-11 shrink-0"
-                    aria-label={`Leer mensajes de ${sender.display_name}`}
-                    disabled={send.isPending}
-                    onClick={() => openConversation(sender.user_id)}
-                  >
-                    Leer
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      className="btn btn-secondary min-h-11"
+                      aria-label={`Leer mensajes de ${sender.display_name}`}
+                      disabled={send.isPending || clear.isPending}
+                      onClick={() => openConversation(sender.user_id)}
+                    >
+                      Leer
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost min-h-11 min-w-11 text-destructive"
+                      aria-label={`Eliminar conversación con ${sender.display_name}`}
+                      title="Eliminar de mi historial"
+                      disabled={send.isPending || clear.isPending}
+                      onClick={() => {
+                        if (window.confirm(`¿Quitar la conversación con ${sender.display_name} de tu historial?`)) {
+                          clear.mutate(sender.user_id);
+                        }
+                      }}
+                    >
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
           </section>
         )}
+        {clear.isError && <p role="alert">No se pudo eliminar la conversación. Intenta nuevamente.</p>}
         {contacts.isError && <p role="alert">No se pudieron cargar los usuarios.</p>}
         {contacts.isSuccess && !contacts.data.length && <p>No hay otros usuarios disponibles.</p>}
         {peer && (
@@ -178,10 +208,10 @@ export function InternalChat({ userId, onClose }: { userId: string; onClose: () 
             </div>
             <form className="space-y-2" onSubmit={submit}>
               <textarea aria-label="Mensaje" placeholder="Escribe un mensaje…" className="input w-full"
-                rows={2} required maxLength={2000} value={draft} disabled={send.isPending}
+                rows={2} required maxLength={2000} value={draft} disabled={send.isPending || clear.isPending}
                 onChange={(event) => setDraft(event.target.value)} />
               {send.isError && <p role="alert">No se pudo enviar el mensaje. Puedes reintentar.</p>}
-              <button className="btn btn-primary" disabled={!draft.trim() || send.isPending}>Enviar</button>
+              <button className="btn btn-primary" disabled={!draft.trim() || send.isPending || clear.isPending}>Enviar</button>
             </form>
           </>
         )}

@@ -841,6 +841,20 @@ export type Database = {
       };
     };
     Functions: {
+      clear_internal_chat: {
+        Args: { p_peer_id: string };
+        Returns: undefined;
+      };
+      internal_chat_inbox: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          user_id: string;
+          display_name: string;
+          role_name: string;
+          unread_count: number;
+          last_message_at: string | null;
+        }[];
+      };
       internal_chat_contacts: {
         Args: Record<PropertyKey, never>;
         Returns: { user_id: string; display_name: string; role_name: string; unread_count: number }[];
