@@ -51,3 +51,13 @@ export function TenantProductionPlanner({ companyId, units }: { companyId: strin
             {["NORMAL", "ALTA", "URGENTE", "BAJA"].map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
         </label>
+        <label className="text-sm font-semibold">Fecha
+          <input type="date" value={date} onChange={(e) => { setDate(e.target.value); setReview(null); }}
+            className="mt-1 block w-full rounded border bg-white p-2"/>
+        </label>
+      </div>
+      <label className="mt-3 block text-sm font-semibold">Observaciones
+        <textarea value={notes} maxLength={500} rows={2}
+          onChange={(e) => { setNotes(e.target.value); setReview(null); }}
+          className="mt-1 block w-full rounded border bg-white p-2"/>
+      </label>
