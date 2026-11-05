@@ -64,6 +64,9 @@ export function TenantProductionBoard({ companyId }: { companyId: string }) {
                 <th className="p-2">Unidad</th>
                 <th className="p-2">Módulo</th>
                 <th className="p-2">Estado</th>
+                <th className="p-2">Área</th>
+                <th className="p-2">Prioridad</th>
+                <th className="p-2">Fecha programada</th>
               </tr>
             </thead>
             <tbody>
@@ -79,6 +82,9 @@ export function TenantProductionBoard({ companyId }: { companyId: string }) {
                       ? "Pendiente de planificación"
                       : unit.status}
                   </td>
+                  <td className="p-2">{unit.planned_area?.replaceAll("_", " ") ?? "Sin asignar"}</td>
+                  <td className="p-2">{unit.priority ?? "—"}</td>
+                  <td className="p-2">{unit.planned_date ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
