@@ -53,6 +53,7 @@ jobs:
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
+            src/components/multiempresa/TenantInventoryAdjustmentHistory.tsx \
             src/components/multiempresa/TenantMovementsPreview.tsx \
             src/components/multiempresa/TenantOrdersPreview.tsx \
             src/components/multiempresa/TenantReceiptPreview.tsx \
@@ -83,6 +84,7 @@ jobs:
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
+            src/components/multiempresa/TenantInventoryAdjustmentHistory.tsx \
             src/components/multiempresa/TenantMovementsPreview.tsx \
             src/components/multiempresa/TenantOrdersPreview.tsx \
             src/components/multiempresa/TenantReceiptPreview.tsx \
