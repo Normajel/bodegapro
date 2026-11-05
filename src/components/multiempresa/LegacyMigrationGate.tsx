@@ -5,6 +5,8 @@ import { TenantInventoryPreview } from "./TenantInventoryPreview";
 import { TenantSuppliersPreview } from "./TenantSuppliersPreview";
 import { TenantOrdersPreview } from "./TenantOrdersPreview";
 import { TenantMovementsPreview } from "./TenantMovementsPreview";
+import { PlatformAdminDashboard } from "./PlatformAdminDashboard";
+import { TenantCompanyDashboard } from "./TenantCompanyDashboard";
 
 /**
  * Fail-closed migration gate: old authenticated routes contain unscoped
@@ -41,6 +43,8 @@ export function LegacyMigrationGate({ children }: { children: ReactNode }) {
   if (auth === "checking") return <p className="p-6 text-sm">Verificando sesión…</p>;
   if (auth === "signed-out") return <>{children}</>;
 
+  if (pathname === "/adminpro") return <PlatformAdminDashboard />;
+  if (pathname === "/dashboard") return <TenantCompanyDashboard />;
   if (pathname === "/productos") return <TenantInventoryPreview />;
   if (pathname === "/contactos") return <TenantSuppliersPreview />;
   if (pathname === "/compras") return <TenantOrdersPreview />;
