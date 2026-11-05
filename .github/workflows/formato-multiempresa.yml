@@ -61,6 +61,8 @@ jobs:
             src/lib/multiempresa/management-alerts.test.ts \
             src/lib/multiempresa/cubication-simulator.ts \
             src/lib/multiempresa/cubication-simulator.test.ts \
+            src/lib/multiempresa/sale-simulator.ts \
+            src/lib/multiempresa/sale-simulator.test.ts \
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
@@ -77,6 +79,7 @@ jobs:
             src/components/multiempresa/TenantNewOrderDraft.tsx \
             src/components/multiempresa/TenantManagementDashboard.tsx \
             src/components/multiempresa/TenantCubicationSimulator.tsx \
+            src/components/multiempresa/TenantSaleSimulator.tsx \
             src/routes/_authenticated/route.tsx \
             src/routes/auth.tsx \
             src/routes/_authenticated/documento-cubicacion.tsx \
@@ -108,6 +111,8 @@ jobs:
             src/lib/multiempresa/management-alerts.test.ts \
             src/lib/multiempresa/cubication-simulator.ts \
             src/lib/multiempresa/cubication-simulator.test.ts \
+            src/lib/multiempresa/sale-simulator.ts \
+            src/lib/multiempresa/sale-simulator.test.ts \
             src/components/multiempresa/CompanySelector.tsx \
             src/components/multiempresa/LegacyMigrationGate.tsx \
             src/components/multiempresa/TenantInventoryPreview.tsx \
@@ -124,6 +129,7 @@ jobs:
             src/components/multiempresa/TenantNewOrderDraft.tsx \
             src/components/multiempresa/TenantManagementDashboard.tsx \
             src/components/multiempresa/TenantCubicationSimulator.tsx \
+            src/components/multiempresa/TenantSaleSimulator.tsx \
             src/routes/_authenticated/route.tsx \
             src/routes/auth.tsx \
             src/routes/_authenticated/documento-cubicacion.tsx \
