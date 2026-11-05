@@ -841,6 +841,21 @@ export type Database = {
       };
     };
     Functions: {
+      read_cubication_document: {
+        Args: { p_unit_code: string | null };
+        Returns: {
+          template_id: string;
+          unit_code: string;
+          product_id: string | null;
+          quantity: number | null;
+          product_name: string | null;
+          sku: string | null;
+          category: string | null;
+          unit: string | null;
+          stock: number | null;
+          unit_cost: number | null;
+        }[];
+      };
       clear_internal_chat: {
         Args: { p_peer_id: string };
         Returns: undefined;

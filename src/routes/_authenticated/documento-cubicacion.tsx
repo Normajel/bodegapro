@@ -52,46 +52,38 @@ function CubicationDocumentPage() {
   const [costBreakdown, setCostBreakdown] =
     useState<CubicationCostBreakdown>(EMPTY_CUBICATION_COSTS);
 
-  const { data: templates = [], isLoading: templatesLoading } = useQuery({
-    queryKey: ["cubication-template-list"],
+  const { data: templates = [], isLoading: templatesLoading, isError: templatesError } = useQuery({
+    queryKey: ["cubication-document-units", access?.userId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cubication_templates")
-        .select("unit_code")
-        .order("unit_code");
+      const { data, error } = await supabase.rpc("read_cubication_document", { p_unit_code: null });
       if (error) throw error;
       return data.map((row) => row.unit_code);
     },
   });
 
-  const { data: template, isLoading: templateLoading } = useQuery({
-    queryKey: ["cubication-document", unitCode],
+  const { data: templateRows, isLoading: templateLoading, isError: templateError } = useQuery({
+    queryKey: ["cubication-document", access?.userId, unitCode],
     enabled: Boolean(unitCode),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cubication_templates")
-        .select(
-          "*, cubication_template_items(quantity, products(id, name, sku, category, unit, stock, stock_quantity, unit_cost))",
-        )
-        .eq("unit_code", unitCode)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("read_cubication_document", { p_unit_code: unitCode });
       if (error) throw error;
       return data;
     },
   });
 
+  const templateId = templateRows?.[0]?.template_id;
   const {
     data: specialItems = [],
     isLoading: specialItemsLoading,
     isError: specialItemsError,
   } = useQuery({
-    queryKey: ["cubication-special-items", template?.id],
-    enabled: canSpecial && !!template?.id,
+    queryKey: ["cubication-special-items", templateId],
+    enabled: canSpecial && !!templateId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("cubication_special_items")
         .select("*")
-        .eq("template_id", template!.id);
+        .eq("template_id", templateId!);
       if (error) throw error;
       return data;
     },
@@ -124,25 +116,24 @@ function CubicationDocumentPage() {
 
   const lines = useMemo<CubicationLine[]>(
     () =>
-      (template?.cubication_template_items ?? []).flatMap((item) => {
-        const p = item.products;
-        if (!p) return [];
+      (templateRows ?? []).flatMap((item) => {
+        if (!item.product_id || !item.product_name) return [];
         return [
           {
             quantity: Number(item.quantity) || 0,
             product: {
-              id: p.id,
-              name: p.name,
-              sku: p.sku,
-              category: p.category,
-              unit: p.unit,
-              stock: Number(p.stock_quantity ?? p.stock) || 0,
-              unit_cost: Number(p.unit_cost) || 0,
+              id: item.product_id,
+              name: item.product_name,
+              sku: item.sku ?? "",
+              category: item.category ?? "",
+              unit: item.unit ?? "",
+              stock: Number(item.stock) || 0,
+              unit_cost: Number(item.unit_cost) || 0,
             },
           },
         ];
       }),
-    [template],
+    [templateRows],
   );
   const groups = useMemo(() => groupByCategory([...lines, ...specialLines]), [lines, specialLines]);
   const materialsTotal = groups.reduce((sum, group) => sum + group.subtotal, 0);
@@ -157,6 +148,10 @@ function CubicationDocumentPage() {
   };
 
   async function outputDocument(print: boolean) {
+    if (!templateId || templateError) {
+      toast.error("Selecciona una unidad de cubicaje guardada");
+      return;
+    }
     if (!unitType) {
       toast.error("Selecciona el tipo de unidad antes de generar el documento");
       return;
@@ -211,6 +206,8 @@ function CubicationDocumentPage() {
           Asocia una planilla de cubicación a un tipo de unidad e imprime el documento para los
           vendedores.
         </p>
+        {templatesError && <p role="alert">No se pudo cargar la lista de unidades guardadas.</p>}
+        {templateError && <p role="alert">No se pudo cargar la unidad de cubicaje seleccionada.</p>}
       </div>
 
       <div className="card grid gap-3 p-4 sm:grid-cols-2">
