@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TenantReceiptPreview } from "./TenantReceiptPreview";
 import { TenantServicesLedger } from "./TenantServicesLedger";
+import { TenantNewOrderDraft } from "./TenantNewOrderDraft";
 import { useActiveCompany } from "@/lib/multiempresa/company-context";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 import {
@@ -47,6 +48,7 @@ export function TenantOrdersPreview() {
         hasta completar las pruebas con cuentas Auth reales.
       </p>
 
+      {companyId && <TenantNewOrderDraft key={companyId} companyId={companyId} />}
       {!companyId && <p role="status">Selecciona una empresa para ver sus órdenes.</p>}
       {companyId && orders.isPending && <p role="status">Cargando órdenes…</p>}
       {companyId && orders.isError && (
