@@ -260,6 +260,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      tenant_inventory_adjustment_corrections: {
+        Row: {
+          id: string;
+          company_id: string;
+          original_adjustment_id: string;
+          product_id: string;
+          previous_stock: number;
+          corrected_stock: number;
+          reason: string;
+          corrected_by: string;
+          corrected_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          original_adjustment_id: string;
+          product_id: string;
+          previous_stock: number;
+          corrected_stock: number;
+          reason: string;
+          corrected_by: string;
+          corrected_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          original_adjustment_id?: string;
+          product_id?: string;
+          previous_stock?: number;
+          corrected_stock?: number;
+          reason?: string;
+          corrected_by?: string;
+          corrected_at?: string;
+        };
+        Relationships: [];
+      };
       tenant_inventory_adjustments: {
         Row: {
           id: string;
@@ -1539,6 +1575,15 @@ export type Database = {
       };
       cancel_tenant_stock_movement: {
         Args: { p_company_id: string; p_movement_id: string; p_reason: string };
+        Returns: string;
+      };
+      correct_tenant_inventory_adjustment: {
+        Args: {
+          p_company_id: string;
+          p_original_adjustment_id: string;
+          p_new_current_stock: number;
+          p_reason: string;
+        };
         Returns: string;
       };
       adjust_tenant_inventory_stock: {
