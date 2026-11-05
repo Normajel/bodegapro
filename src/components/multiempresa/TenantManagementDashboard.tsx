@@ -17,8 +17,8 @@ import {
 import { useActiveCompany } from "@/lib/multiempresa/company-context";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 import {
-  listCompanyProducts,
-  listCompanyPurchaseOrders,
+  listTenantManagementProducts,
+  listTenantManagementOrders,
   listTenantManagementMovements,
   tenantQueryKeys,
 } from "@/lib/multiempresa/tenant-catalog";
@@ -69,14 +69,14 @@ export function TenantManagementDashboard() {
   });
   const authorized = ["ADMIN", "ADMINPRO", "GERENCIA", "GERENTE"].includes(access.data ?? "");
   const products = useQuery({
-    queryKey: tenantQueryKeys.products(companyId ?? ""),
-    queryFn: () => listCompanyProducts(companyId!),
+    queryKey: tenantQueryKeys.managementProducts(companyId ?? ""),
+    queryFn: () => listTenantManagementProducts(companyId!),
     enabled: !!companyId && authorized,
     staleTime: 0,
   });
   const orders = useQuery({
-    queryKey: tenantQueryKeys.orders(companyId ?? ""),
-    queryFn: () => listCompanyPurchaseOrders(companyId!),
+    queryKey: tenantQueryKeys.managementOrders(companyId ?? ""),
+    queryFn: () => listTenantManagementOrders(companyId!),
     enabled: !!companyId && authorized,
     staleTime: 0,
   });
@@ -108,8 +108,8 @@ export function TenantManagementDashboard() {
     setDismissed((items) => items.filter((item) => !item.startsWith(companyId + ":")));
     try {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: tenantQueryKeys.products(companyId) }),
-        queryClient.invalidateQueries({ queryKey: tenantQueryKeys.orders(companyId) }),
+        queryClient.invalidateQueries({ queryKey: tenantQueryKeys.managementProducts(companyId) }),
+        queryClient.invalidateQueries({ queryKey: tenantQueryKeys.managementOrders(companyId) }),
         queryClient.invalidateQueries({ queryKey: ["tenant", companyId, "management-movements"] }),
         queryClient.invalidateQueries({ queryKey: ["tenant", companyId, "management-access"] }),
       ]);
