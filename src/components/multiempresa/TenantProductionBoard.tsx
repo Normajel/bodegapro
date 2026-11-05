@@ -82,7 +82,9 @@ export function TenantProductionBoard({ companyId }: { companyId: string }) {
                       ? "Pendiente de planificación"
                       : unit.status}
                   </td>
-                  <td className="p-2">{unit.planned_area?.replaceAll("_", " ") ?? "Sin asignar"}</td>
+                  <td className="p-2">
+                    {unit.planned_area?.replaceAll("_", " ") ?? "Sin asignar"}
+                  </td>
                   <td className="p-2">{unit.priority ?? "—"}</td>
                   <td className="p-2">{unit.planned_date ?? "—"}</td>
                 </tr>

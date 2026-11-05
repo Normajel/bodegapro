@@ -28,7 +28,8 @@ export const tenantQueryKeys = {
   salesNoteEvents: (companyId: string, noteId: string) =>
     ["tenant", companyId, "sales-note-events", noteId] as const,
   productionUnits: (companyId: string) => ["tenant", companyId, "production-units"] as const,
-  productionPlanningEvents: (companyId: string, unitId: string) => ["tenant", companyId, "production-planning-events", unitId] as const,
+  productionPlanningEvents: (companyId: string, unitId: string) =>
+    ["tenant", companyId, "production-planning-events", unitId] as const,
   salesNoteUnits: (companyId: string, noteId: string) =>
     ["tenant", companyId, "sales-note-units", noteId] as const,
   cubicationCatalog: (companyId: string) => ["tenant", companyId, "cubication-catalog"] as const,
@@ -457,10 +458,15 @@ export async function listTenantProductionUnits(companyId: string) {
 export async function listTenantProductionPlanningEvents(companyId: string, unitId: string) {
   await requireCompany(companyId);
   if (!unitId) throw new Error("Selecciona un módulo.");
-  const { data, error } = await db.from("tenant_production_planning_events")
-    .select("id,company_id,production_unit_id,old_area,new_area,old_priority,new_priority,old_planned_date,new_planned_date,reason,actor_id,occurred_at")
-    .eq("company_id", companyId).eq("production_unit_id", unitId)
-    .order("occurred_at", { ascending: false }).limit(100);
+  const { data, error } = await db
+    .from("tenant_production_planning_events")
+    .select(
+      "id,company_id,production_unit_id,old_area,new_area,old_priority,new_priority,old_planned_date,new_planned_date,reason,actor_id,occurred_at",
+    )
+    .eq("company_id", companyId)
+    .eq("production_unit_id", unitId)
+    .order("occurred_at", { ascending: false })
+    .limit(100);
   if (error) throw error;
   return data ?? [];
 }
