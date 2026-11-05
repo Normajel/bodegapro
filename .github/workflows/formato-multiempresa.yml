@@ -36,6 +36,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Regenerar árbol de rutas de TanStack sin editarlo manualmente
+        run: npm run build
       - name: Aplicar Prettier a los archivos multiempresa
         run: |
           npx prettier --write \
@@ -93,6 +95,7 @@ jobs:
       - name: Guardar solo los cambios de formato
         run: |
           git add -- \
+            src/routeTree.gen.ts \
             src/lib/multiempresa/database.types.ts \
             src/lib/multiempresa/tenant-catalog.ts \
             src/lib/multiempresa/tenant.test.ts \
