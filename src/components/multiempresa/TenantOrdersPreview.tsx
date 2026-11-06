@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { TenantReceiptPreview } from "./TenantReceiptPreview";
 import { TenantServicesLedger } from "./TenantServicesLedger";
 import { TenantNewOrderDraft } from "./TenantNewOrderDraft";
@@ -8,6 +8,7 @@ import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 import {
   canApproveTenantOrder,
   PURCHASE_APPROVAL_WRITES_ENABLED,
+  approveTenantOrder,
 } from "@/lib/multiempresa/approval-service";
 import { listCompanyPurchaseOrders, tenantQueryKeys } from "@/lib/multiempresa/tenant-catalog";
 
@@ -21,6 +22,13 @@ const clp = (n: number) =>
 export function TenantOrdersPreview() {
   const companyId = useActiveCompany();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const approve = useMutation({
+    mutationFn: (orderId: string) => {
+      if (!companyId) throw new Error("Debes seleccionar una empresa.");
+      return approveTenantOrder(companyId, orderId, queryClient);
+    },
+  });
 
   const orders = useQuery({
     queryKey: tenantQueryKeys.orders(companyId ?? ""),
@@ -44,11 +52,13 @@ export function TenantOrdersPreview() {
     <main className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="text-2xl font-bold">Órdenes de compra · Multiempresa</h1>
       <p className="mb-6 mt-1 text-sm text-slate-600">
-        Consulta de órdenes y aprobación por perfil. Las operaciones de escritura siguen bloqueadas
-        hasta completar las pruebas con cuentas Auth reales.
+        Creación y aprobación de órdenes de productos, separadas por empresa. La recepción se registra
+        únicamente después de la aprobación. Los servicios se procesarán por su flujo independiente.
       </p>
 
       {companyId && <TenantNewOrderDraft key={companyId} companyId={companyId} />}
+      {approve.isError && <p role="alert" className="mb-4 rounded border border-red-200 p-3 text-sm text-red-800">{approve.error instanceof Error ? approve.error.message : "No se pudo aprobar esta orden."}</p>}
+      {approve.isSuccess && <p role="status" className="mb-4 rounded bg-teal-50 p-3 text-sm text-teal-900">OC de productos aprobada correctamente.</p>}
       {!companyId && <p role="status">Selecciona una empresa para ver sus órdenes.</p>}
       {companyId && orders.isPending && <p role="status">Cargando órdenes…</p>}
       {companyId && orders.isError && (
@@ -104,11 +114,14 @@ export function TenantOrdersPreview() {
                       {order.approval_status === "por_aprobar" && order.status === "pendiente" ? (
                         <button
                           type="button"
-                          disabled={!PURCHASE_APPROVAL_WRITES_ENABLED}
-                          title="Aprobación pendiente de habilitación tras pruebas Auth"
-                          className="cursor-not-allowed rounded bg-slate-200 px-3 py-1 text-slate-600"
+                          disabled={!PURCHASE_APPROVAL_WRITES_ENABLED || order.order_kind !== "producto" || approve.isPending}
+                          onClick={() => {
+                            if (order.order_kind === "producto" && !approve.isPending) approve.mutate(order.id);
+                          }}
+                          title={order.order_kind === "servicio" ? "La aceptación de servicios tiene un flujo independiente aún no habilitado" : "Aprobar orden de productos"}
+                          className="rounded bg-teal-700 px-3 py-1 text-white disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-600"
                         >
-                          {order.order_kind === "servicio" ? "Aceptar servicios" : "Aprobar OC"}
+                          {approve.isPending && approve.variables === order.id ? "Aprobando…" : order.order_kind === "servicio" ? "Aceptar servicios (pendiente)" : "Aprobar OC"}
                         </button>
                       ) : (
                         <span className="text-slate-500">—</span>
