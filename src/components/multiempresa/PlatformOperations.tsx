@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getPlatformOverview, isPlatformOwner, platformCreateCompany, platformCreatePlan,
   platformActivatePlan, platformCreateInvoice, platformRecordPayment,
-  platformConfirmPayment, platformInviteUser,
+  platformConfirmPayment, platformInviteUser, platformListInvitations,
 } from "@/lib/multiempresa/platform-operations";
 
 const money = (value: number) => new Intl.NumberFormat("es-CL", {style:"currency",currency:"CLP",maximumFractionDigits:0}).format(value);
@@ -16,6 +16,9 @@ export function PlatformOperations() {
   const owner = useQuery({queryKey:["platform","owner"],queryFn:isPlatformOwner,staleTime:0});
   const overview = useQuery({
     queryKey:["platform","operations"],queryFn:getPlatformOverview,enabled:owner.data===true,staleTime:0,
+  });
+  const invitations = useQuery({
+    queryKey:["platform","invitations"],queryFn:platformListInvitations,enabled:owner.data===true,staleTime:0,
   });
   const [busy,setBusy] = useState(false);
   const [message,setMessage] = useState("");
@@ -49,6 +52,7 @@ export function PlatformOperations() {
     try {
       await work();
       await client.invalidateQueries({queryKey:["platform","operations"]});
+      await client.invalidateQueries({queryKey:["platform","invitations"]});
       await client.invalidateQueries({queryKey:["platform","my-adminpro-companies"]});
       setMessage(description);
     } catch (err) {
@@ -114,6 +118,23 @@ export function PlatformOperations() {
           <label className="block text-sm">Referencia verificable<input required minLength={3} className={control} value={payReference} onChange={e=>setPayReference(e.target.value)}/></label>
           <button disabled={busy} className={action}>Registrar como pendiente</button>
         </form>
+      </div>
+      <div className="rounded-xl border bg-white p-5">
+        <h3 className="font-bold">Historial de invitaciones</h3>
+        {invitations.isPending && <p role="status" className="mt-2 text-sm">Consultando invitaciones…</p>}
+        {invitations.isError && <p role="alert" className="mt-2 text-sm text-red-700">No se pudieron consultar las invitaciones.</p>}
+        {invitations.isSuccess && (
+          invitations.data.length
+            ? <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm">
+                <thead><tr><th className="p-2">Empresa</th><th className="p-2">Correo</th><th className="p-2">Perfil</th><th className="p-2">Estado</th><th className="p-2">Enviada</th></tr></thead>
+                <tbody>{invitations.data.map(i=><tr className="border-t" key={i.company_id+i.email}>
+                  <td className="p-2">{i.company_name}</td><td className="p-2">{i.email}</td><td className="p-2">{i.role_code}</td>
+                  <td className="p-2">{i.status==="sent"?"Enviada":i.status==="accepted"?"Aceptada":"Revocada"}</td>
+                  <td className="p-2">{new Date(i.created_at).toLocaleString("es-CL")}</td>
+                </tr>)}</tbody>
+              </table></div>
+            : <p className="mt-2 text-sm text-slate-500">No se han enviado invitaciones desde esta plataforma.</p>
+        )}
       </div>
       <div className="rounded-xl border bg-white p-5">
         <h3 className="font-bold">Pagos pendientes de verificación</h3>
