@@ -36,7 +36,9 @@ function TenantAuthPage() {
     if (error) throw error;
     setPendingEmail(normalized);
     setCode("");
-    setSuccess("Si el correo tiene una cuenta habilitada, recibirás un código de seis dígitos. Revisa también spam.");
+    setSuccess(
+      "Si el correo tiene una cuenta habilitada, recibirás un código de seis dígitos. Revisa también spam.",
+    );
   };
 
   async function handleRequest(event: FormEvent<HTMLFormElement>) {
@@ -48,7 +50,9 @@ function TenantAuthPage() {
     try {
       await requestCode(email);
     } catch {
-      setMessage("No fue posible solicitar el código. Revisa el correo o intenta nuevamente más tarde.");
+      setMessage(
+        "No fue posible solicitar el código. Revisa el correo o intenta nuevamente más tarde.",
+      );
     } finally {
       setLoading(false);
     }
@@ -71,7 +75,9 @@ function TenantAuthPage() {
       const allowed = await loadMyCompanies();
       if (allowed.length === 0) {
         await supabase.auth.signOut();
-        setMessage("El correo fue verificado, pero no tiene una empresa activa asignada. Contacta a Administración.");
+        setMessage(
+          "El correo fue verificado, pero no tiene una empresa activa asignada. Contacta a Administración.",
+        );
         setPendingEmail(null);
         return;
       }
@@ -135,13 +141,19 @@ function TenantAuthPage() {
                 className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2"
               />
             </label>
-            <button type="submit" disabled={loading} className="w-full rounded-md bg-slate-900 px-4 py-3 font-semibold text-white disabled:opacity-60">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-md bg-slate-900 px-4 py-3 font-semibold text-white disabled:opacity-60"
+            >
               {loading ? "Solicitando código…" : "Enviar código a mi correo"}
             </button>
           </form>
         ) : (
           <form onSubmit={handleVerify} className="mt-6 space-y-4">
-            <p className="text-sm text-slate-600">Código enviado a <strong>{pendingEmail}</strong>.</p>
+            <p className="text-sm text-slate-600">
+              Código enviado a <strong>{pendingEmail}</strong>.
+            </p>
             <label htmlFor="tenant-code" className="block text-sm font-semibold">
               Código de verificación
               <input
@@ -159,17 +171,48 @@ function TenantAuthPage() {
                 className="mt-2 w-full rounded-md border border-slate-300 px-3 py-3 text-center text-2xl tracking-[0.4em]"
               />
             </label>
-            <button type="submit" disabled={loading || code.length !== 6} className="w-full rounded-md bg-slate-900 px-4 py-3 font-semibold text-white disabled:opacity-60">
+            <button
+              type="submit"
+              disabled={loading || code.length !== 6}
+              className="w-full rounded-md bg-slate-900 px-4 py-3 font-semibold text-white disabled:opacity-60"
+            >
               {loading ? "Verificando…" : "Verificar e ingresar"}
             </button>
             <div className="flex justify-between gap-3 text-sm">
-              <button type="button" disabled={loading} onClick={() => void resendCode()} className="text-teal-700 underline disabled:opacity-50">Reenviar código</button>
-              <button type="button" disabled={loading} onClick={() => { setPendingEmail(null); setCode(""); setMessage(""); setSuccess(""); }} className="text-slate-600 underline disabled:opacity-50">Cambiar correo</button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => void resendCode()}
+                className="text-teal-700 underline disabled:opacity-50"
+              >
+                Reenviar código
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => {
+                  setPendingEmail(null);
+                  setCode("");
+                  setMessage("");
+                  setSuccess("");
+                }}
+                className="text-slate-600 underline disabled:opacity-50"
+              >
+                Cambiar correo
+              </button>
             </div>
           </form>
         )}
-        {success && <p role="status" className="mt-4 text-sm text-teal-700">{success}</p>}
-        {message && <p role="alert" className="mt-4 text-sm text-red-700">{message}</p>}
+        {success && (
+          <p role="status" className="mt-4 text-sm text-teal-700">
+            {success}
+          </p>
+        )}
+        {message && (
+          <p role="alert" className="mt-4 text-sm text-red-700">
+            {message}
+          </p>
+        )}
         <p className="mt-5 text-xs text-amber-800">
           Entorno multiempresa en pruebas. No utilices las credenciales de Contemar.
         </p>
