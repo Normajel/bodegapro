@@ -1646,6 +1646,10 @@ export type Database = {
         Args: { p_company_id: string; p_order_id: string };
         Returns: string;
       };
+      tenant_subscription_valid: {
+        Args: { p_company_id: string };
+        Returns: boolean;
+      };
       approve_tenant_purchase_order: {
         Args: { p_company_id: string; p_order_id: string };
         Returns: string;
