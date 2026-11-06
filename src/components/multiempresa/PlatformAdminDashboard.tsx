@@ -1,13 +1,33 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useAdminProCompanyUsers } from "@/lib/multiempresa/platform-admin-service";
+import {
+  useAdminProCompanyUsers,
+  loadAdminProCompanyBilling,
+  updateAdminProCompanyMemberRole,
+  type EditableCompanyRole,
+} from "@/lib/multiempresa/platform-admin-service";
 import { Link } from "@tanstack/react-router";
 import { Building2, Crown, CreditCard, ShieldCheck, Users, ArrowUpRight } from "lucide-react";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 
 export function PlatformAdminDashboard() {
   const [usersCompanyId, setUsersCompanyId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [roleEdit, setRoleEdit] = useState<{userId:string;role:EditableCompanyRole} | null>(null);
   const users = useAdminProCompanyUsers(usersCompanyId);
+  const billing = useQuery({
+    queryKey: ["platform","billing",usersCompanyId ?? ""],
+    queryFn: () => loadAdminProCompanyBilling(usersCompanyId!),
+    enabled: !!usersCompanyId, staleTime: 0,
+  });
+  const roleChange = useMutation({
+    mutationFn: async (values: {companyId:string;userId:string;role:EditableCompanyRole}) =>
+      updateAdminProCompanyMemberRole(values.companyId,values.userId,values.role),
+    onSuccess: async (_result, values) => {
+      setRoleEdit(null);
+      await queryClient.invalidateQueries({queryKey:["platform","company-users",values.companyId]});
+    },
+  });
   const memberships = useQuery({
     queryKey: ["platform", "my-adminpro-companies"],
     queryFn: loadMyCompanies,
@@ -28,7 +48,7 @@ export function PlatformAdminDashboard() {
       <section className="grid gap-4 md:grid-cols-3" aria-label="Resumen de plataforma">
         <article className="rounded-xl border bg-white p-5"><Building2 className="text-teal-700" /><p className="mt-3 text-sm text-slate-500">Empresas bajo tu administración</p><p className="mt-1 text-3xl font-bold">{managed.length}</p><p className="text-xs text-slate-500">Solo membresías AdminPro autorizadas</p></article>
         <article className="rounded-xl border bg-white p-5"><Users className="text-teal-700" /><p className="mt-3 text-sm text-slate-500">Gestión de usuarios</p><p className="mt-1 text-base font-semibold">Directorio habilitado</p><p className="text-xs text-slate-500">Consultar usuarios y roles por empresa; cambios de permisos aún restringidos</p></article>
-        <article className="rounded-xl border bg-white p-5"><CreditCard className="text-teal-700" /><p className="mt-3 text-sm text-slate-500">Suscripciones y pagos</p><p className="mt-1 text-base font-semibold">Pendiente de integración</p><p className="text-xs text-slate-500">No se muestran cobros ni estados inventados</p></article>
+        <article className="rounded-xl border bg-white p-5"><CreditCard className="text-teal-700" /><p className="mt-3 text-sm text-slate-500">Suscripciones y pagos</p><p className="mt-1 text-base font-semibold">Consulta de facturación</p><p className="text-xs text-slate-500">Planes, estado y pagos registrados, sin emitir cobros</p></article>
       </section>
       <section>
         <div className="mb-4 flex items-center gap-2"><Building2 className="text-teal-700" /><h2 className="text-xl font-bold">Empresas habilitadas</h2></div>
@@ -51,7 +71,7 @@ export function PlatformAdminDashboard() {
           Empresa
           <select
             value={usersCompanyId ?? ""}
-            onChange={(e) => setUsersCompanyId(e.target.value || null)}
+            onChange={(e) => {setUsersCompanyId(e.target.value || null);setRoleEdit(null);roleChange.reset();}}
             className="mt-1 block w-full rounded-lg border border-slate-300 bg-white p-2"
           >
             <option value="">Seleccionar empresa</option>
@@ -63,17 +83,62 @@ export function PlatformAdminDashboard() {
         {usersCompanyId && users.isSuccess && (
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50"><tr><th className="p-3">Correo</th><th className="p-3">Perfil</th><th className="p-3">Estado</th></tr></thead>
-              <tbody>{users.data.map((user) => <tr key={user.user_id} className="border-t"><td className="p-3">{user.email}</td><td className="p-3">{user.role_code}</td><td className="p-3">{user.status === "active" ? "Activo" : "Inactivo"}</td></tr>)}</tbody>
+              <thead className="bg-slate-50"><tr><th className="p-3">Correo</th><th className="p-3">Perfil</th><th className="p-3">Estado</th><th className="p-3">Acción</th></tr></thead>
+              <tbody>{users.data.map((user) => <tr key={user.user_id} className="border-t">
+                <td className="p-3">{user.email}</td><td className="p-3">{user.role_code}</td>
+                <td className="p-3">{user.status === "active" ? "Activo" : "Inactivo"}</td>
+                <td className="p-3">
+                  {user.role_code === "ADMINPRO" || user.status !== "active"
+                    ? <span className="text-xs text-slate-500">Protegido</span>
+                    : <button className="rounded border px-3 py-1 text-teal-700" type="button" onClick={() => {setRoleEdit({userId:user.user_id,role:user.role_code as EditableCompanyRole});roleChange.reset();}}>Cambiar perfil</button>}
+                </td>
+              </tr>)}</tbody>
             </table>
             {users.data.length === 0 && <p className="p-4 text-sm text-slate-500">Sin usuarios registrados para esta empresa.</p>}
           </div>
         )}
-        <p className="text-xs text-amber-800">La creación y modificación de perfiles continúa restringida hasta incorporar invitaciones verificadas y auditoría de cambios.</p>
+        {roleEdit && usersCompanyId && (
+          <div className="rounded-lg border border-teal-200 bg-teal-50 p-4">
+            <p className="font-semibold">Modificar perfil de {users.data?.find((u) => u.user_id === roleEdit.userId)?.email ?? "usuario"}</p>
+            <p className="mt-1 text-sm text-slate-700">Esta acción modifica permisos en esta empresa y queda registrada en auditoría.</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <select aria-label="Nuevo perfil" value={roleEdit.role} onChange={(e) => setRoleEdit({...roleEdit,role:e.target.value as EditableCompanyRole})} className="rounded border bg-white p-2">
+                <option value="ADMIN">Admin</option><option value="GERENCIA">Gerencia</option>
+                <option value="GERENTE">Gerente</option><option value="BODEGA">Bodega</option>
+                <option value="VENTAS">Ventas</option><option value="JEFE_PRODUCCION">Jefe de producción</option>
+              </select>
+              <button type="button" disabled={roleChange.isPending} onClick={() => roleChange.mutate({companyId:usersCompanyId,userId:roleEdit.userId,role:roleEdit.role})} className="rounded bg-teal-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Confirmar cambio</button>
+              <button type="button" className="rounded border px-4 py-2 text-sm" onClick={() => setRoleEdit(null)}>Cancelar</button>
+            </div>
+          </div>
+        )}
+        {roleChange.isError && <p role="alert" className="text-sm text-red-700">{roleChange.error instanceof Error ? roleChange.error.message : "No se pudo modificar el perfil."}</p>}
+        {roleChange.isSuccess && <p role="status" className="text-sm text-teal-700">Perfil actualizado y auditado.</p>}
+        <p className="text-xs text-amber-800">AdminPro está protegido. Por seguridad aún no se pueden crear usuarios nuevos desde aquí: se necesita un flujo de invitación verificada.</p>
+        <div className="mt-5 border-t pt-5">
+          <h3 className="text-lg font-bold">Suscripción y pagos de la empresa</h3>
+          {!usersCompanyId && <p className="text-sm text-slate-500">Selecciona una empresa para consultar sus datos.</p>}
+          {usersCompanyId && billing.isPending && <p role="status">Consultando facturación…</p>}
+          {usersCompanyId && billing.isError && <p role="alert" className="text-red-700">No se pudo consultar la facturación.</p>}
+          {usersCompanyId && billing.isSuccess && (
+            billing.data?.subscription_status ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-sm">
+                <p><strong>Plan:</strong> {billing.data.plan_name ?? "No especificado"}</p>
+                <p><strong>Estado:</strong> {billing.data.subscription_status}</p>
+                <p><strong>Tarifa:</strong> {billing.data.amount_clp == null ? "Sin valor registrado" : new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(Number(billing.data.amount_clp))}</p>
+                <p><strong>Intervalo:</strong> {billing.data.billing_interval ?? "—"}</p>
+                <p><strong>Vencimiento período:</strong> {billing.data.period_end ?? "—"}</p>
+                <p><strong>Facturas:</strong> {billing.data.invoice_count}</p>
+                <p><strong>Pagos confirmados:</strong> {new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(Number(billing.data.confirmed_payment_clp))}</p>
+              </div>
+            ) : <p className="mt-2 text-sm text-slate-600">Esta empresa no tiene una suscripción registrada. No se han generado cargos.</p>
+          )}
+          <p className="mt-3 text-xs text-amber-800">Consulta solamente: la activación de planes, la facturación y la verificación de pagos requieren un proceso administrativo separado.</p>
+        </div>
       </section>
       <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
         <ShieldCheck className="shrink-0" size={20}/>
-        <p>Este panel central solo muestra empresas donde tienes autorización AdminPro. La administración global de suscripciones y el alta de nuevas empresas requieren servicios de backend dedicados; todavía no se han habilitado.</p>
+        <p>Este panel central solo muestra empresas donde tienes autorización AdminPro. La administración global de suscripciones, el alta de nuevas empresas y las invitaciones de usuarios requieren servicios adicionales; no están habilitados.</p>
       </div>
     </main>
   );
