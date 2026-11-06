@@ -4,6 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useActiveCompany } from "@/lib/multiempresa/company-context";
 import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 import { supabase } from "@/integrations/supabase/client";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/multiempresa/database.types";
+const scopedDb = supabase as unknown as SupabaseClient<Database>;
 import { TenantInventoryPreview } from "./TenantInventoryPreview";
 import { TenantSuppliersPreview } from "./TenantSuppliersPreview";
 import { TenantOrdersPreview } from "./TenantOrdersPreview";
@@ -37,7 +40,7 @@ export function LegacyMigrationGate({ children }: { children: ReactNode }) {
       const companies = await loadMyCompanies();
       if (!companies.some(({ company }) => company.id === companyId))
         throw new Error("No tienes acceso a esta empresa.");
-      const { data, error } = await supabase.rpc("tenant_subscription_valid", {
+      const { data, error } = await scopedDb.rpc("tenant_subscription_valid", {
         p_company_id: companyId!,
       });
       if (error) throw error;
