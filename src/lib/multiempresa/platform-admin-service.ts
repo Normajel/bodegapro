@@ -56,3 +56,19 @@ export async function updateAdminProCompanyMemberRole(
   });
   if (error) throw error;
 }
+
+export type AdminCompanyRoleEvent = {
+  changed_at: string;
+  actor_email: string;
+  target_email: string;
+  old_role: string;
+  new_role: string;
+};
+
+export async function loadAdminProRoleHistory(companyId: string): Promise<AdminCompanyRoleEvent[]> {
+  const membership = (await loadMyCompanies()).find(({ company }) => company.id === companyId);
+  if (membership?.role !== "ADMINPRO") throw new Error("Solo AdminPro puede consultar estos cambios.");
+  const { data, error } = await db.rpc("adminpro_company_role_history", { p_company_id: companyId });
+  if (error) throw error;
+  return (data ?? []) as AdminCompanyRoleEvent[];
+}
