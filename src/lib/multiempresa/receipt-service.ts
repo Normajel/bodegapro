@@ -41,6 +41,9 @@ export async function submitTenantReceiptBatch(
     queryClient.invalidateQueries({ queryKey: tenantQueryKeys.orders(payload.p_company_id) }),
     queryClient.invalidateQueries({ queryKey: tenantQueryKeys.movements(payload.p_company_id) }),
     queryClient.invalidateQueries({ queryKey: tenantQueryKeys.products(payload.p_company_id) }),
+    queryClient.invalidateQueries({ queryKey: tenantQueryKeys.managementProducts(payload.p_company_id) }),
+    queryClient.invalidateQueries({ queryKey: tenantQueryKeys.managementOrders(payload.p_company_id) }),
+    queryClient.invalidateQueries({ queryKey: ["tenant", payload.p_company_id, "management-movements"] }),
     queryClient.invalidateQueries({
       queryKey: tenantQueryKeys.receiptLines(payload.p_company_id, payload.p_order_id),
     }),
