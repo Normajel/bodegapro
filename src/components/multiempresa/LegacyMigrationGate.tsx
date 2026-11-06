@@ -20,14 +20,26 @@ export function LegacyMigrationGate({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const [auth, setAuth] = useState<"checking" | "signed-in" | "signed-out">("checking");
   const companyId = useActiveCompany();
-  const erpPaths = new Set(["/dashboard", "/productos", "/contactos", "/compras", "/movimientos", "/documento-cubicacion", "/panel-gerencial", "/notas-venta"]);
+  const erpPaths = new Set([
+    "/dashboard",
+    "/productos",
+    "/contactos",
+    "/compras",
+    "/movimientos",
+    "/documento-cubicacion",
+    "/panel-gerencial",
+    "/notas-venta",
+  ]);
   const needsSubscription = auth === "signed-in" && erpPaths.has(pathname) && !!companyId;
   const subscription = useQuery({
     queryKey: ["tenant", companyId ?? "", "subscription-access"],
     queryFn: async () => {
       const companies = await loadMyCompanies();
-      if (!companies.some(({ company }) => company.id === companyId)) throw new Error("No tienes acceso a esta empresa.");
-      const { data, error } = await supabase.rpc("tenant_subscription_valid", { p_company_id: companyId! });
+      if (!companies.some(({ company }) => company.id === companyId))
+        throw new Error("No tienes acceso a esta empresa.");
+      const { data, error } = await supabase.rpc("tenant_subscription_valid", {
+        p_company_id: companyId!,
+      });
       if (error) throw error;
       return data === true;
     },
@@ -63,9 +75,37 @@ export function LegacyMigrationGate({ children }: { children: ReactNode }) {
   if (auth === "signed-out") return <>{children}</>;
 
   // Client-side clarity only; RLS and SQL write guards enforce security.
-  if (needsSubscription && subscription.isPending) return <p role="status" className="p-6">Verificando suscripción de la empresa…</p>;
-  if (needsSubscription && subscription.isError) return <main role="alert" className="mx-auto max-w-2xl p-8"><h1 className="text-xl font-bold">No se pudo verificar la suscripción</h1><p className="mt-2 text-sm">El ERP permanece bloqueado hasta confirmar el acceso. Solicita revisión a Administración.</p><Link className="mt-4 inline-block text-teal-700 underline" to="/adminpro">Administración central</Link></main>;
-  if (needsSubscription && subscription.isSuccess && !subscription.data) return <main role="status" className="mx-auto max-w-2xl p-8"><h1 className="text-xl font-bold">ERP temporalmente bloqueado</h1><p className="mt-3 text-sm">La empresa no tiene una suscripción activa y vigente. Inventario, órdenes, movimientos y documentos permanecen protegidos. Contacta a Administración para revisar el plan.</p><Link className="mt-4 inline-block text-teal-700 underline" to="/adminpro">Volver al panel central</Link></main>;
+  if (needsSubscription && subscription.isPending)
+    return (
+      <p role="status" className="p-6">
+        Verificando suscripción de la empresa…
+      </p>
+    );
+  if (needsSubscription && subscription.isError)
+    return (
+      <main role="alert" className="mx-auto max-w-2xl p-8">
+        <h1 className="text-xl font-bold">No se pudo verificar la suscripción</h1>
+        <p className="mt-2 text-sm">
+          El ERP permanece bloqueado hasta confirmar el acceso. Solicita revisión a Administración.
+        </p>
+        <Link className="mt-4 inline-block text-teal-700 underline" to="/adminpro">
+          Administración central
+        </Link>
+      </main>
+    );
+  if (needsSubscription && subscription.isSuccess && !subscription.data)
+    return (
+      <main role="status" className="mx-auto max-w-2xl p-8">
+        <h1 className="text-xl font-bold">ERP temporalmente bloqueado</h1>
+        <p className="mt-3 text-sm">
+          La empresa no tiene una suscripción activa y vigente. Inventario, órdenes, movimientos y
+          documentos permanecen protegidos. Contacta a Administración para revisar el plan.
+        </p>
+        <Link className="mt-4 inline-block text-teal-700 underline" to="/adminpro">
+          Volver al panel central
+        </Link>
+      </main>
+    );
 
   if (pathname === "/adminpro") return <PlatformAdminDashboard />;
   if (pathname === "/dashboard") return <TenantCompanyDashboard />;
