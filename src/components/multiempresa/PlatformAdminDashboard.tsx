@@ -159,6 +159,7 @@ export function PlatformAdminDashboard() {
           <p className="mt-3 text-xs text-amber-800">Consulta solamente: la activación de planes, la facturación y la verificación de pagos requieren un proceso administrativo separado.</p>
         </div>
       </section>
+      <PlatformOperations />
       <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
         <ShieldCheck className="shrink-0" size={20}/>
         <p>Este panel central solo muestra empresas donde tienes autorización AdminPro. La administración global de suscripciones, el alta de nuevas empresas y las invitaciones de usuarios requieren servicios adicionales; no están habilitados.</p>
