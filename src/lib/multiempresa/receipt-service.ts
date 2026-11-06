@@ -6,8 +6,8 @@ import { loadMyCompanies } from "./company-api";
 import { tenantQueryKeys } from "./tenant-catalog";
 import type { ReceiptBatchPayload } from "./receipt-batch";
 
-/** Release gate: real Auth browser tests must pass before changing this flag. */
-export const RECEIPT_WRITES_ENABLED = false;
+/** Enabled for product OC receipts after scoped SQL, rollback and idempotency tests. */
+export const RECEIPT_WRITES_ENABLED = true;
 
 const db = supabase as unknown as SupabaseClient<Database>;
 
