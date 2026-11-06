@@ -9,6 +9,7 @@ import {
   canApproveTenantOrder,
   PURCHASE_APPROVAL_WRITES_ENABLED,
   approveTenantOrder,
+  acceptTenantServiceOrder,
 } from "@/lib/multiempresa/approval-service";
 import { listCompanyPurchaseOrders, tenantQueryKeys } from "@/lib/multiempresa/tenant-catalog";
 
@@ -27,6 +28,13 @@ export function TenantOrdersPreview() {
     mutationFn: (orderId: string) => {
       if (!companyId) throw new Error("Debes seleccionar una empresa.");
       return approveTenantOrder(companyId, orderId, queryClient);
+    },
+  });
+
+  const acceptService = useMutation({
+    mutationFn: (orderId: string) => {
+      if (!companyId) throw new Error("Debes seleccionar una empresa.");
+      return acceptTenantServiceOrder(companyId, orderId, queryClient);
     },
   });
 
@@ -53,8 +61,8 @@ export function TenantOrdersPreview() {
       <h1 className="text-2xl font-bold">Órdenes de compra · Multiempresa</h1>
       <p className="mb-6 mt-1 text-sm text-slate-600">
         Creación y aprobación de órdenes de productos, separadas por empresa. La recepción se
-        registra únicamente después de la aprobación. Los servicios se procesarán por su flujo
-        independiente.
+        registra únicamente después de la aprobación. Los servicios se aceptan por su flujo
+        independiente, sin afectar inventario.
       </p>
 
       {companyId && <TenantNewOrderDraft key={companyId} companyId={companyId} />}
@@ -70,6 +78,8 @@ export function TenantOrdersPreview() {
           OC de productos aprobada correctamente.
         </p>
       )}
+      {acceptService.isError && <p role="alert" className="mb-4 rounded border border-red-200 p-3 text-sm text-red-800">{acceptService.error instanceof Error ? acceptService.error.message : "No se pudo aceptar la OC de servicios."}</p>}
+      {acceptService.isSuccess && <p role="status" className="mb-4 rounded bg-teal-50 p-3 text-sm text-teal-900">Servicios ACEPTADOS y guardados en el historial, sin movimientos de stock.</p>}
       {!companyId && <p role="status">Selecciona una empresa para ver sus órdenes.</p>}
       {companyId && orders.isPending && <p role="status">Cargando órdenes…</p>}
       {companyId && orders.isError && (
@@ -125,27 +135,18 @@ export function TenantOrdersPreview() {
                       {order.approval_status === "por_aprobar" && order.status === "pendiente" ? (
                         <button
                           type="button"
-                          disabled={
-                            !PURCHASE_APPROVAL_WRITES_ENABLED ||
-                            order.order_kind !== "producto" ||
-                            approve.isPending
-                          }
+                          disabled={!PURCHASE_APPROVAL_WRITES_ENABLED || approve.isPending || acceptService.isPending}
                           onClick={() => {
-                            if (order.order_kind === "producto" && !approve.isPending)
-                              approve.mutate(order.id);
+                            if (approve.isPending || acceptService.isPending) return;
+                            if (order.order_kind === "servicio") acceptService.mutate(order.id);
+                            else approve.mutate(order.id);
                           }}
-                          title={
-                            order.order_kind === "servicio"
-                              ? "La aceptación de servicios tiene un flujo independiente aún no habilitado"
-                              : "Aprobar orden de productos"
-                          }
+                          title={order.order_kind === "servicio" ? "Aceptar servicios sin movimientos de stock" : "Aprobar orden de productos"}
                           className="rounded bg-teal-700 px-3 py-1 text-white disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-600"
                         >
-                          {approve.isPending && approve.variables === order.id
-                            ? "Aprobando…"
-                            : order.order_kind === "servicio"
-                              ? "Aceptar servicios (pendiente)"
-                              : "Aprobar OC"}
+                          {(approve.isPending && approve.variables === order.id) || (acceptService.isPending && acceptService.variables === order.id)
+                            ? "Procesando…"
+                            : order.order_kind === "servicio" ? "Aceptar servicios" : "Aprobar OC"}
                         </button>
                       ) : (
                         <span className="text-slate-500">—</span>
