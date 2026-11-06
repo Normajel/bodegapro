@@ -34,25 +34,40 @@ export type AdminCompanyBilling = {
   confirmed_payment_clp: number;
 };
 
-export async function loadAdminProCompanyBilling(companyId: string): Promise<AdminCompanyBilling | null> {
+export async function loadAdminProCompanyBilling(
+  companyId: string,
+): Promise<AdminCompanyBilling | null> {
   const membership = (await loadMyCompanies()).find(({ company }) => company.id === companyId);
-  if (membership?.role !== "ADMINPRO") throw new Error("No tienes acceso a los datos de facturación de esta empresa.");
+  if (membership?.role !== "ADMINPRO")
+    throw new Error("No tienes acceso a los datos de facturación de esta empresa.");
   const { data, error } = await db.rpc("adminpro_company_billing", { p_company_id: companyId });
   if (error) throw error;
   return (data?.[0] ?? null) as AdminCompanyBilling | null;
 }
 
-const editableRoles = ["ADMIN", "GERENCIA", "GERENTE", "BODEGA", "VENTAS", "JEFE_PRODUCCION"] as const;
+const editableRoles = [
+  "ADMIN",
+  "GERENCIA",
+  "GERENTE",
+  "BODEGA",
+  "VENTAS",
+  "JEFE_PRODUCCION",
+] as const;
 export type EditableCompanyRole = (typeof editableRoles)[number];
 
 export async function updateAdminProCompanyMemberRole(
-  companyId: string, userId: string, role: EditableCompanyRole
+  companyId: string,
+  userId: string,
+  role: EditableCompanyRole,
 ): Promise<void> {
   const membership = (await loadMyCompanies()).find(({ company }) => company.id === companyId);
-  if (membership?.role !== "ADMINPRO") throw new Error("Solo AdminPro puede modificar perfiles de esta empresa.");
+  if (membership?.role !== "ADMINPRO")
+    throw new Error("Solo AdminPro puede modificar perfiles de esta empresa.");
   if (!editableRoles.includes(role)) throw new Error("Perfil no válido.");
   const { error } = await db.rpc("adminpro_update_company_member_role", {
-    p_company_id: companyId, p_user_id: userId, p_role_code: role,
+    p_company_id: companyId,
+    p_user_id: userId,
+    p_role_code: role,
   });
   if (error) throw error;
 }
@@ -67,8 +82,11 @@ export type AdminCompanyRoleEvent = {
 
 export async function loadAdminProRoleHistory(companyId: string): Promise<AdminCompanyRoleEvent[]> {
   const membership = (await loadMyCompanies()).find(({ company }) => company.id === companyId);
-  if (membership?.role !== "ADMINPRO") throw new Error("Solo AdminPro puede consultar estos cambios.");
-  const { data, error } = await db.rpc("adminpro_company_role_history", { p_company_id: companyId });
+  if (membership?.role !== "ADMINPRO")
+    throw new Error("Solo AdminPro puede consultar estos cambios.");
+  const { data, error } = await db.rpc("adminpro_company_role_history", {
+    p_company_id: companyId,
+  });
   if (error) throw error;
   return (data ?? []) as AdminCompanyRoleEvent[];
 }
