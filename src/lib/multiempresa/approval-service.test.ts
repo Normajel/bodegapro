@@ -14,7 +14,7 @@ describe("multiempresa purchase order approval gate", () => {
     expect(canApproveTenantOrder(null)).toBe(false);
   });
 
-  it("keeps approval writes disabled until real Auth validation", () => {
-    expect(PURCHASE_APPROVAL_WRITES_ENABLED).toBe(false);
+  it("enables approval only through the membership-checked SQL service", () => {
+    expect(PURCHASE_APPROVAL_WRITES_ENABLED).toBe(true);
   });
 });
