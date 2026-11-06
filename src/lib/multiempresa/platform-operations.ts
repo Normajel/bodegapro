@@ -37,3 +37,10 @@ export async function isPlatformOwner():Promise<boolean> {
  if(error) throw error;
  return data===true;
 }
+
+export type PlatformInvitation = { company_id:string;company_name:string;email:string;role_code:string;status:string;created_at:string };
+export async function platformListInvitations():Promise<PlatformInvitation[]> {
+ const {data,error}=await db.rpc("platform_list_invitations");
+ if(error) throw error;
+ return (data ?? []) as PlatformInvitation[];
+}
