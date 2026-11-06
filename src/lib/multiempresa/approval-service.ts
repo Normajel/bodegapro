@@ -45,3 +45,31 @@ export async function approveTenantOrder(
   });
   return data;
 }
+
+/** Dedicated service acceptance: never updates inventory or creates stock movements. */
+export async function acceptTenantServiceOrder(
+  companyId: string,
+  orderId: string,
+  queryClient: QueryClient,
+): Promise<string> {
+  if (!companyId || !orderId) throw new Error("Falta empresa u orden de servicio.");
+  const companies = await loadMyCompanies();
+  const membership = companies.find(({ company }) => company.id === companyId);
+  if (!canApproveTenantOrder(membership?.role)) {
+    throw new Error("Solo Gerencia o Administración pueden aceptar servicios.");
+  }
+  // The database function checks active membership, service-only lines, supplier
+  // type and approval state. It records accepted_services atomically.
+  const { data, error } = await db.rpc("accept_tenant_service_order", {
+    p_company_id: companyId,
+    p_order_id: orderId,
+  });
+  if (error) throw error;
+  if (!data) throw new Error("No se confirmó la aceptación de los servicios.");
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: tenantQueryKeys.orders(companyId) }),
+    queryClient.invalidateQueries({ queryKey: tenantQueryKeys.acceptedServices(companyId) }),
+    queryClient.invalidateQueries({ queryKey: ["tenant", companyId, "management-orders"] }),
+  ]);
+  return data;
+}
