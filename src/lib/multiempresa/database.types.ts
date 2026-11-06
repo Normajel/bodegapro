@@ -1642,6 +1642,10 @@ export type Database = {
           last_message_at: string | null;
         }>;
       };
+      accept_tenant_service_order: {
+        Args: { p_company_id: string; p_order_id: string };
+        Returns: string;
+      };
       approve_tenant_purchase_order: {
         Args: { p_company_id: string; p_order_id: string };
         Returns: string;
