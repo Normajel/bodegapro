@@ -6,8 +6,8 @@ import type { CompanyRole } from "./tenant";
 import { loadMyCompanies } from "./company-api";
 import { tenantQueryKeys } from "./tenant-catalog";
 
-/** Remains off until independent, real-user Auth tests have passed. */
-export const PURCHASE_APPROVAL_WRITES_ENABLED = false;
+/** Enabled after transactional, role and cross-company SQL tests on isolated Supabase. */
+export const PURCHASE_APPROVAL_WRITES_ENABLED = true;
 
 export function canApproveTenantOrder(role: CompanyRole | null | undefined): boolean {
   return role === "ADMIN" || role === "ADMINPRO" || role === "GERENCIA" || role === "GERENTE";
