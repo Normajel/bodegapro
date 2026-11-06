@@ -12,7 +12,8 @@ type Props = { companyId: string; orderId: string; orderNumber: string };
 export function TenantReceiptPreview({ companyId, orderId, orderNumber }: Props) {
   const permissions = useQuery({
     queryKey: ["tenant", companyId, "receipt-access"],
-    queryFn: async () => (await loadMyCompanies()).find(({ company }) => company.id === companyId)?.role ?? null,
+    queryFn: async () =>
+      (await loadMyCompanies()).find(({ company }) => company.id === companyId)?.role ?? null,
     enabled: !!companyId,
     staleTime: 0,
   });
@@ -79,7 +80,11 @@ export function TenantReceiptPreview({ companyId, orderId, orderNumber }: Props)
         </div>
       )}
 
-      {permissions.isSuccess && !canReceive && <p className="mt-4 text-sm text-amber-900">Tu perfil puede consultar recepciones, pero no registrarlas.</p>}
+      {permissions.isSuccess && !canReceive && (
+        <p className="mt-4 text-sm text-amber-900">
+          Tu perfil puede consultar recepciones, pero no registrarlas.
+        </p>
+      )}
       {lines.isSuccess && canReceive && (
         <TenantReceiptDraftForm
           key={`${companyId}:${orderId}`}
