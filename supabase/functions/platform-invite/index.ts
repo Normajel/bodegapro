@@ -62,18 +62,14 @@ Deno.serve(async (request) => {
   if (inviteError || !invited.user) {
     return reply(409, "No se pudo enviar la invitación. Confirma Auth Email/SMTP y que la cuenta no esté registrada.");
   }
-  const { error: memberError } = await admin.from("company_memberships").upsert({
-    company_id: companyId, user_id: invited.user.id, role_code: role, status: "active",
-  }, { onConflict: "company_id,user_id" });
-  if (memberError) return reply(500, "Invitación enviada, pero no pudo completarse el acceso. Contacta a soporte antes de reintentar.");
-  const { error: recordError } = await admin.from("platform_member_invitations").upsert({
-    company_id: companyId, email, user_id: invited.user.id, role_code: role,
-    invited_by: caller.user.id, status: "sent",
-  }, { onConflict: "company_id,email" });
-  if (recordError) return reply(500, "Usuario invitado; pendiente de registrar auditoría. Contacta a soporte.");
-  await admin.from("platform_admin_events").insert({
-    actor_user_id: caller.user.id, action: "invite_user",
-    subject_id: companyId, detail: { email, role },
+  // Finalize membership, plan-capacity check and audit atomically in PostgreSQL.
+  // An authenticated JWT and a platform_admins allowlist are required by the RPC.
+  const { error: finalizeError } = await userClient.rpc("platform_finalize_invitation", {
+    p_company_id: companyId,
+    p_user_id: invited.user.id,
+    p_email: email,
+    p_role: role,
   });
+  if (finalizeError) return reply(500, "Correo enviado, pero falta completar la asignación de empresa. Contacta a Administración antes de reintentar.");
   return reply(200, "Invitación enviada. El acceso requiere completar la verificación del correo.");
 });
