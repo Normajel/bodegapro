@@ -3,6 +3,7 @@ import { useState } from "react";
 import {
   useAdminProCompanyUsers,
   loadAdminProCompanyBilling,
+  loadAdminProRoleHistory,
   updateAdminProCompanyMemberRole,
   type EditableCompanyRole,
 } from "@/lib/multiempresa/platform-admin-service";
@@ -20,12 +21,18 @@ export function PlatformAdminDashboard() {
     queryFn: () => loadAdminProCompanyBilling(usersCompanyId!),
     enabled: !!usersCompanyId, staleTime: 0,
   });
+  const roleHistory = useQuery({
+    queryKey: ["platform","role-history",usersCompanyId ?? ""],
+    queryFn: () => loadAdminProRoleHistory(usersCompanyId!),
+    enabled: !!usersCompanyId, staleTime: 0,
+  });
   const roleChange = useMutation({
     mutationFn: async (values: {companyId:string;userId:string;role:EditableCompanyRole}) =>
       updateAdminProCompanyMemberRole(values.companyId,values.userId,values.role),
     onSuccess: async (_result, values) => {
       setRoleEdit(null);
       await queryClient.invalidateQueries({queryKey:["platform","company-users",values.companyId]});
+      await queryClient.invalidateQueries({queryKey:["platform","role-history",values.companyId]});
     },
   });
   const memberships = useQuery({
@@ -115,6 +122,22 @@ export function PlatformAdminDashboard() {
         {roleChange.isError && <p role="alert" className="text-sm text-red-700">{roleChange.error instanceof Error ? roleChange.error.message : "No se pudo modificar el perfil."}</p>}
         {roleChange.isSuccess && <p role="status" className="text-sm text-teal-700">Perfil actualizado y auditado.</p>}
         <p className="text-xs text-amber-800">AdminPro está protegido. Por seguridad aún no se pueden crear usuarios nuevos desde aquí: se necesita un flujo de invitación verificada.</p>
+        {usersCompanyId && (
+          <details className="rounded-lg border bg-slate-50 p-4">
+            <summary className="cursor-pointer font-semibold">Historial de cambios de perfiles</summary>
+            {roleHistory.isPending && <p role="status" className="mt-2 text-sm">Consultando auditoría…</p>}
+            {roleHistory.isError && <p role="alert" className="mt-2 text-sm text-red-700">No se pudo consultar el historial.</p>}
+            {roleHistory.isSuccess && (
+              roleHistory.data.length ? <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm">
+                <thead><tr><th className="p-2">Fecha</th><th className="p-2">Modificó</th><th className="p-2">Usuario</th><th className="p-2">Cambio</th></tr></thead>
+                <tbody>{roleHistory.data.map((entry,index) => <tr className="border-t" key={entry.changed_at + entry.target_email + index}>
+                  <td className="p-2">{new Date(entry.changed_at).toLocaleString("es-CL")}</td>
+                  <td className="p-2">{entry.actor_email}</td><td className="p-2">{entry.target_email}</td>
+                  <td className="p-2">{entry.old_role} → {entry.new_role}</td>
+                </tr>)}</tbody></table></div> : <p className="mt-2 text-sm text-slate-500">Todavía no hay cambios de perfiles registrados.</p>
+            )}
+          </details>
+        )}
         <div className="mt-5 border-t pt-5">
           <h3 className="text-lg font-bold">Suscripción y pagos de la empresa</h3>
           {!usersCompanyId && <p className="text-sm text-slate-500">Selecciona una empresa para consultar sus datos.</p>}
