@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { prepareReceiptBatch } from "@/lib/multiempresa/receipt-batch";
-import { RECEIPT_WRITES_ENABLED, submitTenantReceiptBatch } from "@/lib/multiempresa/receipt-service";
+import {
+  RECEIPT_WRITES_ENABLED,
+  submitTenantReceiptBatch,
+} from "@/lib/multiempresa/receipt-service";
 import type { ReceiptBatchPayload } from "@/lib/multiempresa/receipt-batch";
 import {
   validateReceiptDraft,
@@ -32,7 +35,8 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
   const [submittedPayload, setSubmittedPayload] = useState<ReceiptBatchPayload | null>(null);
   const queryClient = useQueryClient();
   const save = useMutation({
-    mutationFn: (payload: ReceiptBatchPayload) => submitTenantReceiptBatch(payload, operationKey, queryClient),
+    mutationFn: (payload: ReceiptBatchPayload) =>
+      submitTenantReceiptBatch(payload, operationKey, queryClient),
     onSuccess: () => {
       setQuantities({});
       setDocumentNumber("");
@@ -108,8 +112,8 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
     <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
       <h3 className="text-base font-semibold">Preparar recepción</h3>
       <p className="mt-1 text-sm text-slate-600">
-        Ingresa solo las cantidades que llegaron. Al registrar, el movimiento y el stock se actualizan
-        juntos. Si ocurre un fallo de red, utiliza Reintentar para evitar duplicaciones.
+        Ingresa solo las cantidades que llegaron. Al registrar, el movimiento y el stock se
+        actualizan juntos. Si ocurre un fallo de red, utiliza Reintentar para evitar duplicaciones.
       </p>
       {receivable.length === 0 ? (
         <p className="mt-3 text-sm text-slate-600">
@@ -174,7 +178,9 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
             id="receipt-document-type"
             value={documentType}
             disabled={save.isPending || !!submittedPayload}
-            onChange={(event) => { if (updateDraft()) setDocumentType(event.target.value); }}
+            onChange={(event) => {
+              if (updateDraft()) setDocumentType(event.target.value);
+            }}
             className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm"
           >
             <option value="guia">Guía de despacho</option>
@@ -192,7 +198,9 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
             value={documentNumber}
             placeholder="N° de documento"
             disabled={save.isPending || !!submittedPayload}
-            onChange={(event) => { if (updateDraft()) setDocumentNumber(event.target.value); }}
+            onChange={(event) => {
+              if (updateDraft()) setDocumentNumber(event.target.value);
+            }}
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
@@ -211,7 +219,9 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
         maxLength={500}
         value={notes}
         disabled={save.isPending || !!submittedPayload}
-        onChange={(event) => { if (updateDraft()) setNotes(event.target.value); }}
+        onChange={(event) => {
+          if (updateDraft()) setNotes(event.target.value);
+        }}
         className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm"
       />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-4">
@@ -239,12 +249,26 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
             }}
             className="rounded bg-teal-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {save.isPending ? "Registrando…" : submittedPayload ? "Reintentar misma recepción" : "Registrar recepción"}
+            {save.isPending
+              ? "Registrando…"
+              : submittedPayload
+                ? "Reintentar misma recepción"
+                : "Registrar recepción"}
           </button>
         </div>
       </div>
-      {save.isError && <p role="alert" className="mt-3 text-sm text-red-700">{save.error instanceof Error ? save.error.message : "No se pudo confirmar la recepción."} Reintenta sin modificar la solicitud. Si necesitas cambiarla, recarga la página y revisa antes si quedó registrada.</p>}
-      {save.isSuccess && <p role="status" className="mt-3 rounded bg-teal-50 p-3 text-sm text-teal-900">Recepción registrada y stock actualizado. Historial y pendientes actualizados.</p>}
+      {save.isError && (
+        <p role="alert" className="mt-3 text-sm text-red-700">
+          {save.error instanceof Error ? save.error.message : "No se pudo confirmar la recepción."}{" "}
+          Reintenta sin modificar la solicitud. Si necesitas cambiarla, recarga la página y revisa
+          antes si quedó registrada.
+        </p>
+      )}
+      {save.isSuccess && (
+        <p role="status" className="mt-3 rounded bg-teal-50 p-3 text-sm text-teal-900">
+          Recepción registrada y stock actualizado. Historial y pendientes actualizados.
+        </p>
+      )}
       {review && preview && (
         <section
           aria-label="Revisión de recepción"
@@ -269,7 +293,8 @@ export function TenantReceiptDraftForm({ companyId, orderId, lines }: Props) {
         </section>
       )}
       <p className="mt-2 text-xs text-amber-800">
-        Los movimientos se registran solamente para órdenes de productos aprobadas, bajo permisos de Bodega o Administración.
+        Los movimientos se registran solamente para órdenes de productos aprobadas, bajo permisos de
+        Bodega o Administración.
       </p>
     </div>
   );
