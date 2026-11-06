@@ -41,6 +41,12 @@ jobs:
       - name: Aplicar Prettier a los archivos multiempresa
         run: |
           npx prettier --write \
+            src/lib/multiempresa/platform-admin-service.ts \
+            src/lib/multiempresa/platform-operations.ts \
+            src/lib/multiempresa/supplier-service.ts \
+            src/components/multiempresa/PlatformAdminDashboard.tsx \
+            src/components/multiempresa/PlatformOperations.tsx \
+            src/components/multiempresa/TenantCompanyDashboard.tsx \
             src/lib/multiempresa/database.types.ts \
             src/lib/multiempresa/tenant-catalog.ts \
             src/lib/multiempresa/tenant.test.ts \
@@ -106,6 +112,12 @@ jobs:
         run: |
           git add -- \
             src/routeTree.gen.ts \
+            src/lib/multiempresa/platform-admin-service.ts \
+            src/lib/multiempresa/platform-operations.ts \
+            src/lib/multiempresa/supplier-service.ts \
+            src/components/multiempresa/PlatformAdminDashboard.tsx \
+            src/components/multiempresa/PlatformOperations.tsx \
+            src/components/multiempresa/TenantCompanyDashboard.tsx \
             src/lib/multiempresa/database.types.ts \
             src/lib/multiempresa/tenant-catalog.ts \
             src/lib/multiempresa/tenant.test.ts \
