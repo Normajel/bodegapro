@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { TenantReceiptDraftForm } from "./TenantReceiptDraftForm";
+import { loadMyCompanies } from "@/lib/multiempresa/company-api";
 import {
   listCompanyReceiptLines,
   listCompanyOrderReceipts,
@@ -9,6 +10,13 @@ import {
 type Props = { companyId: string; orderId: string; orderNumber: string };
 
 export function TenantReceiptPreview({ companyId, orderId, orderNumber }: Props) {
+  const permissions = useQuery({
+    queryKey: ["tenant", companyId, "receipt-access"],
+    queryFn: async () => (await loadMyCompanies()).find(({ company }) => company.id === companyId)?.role ?? null,
+    enabled: !!companyId,
+    staleTime: 0,
+  });
+  const canReceive = ["ADMIN", "ADMINPRO", "BODEGA"].includes(permissions.data ?? "");
   const lines = useQuery({
     queryKey: tenantQueryKeys.receiptLines(companyId, orderId),
     queryFn: () => listCompanyReceiptLines(companyId, orderId),
@@ -30,8 +38,8 @@ export function TenantReceiptPreview({ companyId, orderId, orderNumber }: Props)
     >
       <h2 className="text-lg font-semibold">Recepción de OC {orderNumber}</h2>
       <p className="mt-1 text-sm text-slate-600">
-        Vista de cantidades pendientes. El registro está deshabilitado hasta completar las pruebas
-        con sesiones autenticadas reales.
+        Consulta de cantidades pendientes e historial. Los perfiles de Bodega y Administración
+        pueden registrar recepciones parciales o completas para órdenes aprobadas.
       </p>
       {lines.isPending && (
         <p className="mt-4" role="status">
@@ -52,7 +60,6 @@ export function TenantReceiptPreview({ companyId, orderId, orderNumber }: Props)
                 <th className="px-3 py-2">Solicitado</th>
                 <th className="px-3 py-2">Recibido</th>
                 <th className="px-3 py-2">Pendiente</th>
-                <th className="px-3 py-2">Registrar</th>
               </tr>
             </thead>
             <tbody>
@@ -62,16 +69,6 @@ export function TenantReceiptPreview({ companyId, orderId, orderNumber }: Props)
                   <td className="px-3 py-2">{line.ordered_quantity}</td>
                   <td className="px-3 py-2">{line.received_quantity}</td>
                   <td className="px-3 py-2">{line.pending_quantity}</td>
-                  <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      disabled
-                      title="Pendiente de habilitación segura"
-                      className="cursor-not-allowed rounded bg-slate-200 px-3 py-1 text-slate-500"
-                    >
-                      Recibir
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -82,7 +79,8 @@ export function TenantReceiptPreview({ companyId, orderId, orderNumber }: Props)
         </div>
       )}
 
-      {lines.isSuccess && (
+      {permissions.isSuccess && !canReceive && <p className="mt-4 text-sm text-amber-900">Tu perfil puede consultar recepciones, pero no registrarlas.</p>}
+      {lines.isSuccess && canReceive && (
         <TenantReceiptDraftForm
           key={`${companyId}:${orderId}`}
           companyId={companyId}
