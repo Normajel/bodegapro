@@ -37,19 +37,17 @@ Deno.serve(async (request) => {
   }
   const { data: company } = await admin.from("companies").select("id,name,status").eq("id", companyId).maybeSingle();
   if (!company || company.status !== "active") return reply(404, "Empresa no disponible.");
-  const { data: subscription } = await admin.schema("billing").from("subscriptions")
-    .select("id,status,plan_id").eq("company_id", companyId).maybeSingle();
-  if (!subscription || !["active", "trial"].includes(subscription.status)) {
-    return reply(409, "Activa una suscripción antes de invitar usuarios.");
+  // Check plan capacity through a caller-authorized RPC, never by exposing billing tables.
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  if (!anonKey) return reply(503, "Configuración de autenticación incompleta.");
+  const userClient = createClient(url, anonKey, {
+    global: { headers: { Authorization: auth } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: eligible, error: eligibleError } = await userClient.rpc("platform_invitation_eligibility", { p_company_id: companyId });
+  if (eligibleError || !eligible?.allowed) {
+    return reply(409, eligible?.reason === "limit" ? "Se alcanzó el máximo de usuarios del plan." : "La empresa necesita una suscripción activa con cupos.");
   }
-  const { data: plan } = await admin.schema("billing").from("subscription_plans")
-    .select("max_users").eq("id", subscription.plan_id).single();
-  if (!plan?.max_users) return reply(409, "El plan no permite gestionar usuarios.");
-  const { count: members, error: countError } = await admin.from("company_memberships")
-    .select("user_id", { count: "exact", head: true }).eq("company_id", companyId)
-    .eq("status", "active").neq("role_code", "ADMINPRO");
-  if (countError) return reply(500, "No se pudo verificar el límite de usuarios.");
-  if ((members ?? 0) >= plan.max_users) return reply(409, "Se alcanzó el máximo de usuarios del plan.");
   const { data: previous } = await admin.from("platform_member_invitations")
     .select("id,status,user_id").eq("company_id", companyId).eq("email", email).maybeSingle();
   if (previous?.status === "sent" || previous?.status === "accepted") {
